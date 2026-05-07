@@ -1,3 +1,4 @@
+import re
 import uuid
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -57,8 +58,10 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(session)
 
+    clean_reply = re.sub(r'\*+', '', reply)
+
     return ChatResponse(
-        reply=reply,
+        reply=clean_reply,
         session_id=session.session_id,
         question_number=session.question_number,
         is_complete=session.is_complete,
