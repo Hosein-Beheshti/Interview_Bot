@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useChat } from '../hooks/useChat'
 import { useVoice } from '../hooks/useVoice'
+import { ScoreResult } from '../types'
 import '../styles/chat.css'
 
 export function ChatInterface() {
@@ -8,11 +9,11 @@ export function ChatInterface() {
   const { isListening, transcript, isSpeaking, micError, unlockAudio, startListening, stopListening, speak, stopSpeaking } = useVoice()
   const [input, setInput] = useState('')
   const [role, setRole] = useState('Software Engineer')
+  const [copied, setCopied] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastSpokenRef = useRef('')
   const autoSendTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const sendRef = useRef(send)
-  const [autoSendPending, setAutoSendPending] = useState(false)
 
   useEffect(() => { sendRef.current = send }, [send])
 
@@ -20,7 +21,6 @@ export function ChatInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Auto-speak new assistant messages, then auto-start listening
   useEffect(() => {
     if (loading || messages.length === 0) return
     const last = messages[messages.length - 1]
@@ -30,19 +30,13 @@ export function ChatInterface() {
     }
   }, [messages, loading, is_complete, speak, startListening])
 
-  // When transcript arrives: populate input and auto-send after 2s
   useEffect(() => {
     if (!transcript) return
     setInput(transcript)
-    setAutoSendPending(true)
     clearTimeout(autoSendTimerRef.current)
     autoSendTimerRef.current = setTimeout(() => {
-      setAutoSendPending(false)
       const trimmed = transcript.trim()
-      if (trimmed) {
-        sendRef.current(trimmed, undefined)
-        setInput('')
-      }
+      if (trimmed) { sendRef.current(trimmed, undefined); setInput('') }
     }, 2000)
     return () => clearTimeout(autoSendTimerRef.current)
   }, [transcript])
@@ -50,7 +44,6 @@ export function ChatInterface() {
   const handleSend = () => {
     unlockAudio()
     clearTimeout(autoSendTimerRef.current)
-    setAutoSendPending(false)
     if (!input.trim()) return
     send(input.trim(), messages.length === 0 ? role : undefined)
     setInput('')
@@ -59,14 +52,32 @@ export function ChatInterface() {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
     clearTimeout(autoSendTimerRef.current)
-    setAutoSendPending(false)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
+  }
+
+  const scores = messages.filter(m => m.score).map(m => m.score!)
+  const overallScore = scores.length > 0
+    ? Math.round((scores.reduce((sum, s) => sum + s.score, 0) / scores.length) * 10) / 10
+    : 0
+
+  const handleCopyResults = () => {
+    const lines = [
+      `AI Interview Results — ${role}`,
+      `Overall Score: ${overallScore}/10`,
+      '',
+      ...scores.flatMap((s, i) => [
+        `Q${i + 1}: ${s.score}/10`,
+        ...(s.strengths.length ? [`  + ${s.strengths.join(', ')}`] : []),
+        ...(s.improvements.length ? [`  › ${s.improvements.join(', ')}`] : []),
+      ]),
+    ]
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
   }
 
   return (
@@ -78,14 +89,11 @@ export function ChatInterface() {
           <div className="brand-mark" />
           <h1>AI Interviewer</h1>
         </div>
-        {messages.length > 0 && (
+        {messages.length > 0 && !is_complete && (
           <div className="header-meta">
             <div className="progress-track">
               {[1, 2, 3, 4, 5].map((n) => (
-                <div
-                  key={n}
-                  className={`pdot ${n < question_number ? 'done' : n === question_number ? 'active' : ''}`}
-                />
+                <div key={n} className={`pdot ${n < question_number ? 'done' : n === question_number ? 'active' : ''}`} />
               ))}
             </div>
             <span className="q-label">Q {question_number} / 5</span>
@@ -97,7 +105,6 @@ export function ChatInterface() {
       <div className="chat-messages">
         {messages.length === 0 ? (
 
-          /* Welcome */
           <div className="welcome">
             <div className="welcome-orb"><span>🎯</span></div>
             <div className="welcome-copy">
@@ -115,15 +122,31 @@ export function ChatInterface() {
               </div>
             ) : (
               <div className="card">
-                <label className="field-label">Select role</label>
-                <select className="field-select" value={role} onChange={(e) => setRole(e.target.value)}>
-                  <option>Software Engineer</option>
-                  <option>Full Stack Developer</option>
-                  <option>Backend Engineer</option>
-                  <option>Frontend Engineer</option>
-                  <option>DevOps Engineer</option>
-                </select>
-                <button className="btn-primary btn-full" onClick={() => { unlockAudio(); send('Hi, ready to start', role) }}>
+                <label className="field-label">Your role</label>
+                <input
+                  list="role-options"
+                  className="field-input"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  placeholder="e.g. Software Engineer"
+                />
+                <datalist id="role-options">
+                  <option value="Software Engineer" />
+                  <option value="Full Stack Developer" />
+                  <option value="Backend Engineer" />
+                  <option value="Frontend Engineer" />
+                  <option value="DevOps Engineer" />
+                  <option value="Data Engineer" />
+                  <option value="ML Engineer" />
+                  <option value="Product Manager" />
+                  <option value="QA Engineer" />
+                  <option value="Mobile Engineer" />
+                </datalist>
+                <button
+                  className="btn-primary btn-full"
+                  onClick={() => { unlockAudio(); send('Hi, ready to start', role) }}
+                  disabled={!role.trim()}
+                >
                   Start Interview
                 </button>
               </div>
@@ -152,36 +175,7 @@ export function ChatInterface() {
                     </div>
                   </div>
 
-                  {msg.score && (
-                    <div className="score-card">
-                      <div className="score-top">
-                        <span className="score-num">{msg.score.score}<sub>/10</sub></span>
-                        <div className="score-track">
-                          <div className="score-fill" style={{ width: `${msg.score.score * 10}%` }} />
-                        </div>
-                      </div>
-                      {msg.score.strengths.length > 0 && (
-                        <div className="score-block">
-                          <p className="sbt green">Strengths</p>
-                          <ul>
-                            {msg.score.strengths.map((s, i) => (
-                              <li key={i} className="si green-li">{s}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {msg.score.improvements.length > 0 && (
-                        <div className="score-block">
-                          <p className="sbt amber">To Improve</p>
-                          <ul>
-                            {msg.score.improvements.map((s, i) => (
-                              <li key={i} className="si amber-li">{s}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {msg.score && <ScoreCard score={msg.score} />}
                 </div>
               )
             })}
@@ -189,10 +183,19 @@ export function ChatInterface() {
             {loading && (
               <div className="msg-row assistant">
                 <div className="msg-av bot">🎙</div>
-                <div className="typing-dots">
-                  <span /><span /><span />
-                </div>
+                <div className="typing-dots"><span /><span /><span /></div>
               </div>
+            )}
+
+            {is_complete && (
+              <SummaryCard
+                role={role}
+                scores={scores}
+                overallScore={overallScore}
+                copied={copied}
+                onCopy={handleCopyResults}
+                onReset={reset}
+              />
             )}
 
             <div ref={messagesEndRef} />
@@ -200,8 +203,8 @@ export function ChatInterface() {
         )}
       </div>
 
-      {/* ── Voice state strip ── */}
-      {messages.length > 0 && (isSpeaking || isListening) && (
+      {/* ── Voice strip ── */}
+      {messages.length > 0 && !is_complete && (isSpeaking || isListening) && (
         <div className={`voice-strip ${isSpeaking ? 'strip-speaking' : 'strip-listening'}`}>
           {isSpeaking ? (
             <>
@@ -223,7 +226,11 @@ export function ChatInterface() {
         </div>
       )}
 
-      {(error || micError) && <div className="error-strip">{error || micError}</div>}
+      {(error || micError) && (
+        <div className="error-strip">
+          {error ? 'Something went wrong — please try again.' : micError}
+        </div>
+      )}
 
       {/* ── Input ── */}
       {!is_complete && messages.length > 0 && (
@@ -250,20 +257,98 @@ export function ChatInterface() {
               Send
             </button>
           </div>
-          {autoSendPending && (
-            <p className="auto-hint">Sending in 2 s — edit above to cancel</p>
-          )}
         </div>
       )}
 
-      {/* ── Completion ── */}
-      {is_complete && (
-        <div className="completion-strip">
-          <span>🎉 Interview complete — great work!</span>
-          <button className="btn-primary" onClick={reset}>Start New Interview</button>
+    </div>
+  )
+}
+
+function ScoreCard({ score }: { score: ScoreResult }) {
+  return (
+    <div className="score-card">
+      <div className="score-top">
+        <span className="score-num">{score.score}<sub>/10</sub></span>
+        <div className="score-track">
+          <div className="score-fill" style={{ width: `${score.score * 10}%` }} />
+        </div>
+      </div>
+      {score.strengths.length > 0 && (
+        <div className="score-block">
+          <p className="sbt green">Strengths</p>
+          <ul>{score.strengths.map((s, i) => <li key={i} className="si green-li">{s}</li>)}</ul>
+        </div>
+      )}
+      {score.improvements.length > 0 && (
+        <div className="score-block">
+          <p className="sbt amber">To Improve</p>
+          <ul>{score.improvements.map((s, i) => <li key={i} className="si amber-li">{s}</li>)}</ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SummaryCard({
+  role, scores, overallScore, copied, onCopy, onReset
+}: {
+  role: string
+  scores: ScoreResult[]
+  overallScore: number
+  copied: boolean
+  onCopy: () => void
+  onReset: () => void
+}) {
+  const allStrengths = [...new Set(scores.flatMap(s => s.strengths))].slice(0, 4)
+  const allImprovements = [...new Set(scores.flatMap(s => s.improvements))].slice(0, 4)
+
+  return (
+    <div className="summary-card">
+      <div className="summary-header">
+        <div className="summary-orb">
+          <span className="orb-score">{overallScore}</span>
+          <span className="orb-denom">/10</span>
+        </div>
+        <div className="summary-title">
+          <h3>Interview Complete</h3>
+          <p>{role} — overall score</p>
+        </div>
+      </div>
+
+      <div className="summary-bars">
+        {scores.map((s, i) => (
+          <div key={i} className="summary-bar-row">
+            <span className="summary-bar-label">Q{i + 1}</span>
+            <div className="score-track">
+              <div className="score-fill" style={{ width: `${s.score * 10}%` }} />
+            </div>
+            <span className="summary-bar-val">{s.score}/10</span>
+          </div>
+        ))}
+      </div>
+
+      {allStrengths.length > 0 && (
+        <div className="score-block">
+          <p className="sbt green">Top Strengths</p>
+          <ul>{allStrengths.map((s, i) => <li key={i} className="si green-li">{s}</li>)}</ul>
         </div>
       )}
 
+      {allImprovements.length > 0 && (
+        <div className="score-block">
+          <p className="sbt amber">Focus Areas</p>
+          <ul>{allImprovements.map((s, i) => <li key={i} className="si amber-li">{s}</li>)}</ul>
+        </div>
+      )}
+
+      <div className="summary-actions">
+        <button className={`copy-btn${copied ? ' copied' : ''}`} onClick={onCopy}>
+          {copied ? 'Copied!' : 'Copy Results'}
+        </button>
+        <button className="btn-primary" style={{ flex: 1 }} onClick={onReset}>
+          New Interview
+        </button>
+      </div>
     </div>
   )
 }

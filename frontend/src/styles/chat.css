@@ -522,6 +522,70 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Field input (text with datalist) ───────────────────────────────────── */
+.field-input {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  color: var(--t1);
+  font-family: inherit; font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.field-input:focus { border-color: var(--accent); }
+.field-input::placeholder { color: var(--t3); }
+
+/* ── Summary card ────────────────────────────────────────────────────────── */
+.summary-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 22px;
+  display: flex; flex-direction: column; gap: 18px;
+  animation: fadeUp 0.4s ease;
+}
+
+.summary-header {
+  display: flex; align-items: center; gap: 16px;
+}
+
+.summary-orb {
+  width: 68px; height: 68px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #7c3aed);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  box-shadow: 0 0 24px var(--accent-glow);
+  flex-shrink: 0;
+}
+.orb-score { font-size: 22px; font-weight: 700; color: #fff; line-height: 1; }
+.orb-denom { font-size: 11px; color: rgba(255,255,255,0.65); }
+
+.summary-title h3 { font-size: 16px; font-weight: 600; color: var(--t1); }
+.summary-title p { font-size: 13px; color: var(--t2); margin-top: 3px; }
+
+.summary-bars { display: flex; flex-direction: column; gap: 8px; }
+.summary-bar-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.summary-bar-label { color: var(--t3); font-weight: 500; width: 24px; flex-shrink: 0; }
+.summary-bar-val { color: var(--t2); font-weight: 600; width: 36px; text-align: right; flex-shrink: 0; }
+
+.summary-actions { display: flex; gap: 10px; }
+
+.copy-btn {
+  flex: 1;
+  padding: 9px 16px;
+  background: transparent;
+  color: var(--t2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+}
+.copy-btn:hover { border-color: var(--accent); color: var(--accent-hi); }
+.copy-btn.copied { border-color: var(--green); color: var(--green); }
+
 /* ── Animations ──────────────────────────────────────────────────────── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }
