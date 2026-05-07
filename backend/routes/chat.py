@@ -59,6 +59,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     db.refresh(session)
 
     clean_reply = re.sub(r'\*+', '', reply)
+    clean_reply = re.sub(r'\{[^{}]*"score"[^{}]*\}', '', clean_reply, flags=re.DOTALL).strip()
 
     return ChatResponse(
         reply=clean_reply,
