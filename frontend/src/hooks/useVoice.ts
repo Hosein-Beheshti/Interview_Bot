@@ -7,6 +7,24 @@ export function useVoice() {
   const [micError, setMicError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<any>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+
+  const unlockAudio = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+      if (!AudioCtx) return
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioCtx()
+      }
+      const ctx = audioContextRef.current
+      const buffer = ctx.createBuffer(1, 1, 22050)
+      const source = ctx.createBufferSource()
+      source.buffer = buffer
+      source.connect(ctx.destination)
+      source.start(0)
+      ctx.resume()
+    } catch {}
+  }, [])
 
   // Wire up Web Speech API for STT (works in Edge/Chrome with no API key)
   useEffect(() => {
@@ -103,6 +121,7 @@ export function useVoice() {
     transcript,
     isSpeaking,
     micError,
+    unlockAudio,
     startListening,
     stopListening,
     speak,

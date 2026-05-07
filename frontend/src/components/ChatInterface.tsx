@@ -5,7 +5,7 @@ import '../styles/chat.css'
 
 export function ChatInterface() {
   const { messages, session_id, question_number, is_complete, loading, error, send, reset } = useChat()
-  const { isListening, transcript, isSpeaking, micError, startListening, stopListening, speak, stopSpeaking } = useVoice()
+  const { isListening, transcript, isSpeaking, micError, unlockAudio, startListening, stopListening, speak, stopSpeaking } = useVoice()
   const [input, setInput] = useState('')
   const [role, setRole] = useState('Software Engineer')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -48,6 +48,7 @@ export function ChatInterface() {
   }, [transcript])
 
   const handleSend = () => {
+    unlockAudio()
     clearTimeout(autoSendTimerRef.current)
     setAutoSendPending(false)
     if (!input.trim()) return
@@ -107,7 +108,7 @@ export function ChatInterface() {
             {session_id ? (
               <div className="card">
                 <p className="card-hint">You have a saved session</p>
-                <button className="btn-primary" onClick={() => send('Continue', role)}>
+                <button className="btn-primary" onClick={() => { unlockAudio(); send('Continue', role) }}>
                   Resume Interview
                 </button>
                 <button className="btn-ghost" onClick={reset}>Start Fresh</button>
@@ -122,7 +123,7 @@ export function ChatInterface() {
                   <option>Frontend Engineer</option>
                   <option>DevOps Engineer</option>
                 </select>
-                <button className="btn-primary btn-full" onClick={() => send('Hi, ready to start', role)}>
+                <button className="btn-primary btn-full" onClick={() => { unlockAudio(); send('Hi, ready to start', role) }}>
                   Start Interview
                 </button>
               </div>
@@ -239,7 +240,7 @@ export function ChatInterface() {
             />
             <button
               className={`mic-btn${isListening ? ' mic-active' : ''}`}
-              onClick={isListening ? stopListening : startListening}
+              onClick={() => { unlockAudio(); isListening ? stopListening() : startListening() }}
               disabled={loading}
               title={isListening ? 'Stop recording' : 'Record answer'}
             >
