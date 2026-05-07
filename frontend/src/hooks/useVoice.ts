@@ -69,7 +69,10 @@ export function useVoice() {
     }
 
     try {
-      const res = await fetch('/api/speak', {
+      const apiBase = import.meta.env.VITE_API_URL
+        ? `${import.meta.env.VITE_API_URL}/api`
+        : '/api'
+      const res = await fetch(`${apiBase}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
