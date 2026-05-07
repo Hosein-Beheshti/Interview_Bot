@@ -84,7 +84,7 @@ export function useVoice() {
         audioRef.current = audio
         audio.onended = () => { setIsSpeaking(false); URL.revokeObjectURL(url); onEnd?.() }
         audio.onerror = () => { setIsSpeaking(false); URL.revokeObjectURL(url); browserTTS() }
-        audio.play()
+        audio.play().catch(() => { setIsSpeaking(false); URL.revokeObjectURL(url); browserTTS() })
         return
       }
     } catch {}
