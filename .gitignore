@@ -1,0 +1,25 @@
+# Secrets
+.env
+backend/.env
+frontend/.env.local
+frontend/.env
+
+# Claude Code
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+.next/
+
+# OS
+.DS_Store
+Thumbs.db
