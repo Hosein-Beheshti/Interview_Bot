@@ -15,6 +15,8 @@ export function useVoice() {
   const primedAudioRef = useRef<HTMLAudioElement | null>(null)
   const audioPrimedRef = useRef(false)
   const speechSynthPrimedRef = useRef(false)
+  const committedTranscriptRef = useRef('')
+  const currentSessionFinalRef = useRef('')
 
   // 1×1 silent MP3 (~50 bytes) used to prime the <audio> element during a user tap.
   const SILENT_MP3 = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgID/////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAAACQDgAAAAAAAAAJxa9rXmAAAAAAAAAAAAAAAAAAAAAAA'
@@ -81,13 +83,30 @@ export function useVoice() {
         if (e.results[i].isFinal) final += seg + ' '
         else interim += seg + ' '
       }
-      setTranscript(final.trim())
+      currentSessionFinalRef.current = final.trim()
+      const combined = [committedTranscriptRef.current, currentSessionFinalRef.current]
+        .filter(Boolean).join(' ').trim()
+      setTranscript(combined)
       setInterimText(interim.trim())
     }
 
     r.onend = () => {
+      // Commit this session's final text to the persistent buffer (Safari resets e.results on restart)
+      if (currentSessionFinalRef.current) {
+        committedTranscriptRef.current = [
+          committedTranscriptRef.current,
+          currentSessionFinalRef.current,
+        ].filter(Boolean).join(' ').trim()
+        currentSessionFinalRef.current = ''
+      }
+
       if (isListeningRef.current) {
-        try { r.start() } catch {}
+        // Small delay helps Safari restart cleanly
+        setTimeout(() => {
+          if (isListeningRef.current) {
+            try { r.start() } catch {}
+          }
+        }, 100)
       } else {
         setIsListening(false)
         setInterimText('')
@@ -100,6 +119,7 @@ export function useVoice() {
         isListeningRef.current = false
         setIsListening(false)
       }
+      // 'no-speech', 'aborted', 'network' etc. — let onend handle the restart
     }
 
     recognitionRef.current = r
@@ -114,6 +134,8 @@ export function useVoice() {
       setMicError('Speech recognition is not supported. Please use Chrome, Edge, or Safari.')
       return
     }
+    committedTranscriptRef.current = ''
+    currentSessionFinalRef.current = ''
     setTranscript('')
     setInterimText('')
     setMicError(null)
@@ -129,7 +151,7 @@ export function useVoice() {
           if (isListeningRef.current) {
             try { recognitionRef.current.start() } catch {}
           }
-        }, 100)
+        }, 150)
       } catch {}
     }
   }, [])
@@ -140,6 +162,8 @@ export function useVoice() {
   }, [])
 
   const resetTranscript = useCallback(() => {
+    committedTranscriptRef.current = ''
+    currentSessionFinalRef.current = ''
     setTranscript('')
     setInterimText('')
     if (isListeningRef.current && recognitionRef.current) {
