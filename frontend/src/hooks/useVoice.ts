@@ -8,6 +8,7 @@ export function useVoice() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<any>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const isListeningRef = useRef(false)
 
   const unlockAudio = useCallback(() => {
     try {
@@ -26,7 +27,6 @@ export function useVoice() {
     } catch {}
   }, [])
 
-  // Wire up Web Speech API for STT (works in Edge/Chrome with no API key)
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SR) return
@@ -37,15 +37,31 @@ export function useVoice() {
     r.lang = 'en-US'
 
     r.onresult = (e: any) => {
-      const text = e.results[0]?.[0]?.transcript ?? ''
-      if (text) setTranscript(text.trim())
+      // Accumulate all results from this session, not just the first one
+      let text = ''
+      for (let i = 0; i < e.results.length; i++) {
+        text += (e.results[i][0]?.transcript ?? '') + ' '
+      }
+      const trimmed = text.trim()
+      if (trimmed) setTranscript(trimmed)
     }
-    r.onend = () => setIsListening(false)
+
+    // Restart automatically if still supposed to be listening (handles browser timeouts)
+    r.onend = () => {
+      if (isListeningRef.current) {
+        try { r.start() } catch {}
+      } else {
+        setIsListening(false)
+      }
+    }
+
     r.onerror = (e: any) => {
       if (e.error === 'not-allowed') {
         setMicError('Microphone access denied — click the 🔒 icon in the address bar and allow microphone.')
+        isListeningRef.current = false
+        setIsListening(false)
       }
-      setIsListening(false)
+      // For other errors (network, aborted) let onend handle the restart
     }
 
     recognitionRef.current = r
@@ -58,19 +74,21 @@ export function useVoice() {
     }
     setTranscript('')
     setMicError(null)
+    isListeningRef.current = true
     setIsListening(true)
     try {
       recognitionRef.current.start()
     } catch {
+      isListeningRef.current = false
       setIsListening(false)
     }
   }, [])
 
   const stopListening = useCallback(() => {
+    isListeningRef.current = false
     try { recognitionRef.current?.stop() } catch {}
   }, [])
 
-  // TTS: try Deepgram /api/speak first, fall back to browser speechSynthesis
   const speak = useCallback(async (text: string, onEnd?: () => void) => {
     if (audioRef.current) audioRef.current.pause()
     window.speechSynthesis?.cancel()

@@ -247,7 +247,7 @@ export function ChatInterface() {
             />
             <button
               className={`mic-btn${isListening ? ' mic-active' : ''}`}
-              onClick={() => { unlockAudio(); isListening ? stopListening() : startListening() }}
+              onClick={() => { unlockAudio(); if (isListening) { stopListening() } else { setInput(''); startListening() } }}
               disabled={loading}
               title={isListening ? 'Stop recording' : 'Record answer'}
             >
