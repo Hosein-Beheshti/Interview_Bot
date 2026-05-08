@@ -7,28 +7,61 @@ export function useVoice() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
 
-  const audioRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<any>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const isListeningRef = useRef(false)
   const speakSeqRef = useRef(0)
   const speechUtterRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const primedAudioRef = useRef<HTMLAudioElement | null>(null)
+  const audioPrimedRef = useRef(false)
+  const speechSynthPrimedRef = useRef(false)
+
+  // 1×1 silent MP3 (~50 bytes) used to prime the <audio> element during a user tap.
+  const SILENT_MP3 = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgID/////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAAACQDgAAAAAAAAAJxa9rXmAAAAAAAAAAAAAAAAAAAAAAA'
 
   const unlockAudio = useCallback(() => {
+    // Unlock Web Audio API
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
-      if (!AudioCtx) return
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioCtx()
+      if (AudioCtx) {
+        if (!audioContextRef.current) audioContextRef.current = new AudioCtx()
+        const ctx = audioContextRef.current
+        const buffer = ctx.createBuffer(1, 1, 22050)
+        const source = ctx.createBufferSource()
+        source.buffer = buffer
+        source.connect(ctx.destination)
+        source.start(0)
+        ctx.resume()
       }
-      const ctx = audioContextRef.current
-      const buffer = ctx.createBuffer(1, 1, 22050)
-      const source = ctx.createBufferSource()
-      source.buffer = buffer
-      source.connect(ctx.destination)
-      source.start(0)
-      ctx.resume()
     } catch {}
+
+    // Prime an HTMLAudioElement so it can be played later from non-gesture contexts (iOS Safari)
+    if (!audioPrimedRef.current) {
+      try {
+        const audio = new Audio()
+        audio.preload = 'auto'
+        audio.src = SILENT_MP3
+        const p = audio.play()
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            try { audio.pause() } catch {}
+            audio.currentTime = 0
+            audioPrimedRef.current = true
+          }).catch(() => {})
+        }
+        primedAudioRef.current = audio
+      } catch {}
+    }
+
+    // Prime speechSynthesis on iOS — speak an empty utterance inside the gesture
+    if (!speechSynthPrimedRef.current && 'speechSynthesis' in window) {
+      try {
+        const u = new SpeechSynthesisUtterance('')
+        u.volume = 0
+        window.speechSynthesis.speak(u)
+        speechSynthPrimedRef.current = true
+      } catch {}
+    }
   }, [])
 
   useEffect(() => {
@@ -117,9 +150,11 @@ export function useVoice() {
   }, [])
 
   const stopAllAudio = useCallback(() => {
-    if (audioRef.current) {
-      try { audioRef.current.pause() } catch {}
-      audioRef.current = null
+    if (primedAudioRef.current) {
+      const a = primedAudioRef.current
+      a.onended = null
+      a.onerror = null
+      try { a.pause() } catch {}
     }
     if (speechUtterRef.current) {
       speechUtterRef.current.onend = null
@@ -176,12 +211,14 @@ export function useVoice() {
         if (speakSeqRef.current !== myId) return
 
         const url = URL.createObjectURL(blob)
-        const audio = new Audio(url)
-        audioRef.current = audio
+        // Reuse the audio element that was primed during the user gesture
+        const audio = primedAudioRef.current ?? new Audio()
+        if (!primedAudioRef.current) primedAudioRef.current = audio
 
         const cleanup = () => {
           URL.revokeObjectURL(url)
-          if (audioRef.current === audio) audioRef.current = null
+          audio.onended = null
+          audio.onerror = null
         }
 
         audio.onended = () => { cleanup(); finishIfCurrent() }
@@ -190,6 +227,7 @@ export function useVoice() {
           if (speakSeqRef.current === myId) browserTTS()
         }
 
+        audio.src = url
         try {
           await audio.play()
         } catch {
