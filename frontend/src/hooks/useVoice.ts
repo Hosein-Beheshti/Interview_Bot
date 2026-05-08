@@ -32,7 +32,7 @@ export function useVoice() {
     if (!SR) return
 
     const r = new SR()
-    r.continuous = false
+    r.continuous = true
     r.interimResults = false
     r.lang = 'en-US'
 

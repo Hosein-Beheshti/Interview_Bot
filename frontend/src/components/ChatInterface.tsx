@@ -37,7 +37,7 @@ export function ChatInterface() {
     autoSendTimerRef.current = setTimeout(() => {
       const trimmed = transcript.trim()
       if (trimmed) { sendRef.current(trimmed, undefined); setInput('') }
-    }, 2000)
+    }, 4000)
     return () => clearTimeout(autoSendTimerRef.current)
   }, [transcript])
 
