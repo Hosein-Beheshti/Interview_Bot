@@ -9,7 +9,7 @@ const AUTO_SEND_DELAY_MS = 6000
 export function ChatInterface() {
   const { messages, session_id, question_number, is_complete, loading, error, send, reset } = useChat()
   const {
-    isListening, isTranscribing, transcript, isSpeaking, micError,
+    isListening, transcript, interimText, isSpeaking, micError,
     unlockAudio, startListening, stopListening, resetTranscript,
     speak, stopSpeaking,
   } = useVoice()
@@ -40,21 +40,30 @@ export function ChatInterface() {
     }
   }, [messages, loading, is_complete, speak, startListening])
 
-  // When transcription returns, populate the input and auto-send after a delay (cancelable)
+  // Mirror live transcript (final + interim) into the input box while listening
+  useEffect(() => {
+    if (!isListening) return
+    const display = [transcript, interimText].filter(Boolean).join(' ').trim()
+    if (display) setInput(display)
+  }, [transcript, interimText, isListening])
+
+  // Auto-send after a confirmed pause: only when user is silent (no interim) and we have final text
   useEffect(() => {
     clearTimeout(autoSendTimerRef.current)
+    if (!isListening) return
+    if (interimText) return
     const trimmed = transcript.trim()
     if (!trimmed) return
-    setInput(trimmed)
 
     autoSendTimerRef.current = setTimeout(() => {
+      stopListening()
       sendRef.current(trimmed, undefined)
       setInput('')
       resetTranscriptRef.current()
     }, AUTO_SEND_DELAY_MS)
 
     return () => clearTimeout(autoSendTimerRef.current)
-  }, [transcript])
+  }, [transcript, interimText, isListening, stopListening])
 
   const handleSend = () => {
     unlockAudio()
@@ -222,7 +231,7 @@ export function ChatInterface() {
       </div>
 
       {/* ── Voice strip ── */}
-      {messages.length > 0 && !is_complete && (isSpeaking || isListening || isTranscribing) && (
+      {messages.length > 0 && !is_complete && (isSpeaking || isListening) && (
         <div className={`voice-strip ${isSpeaking ? 'strip-speaking' : 'strip-listening'}`}>
           {isSpeaking ? (
             <>
@@ -234,15 +243,10 @@ export function ChatInterface() {
               <span>Interviewer speaking</span>
               <button className="strip-btn" onClick={stopSpeaking}>Skip ›</button>
             </>
-          ) : isTranscribing ? (
-            <>
-              <div className="typing-dots"><span /><span /><span /></div>
-              <span>Transcribing…</span>
-            </>
           ) : (
             <>
               <span className="rec-dot" />
-              <span>Recording — tap Done when finished</span>
+              <span>Listening — speak your answer</span>
               <button className="strip-btn" onClick={stopListening}>Done ✓</button>
             </>
           )}
@@ -264,8 +268,8 @@ export function ChatInterface() {
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={isListening ? 'Recording…' : isTranscribing ? 'Transcribing…' : 'Type your answer or use the mic'}
-              disabled={loading || isTranscribing}
+              placeholder={isListening ? 'Listening…' : 'Type your answer or use the mic'}
+              disabled={loading}
               rows={2}
             />
             <button
@@ -281,7 +285,7 @@ export function ChatInterface() {
                   startListening()
                 }
               }}
-              disabled={loading || isTranscribing}
+              disabled={loading}
               title={isListening ? 'Stop recording' : 'Record answer'}
             >
               {isListening ? <StopIcon /> : <MicIcon />}

@@ -4,13 +4,20 @@ const apiBase = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
   : '/api'
 
+const wsBase = (() => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/^http/, 'ws') + '/api'
+  }
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${proto}//${window.location.host}/api`
+})()
+
 function pickMimeType(): string {
   const candidates = [
     'audio/webm;codecs=opus',
     'audio/webm',
     'audio/mp4;codecs=mp4a.40.2',
     'audio/mp4',
-    'audio/aac',
   ]
   if (typeof MediaRecorder === 'undefined') return ''
   for (const t of candidates) {
@@ -21,15 +28,15 @@ function pickMimeType(): string {
 
 export function useVoice() {
   const [isListening, setIsListening] = useState(false)
-  const [isTranscribing, setIsTranscribing] = useState(false)
   const [transcript, setTranscript] = useState('')
+  const [interimText, setInterimText] = useState('')
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
   const audioStreamRef = useRef<MediaStream | null>(null)
-  const recorderMimeRef = useRef<string>('')
+  const wsRef = useRef<WebSocket | null>(null)
+  const finalTranscriptRef = useRef('')
 
   const audioContextRef = useRef<AudioContext | null>(null)
   const speakSeqRef = useRef(0)
@@ -82,31 +89,27 @@ export function useVoice() {
     }
   }, [])
 
-  const cleanupRecorder = useCallback(() => {
+  const cleanup = useCallback(() => {
+    if (mediaRecorderRef.current) {
+      try {
+        if (mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop()
+        }
+      } catch {}
+      mediaRecorderRef.current = null
+    }
     if (audioStreamRef.current) {
       try { audioStreamRef.current.getTracks().forEach(t => t.stop()) } catch {}
       audioStreamRef.current = null
     }
-    mediaRecorderRef.current = null
-    audioChunksRef.current = []
-  }, [])
-
-  const transcribeBlob = useCallback(async (blob: Blob, mime: string) => {
-    setIsTranscribing(true)
-    try {
-      const ext = mime.includes('webm') ? 'webm' : mime.includes('mp4') ? 'mp4' : 'audio'
-      const formData = new FormData()
-      formData.append('audio', blob, `recording.${ext}`)
-      const res = await fetch(`${apiBase}/transcribe`, { method: 'POST', body: formData })
-      if (!res.ok) throw new Error('Transcription failed')
-      const data = await res.json()
-      const text = (data.transcript || '').trim()
-      if (text) setTranscript(text)
-      else setMicError('No speech detected — please try again.')
-    } catch {
-      setMicError('Transcription failed — please try typing your answer instead.')
-    } finally {
-      setIsTranscribing(false)
+    if (wsRef.current) {
+      try {
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send('close')
+          wsRef.current.close()
+        }
+      } catch {}
+      wsRef.current = null
     }
   }, [])
 
@@ -117,45 +120,71 @@ export function useVoice() {
     }
     setMicError(null)
     setTranscript('')
-    audioChunksRef.current = []
+    setInterimText('')
+    finalTranscriptRef.current = ''
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       audioStreamRef.current = stream
 
-      const mime = pickMimeType()
-      recorderMimeRef.current = mime
-      const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
-      mediaRecorderRef.current = recorder
+      const ws = new WebSocket(`${wsBase}/transcribe-stream`)
+      ws.binaryType = 'arraybuffer'
+      wsRef.current = ws
 
-      recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data)
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.type === 'Results') {
+            const alt = data.channel?.alternatives?.[0]
+            if (!alt) return
+            const text = (alt.transcript || '').trim()
+            if (!text) return
+            if (data.is_final) {
+              finalTranscriptRef.current = [
+                finalTranscriptRef.current, text,
+              ].filter(Boolean).join(' ').trim()
+              setTranscript(finalTranscriptRef.current)
+              setInterimText('')
+            } else {
+              setInterimText(text)
+            }
+          }
+        } catch {}
       }
 
-      recorder.onstop = async () => {
-        const chunks = audioChunksRef.current
-        const usedMime = recorder.mimeType || mime || 'audio/webm'
-        cleanupRecorder()
-        setIsListening(false)
-        if (chunks.length === 0) return
-        const blob = new Blob(chunks, { type: usedMime })
-        if (blob.size < 500) {
-          setMicError('Recording too short — please try again.')
-          return
+      ws.onerror = () => {
+        setMicError('Connection error — please try again.')
+      }
+
+      ws.onopen = () => {
+        const mime = pickMimeType()
+        const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+        mediaRecorderRef.current = recorder
+
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+            e.data.arrayBuffer().then(buf => {
+              if (ws.readyState === WebSocket.OPEN) ws.send(buf)
+            })
+          }
         }
-        await transcribeBlob(blob, usedMime)
+
+        recorder.onerror = () => {
+          setMicError('Recording error — please try again.')
+          cleanup()
+          setIsListening(false)
+        }
+
+        recorder.start(250)
+        setIsListening(true)
       }
 
-      recorder.onerror = () => {
-        cleanupRecorder()
-        setIsListening(false)
-        setMicError('Recording error — please try again.')
+      ws.onclose = () => {
+        if (wsRef.current === ws) wsRef.current = null
       }
 
-      recorder.start()
-      setIsListening(true)
     } catch (err: any) {
-      cleanupRecorder()
+      cleanup()
       setIsListening(false)
       if (err?.name === 'NotAllowedError') {
         setMicError('Microphone access denied — allow microphone in your browser settings.')
@@ -163,20 +192,18 @@ export function useVoice() {
         setMicError('Could not access microphone.')
       }
     }
-  }, [cleanupRecorder, transcribeBlob])
+  }, [cleanup])
 
   const stopListening = useCallback(() => {
-    const r = mediaRecorderRef.current
-    if (r && r.state !== 'inactive') {
-      try { r.stop() } catch {}
-    } else {
-      cleanupRecorder()
-      setIsListening(false)
-    }
-  }, [cleanupRecorder])
+    cleanup()
+    setIsListening(false)
+    setInterimText('')
+  }, [cleanup])
 
   const resetTranscript = useCallback(() => {
+    finalTranscriptRef.current = ''
     setTranscript('')
+    setInterimText('')
   }, [])
 
   const stopAllAudio = useCallback(() => {
@@ -241,15 +268,15 @@ export function useVoice() {
         const audio = primedAudioRef.current ?? new Audio()
         if (!primedAudioRef.current) primedAudioRef.current = audio
 
-        const cleanup = () => {
+        const cleanupAudio = () => {
           URL.revokeObjectURL(url)
           audio.onended = null
           audio.onerror = null
         }
 
-        audio.onended = () => { cleanup(); finishIfCurrent() }
+        audio.onended = () => { cleanupAudio(); finishIfCurrent() }
         audio.onerror = () => {
-          cleanup()
+          cleanupAudio()
           if (speakSeqRef.current === myId) browserTTS()
         }
 
@@ -257,7 +284,7 @@ export function useVoice() {
         try {
           await audio.play()
         } catch {
-          cleanup()
+          cleanupAudio()
           if (speakSeqRef.current === myId) browserTTS()
         }
         return
@@ -275,9 +302,9 @@ export function useVoice() {
 
   return {
     isListening,
-    isTranscribing,
+    isTranscribing: false,
     transcript,
-    interimText: '',
+    interimText,
     isSpeaking,
     micError,
     unlockAudio,
