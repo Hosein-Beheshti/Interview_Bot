@@ -9,7 +9,7 @@ const AUTO_SEND_DELAY_MS = 6000
 export function ChatInterface() {
   const { messages, session_id, question_number, is_complete, loading, error, send, reset } = useChat()
   const {
-    isListening, transcript, interimText, isSpeaking, micError,
+    isListening, isTranscribing, transcript, isSpeaking, micError,
     unlockAudio, startListening, stopListening, resetTranscript,
     speak, stopSpeaking,
   } = useVoice()
@@ -20,11 +20,9 @@ export function ChatInterface() {
   const lastSpokenIdxRef = useRef(-1)
   const autoSendTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const sendRef = useRef(send)
-  const stopListeningRef = useRef(stopListening)
   const resetTranscriptRef = useRef(resetTranscript)
 
   useEffect(() => { sendRef.current = send }, [send])
-  useEffect(() => { stopListeningRef.current = stopListening }, [stopListening])
   useEffect(() => { resetTranscriptRef.current = resetTranscript }, [resetTranscript])
 
   useEffect(() => {
@@ -42,30 +40,21 @@ export function ChatInterface() {
     }
   }, [messages, loading, is_complete, speak, startListening])
 
-  // Mirror live transcript into the input box for visibility (interim takes priority while user is talking)
-  useEffect(() => {
-    if (!isListening) return
-    const display = (transcript + (interimText ? ' ' + interimText : '')).trim()
-    if (display) setInput(display)
-  }, [transcript, interimText, isListening])
-
-  // Auto-send only after a confirmed pause AFTER a final transcript with no interim activity
+  // When transcription returns, populate the input and auto-send after a delay (cancelable)
   useEffect(() => {
     clearTimeout(autoSendTimerRef.current)
-    if (!isListening) return
-    if (interimText) return  // user is still talking
     const trimmed = transcript.trim()
     if (!trimmed) return
+    setInput(trimmed)
 
     autoSendTimerRef.current = setTimeout(() => {
-      stopListeningRef.current()
       sendRef.current(trimmed, undefined)
       setInput('')
       resetTranscriptRef.current()
     }, AUTO_SEND_DELAY_MS)
 
     return () => clearTimeout(autoSendTimerRef.current)
-  }, [transcript, interimText, isListening])
+  }, [transcript])
 
   const handleSend = () => {
     unlockAudio()
@@ -233,7 +222,7 @@ export function ChatInterface() {
       </div>
 
       {/* ── Voice strip ── */}
-      {messages.length > 0 && !is_complete && (isSpeaking || isListening) && (
+      {messages.length > 0 && !is_complete && (isSpeaking || isListening || isTranscribing) && (
         <div className={`voice-strip ${isSpeaking ? 'strip-speaking' : 'strip-listening'}`}>
           {isSpeaking ? (
             <>
@@ -245,10 +234,15 @@ export function ChatInterface() {
               <span>Interviewer speaking</span>
               <button className="strip-btn" onClick={stopSpeaking}>Skip ›</button>
             </>
+          ) : isTranscribing ? (
+            <>
+              <div className="typing-dots"><span /><span /><span /></div>
+              <span>Transcribing…</span>
+            </>
           ) : (
             <>
               <span className="rec-dot" />
-              <span>Listening — speak your answer</span>
+              <span>Recording — tap Done when finished</span>
               <button className="strip-btn" onClick={stopListening}>Done ✓</button>
             </>
           )}
@@ -270,8 +264,8 @@ export function ChatInterface() {
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={isListening ? 'Listening…' : 'Type your answer or use the mic'}
-              disabled={loading}
+              placeholder={isListening ? 'Recording…' : isTranscribing ? 'Transcribing…' : 'Type your answer or use the mic'}
+              disabled={loading || isTranscribing}
               rows={2}
             />
             <button
@@ -287,7 +281,7 @@ export function ChatInterface() {
                   startListening()
                 }
               }}
-              disabled={loading}
+              disabled={loading || isTranscribing}
               title={isListening ? 'Stop recording' : 'Record answer'}
             >
               {isListening ? <StopIcon /> : <MicIcon />}
