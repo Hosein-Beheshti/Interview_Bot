@@ -1,30 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
-
-const apiBase = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : '/api'
-
-const wsBase = (() => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL.replace(/^http/, 'ws') + '/api'
-  }
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${proto}//${window.location.host}/api`
-})()
-
-function pickMimeType(): string {
-  const candidates = [
-    'audio/webm;codecs=opus',
-    'audio/webm',
-    'audio/mp4;codecs=mp4a.40.2',
-    'audio/mp4',
-  ]
-  if (typeof MediaRecorder === 'undefined') return ''
-  for (const t of candidates) {
-    try { if (MediaRecorder.isTypeSupported(t)) return t } catch {}
-  }
-  return ''
-}
+import { useState, useCallback, useRef, useEffect } from 'react'
 
 export function useVoice() {
   const [isListening, setIsListening] = useState(false)
@@ -33,21 +7,20 @@ export function useVoice() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioStreamRef = useRef<MediaStream | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
-  const finalTranscriptRef = useRef('')
-
+  const recognitionRef = useRef<any>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const isListeningRef = useRef(false)
   const speakSeqRef = useRef(0)
   const speechUtterRef = useRef<SpeechSynthesisUtterance | null>(null)
   const primedAudioRef = useRef<HTMLAudioElement | null>(null)
   const audioPrimedRef = useRef(false)
   const speechSynthPrimedRef = useRef(false)
 
+  // 1×1 silent MP3 (~50 bytes) used to prime the <audio> element during a user tap.
   const SILENT_MP3 = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgID/////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAAACQDgAAAAAAAAAJxa9rXmAAAAAAAAAAAAAAAAAAAAAAA'
 
   const unlockAudio = useCallback(() => {
+    // Unlock Web Audio API
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
       if (AudioCtx) {
@@ -62,6 +35,7 @@ export function useVoice() {
       }
     } catch {}
 
+    // Prime an HTMLAudioElement so it can be played later from non-gesture contexts (iOS Safari)
     if (!audioPrimedRef.current) {
       try {
         const audio = new Audio()
@@ -79,6 +53,7 @@ export function useVoice() {
       } catch {}
     }
 
+    // Prime speechSynthesis on iOS — speak an empty utterance inside the gesture
     if (!speechSynthPrimedRef.current && 'speechSynthesis' in window) {
       try {
         const u = new SpeechSynthesisUtterance('')
@@ -89,121 +64,89 @@ export function useVoice() {
     }
   }, [])
 
-  const cleanup = useCallback(() => {
-    if (mediaRecorderRef.current) {
-      try {
-        if (mediaRecorderRef.current.state !== 'inactive') {
-          mediaRecorderRef.current.stop()
-        }
-      } catch {}
-      mediaRecorderRef.current = null
+  useEffect(() => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SR) return
+
+    const r = new SR()
+    r.continuous = true
+    r.interimResults = true
+    r.lang = 'en-US'
+
+    r.onresult = (e: any) => {
+      let final = ''
+      let interim = ''
+      for (let i = 0; i < e.results.length; i++) {
+        const seg = e.results[i][0]?.transcript ?? ''
+        if (e.results[i].isFinal) final += seg + ' '
+        else interim += seg + ' '
+      }
+      setTranscript(final.trim())
+      setInterimText(interim.trim())
     }
-    if (audioStreamRef.current) {
-      try { audioStreamRef.current.getTracks().forEach(t => t.stop()) } catch {}
-      audioStreamRef.current = null
+
+    r.onend = () => {
+      if (isListeningRef.current) {
+        try { r.start() } catch {}
+      } else {
+        setIsListening(false)
+        setInterimText('')
+      }
     }
-    if (wsRef.current) {
-      try {
-        if (wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send('close')
-          wsRef.current.close()
-        }
-      } catch {}
-      wsRef.current = null
+
+    r.onerror = (e: any) => {
+      if (e.error === 'not-allowed') {
+        setMicError('Microphone access denied — allow microphone in your browser settings.')
+        isListeningRef.current = false
+        setIsListening(false)
+      }
+    }
+
+    recognitionRef.current = r
+    return () => {
+      isListeningRef.current = false
+      try { r.stop() } catch {}
     }
   }, [])
 
-  const startListening = useCallback(async () => {
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-      setMicError('Voice input is not supported in this browser.')
+  const startListening = useCallback(() => {
+    if (!recognitionRef.current) {
+      setMicError('Speech recognition is not supported. Please use Chrome, Edge, or Safari.')
       return
     }
-    setMicError(null)
     setTranscript('')
     setInterimText('')
-    finalTranscriptRef.current = ''
-
+    setMicError(null)
+    isListeningRef.current = true
+    setIsListening(true)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      audioStreamRef.current = stream
-
-      const ws = new WebSocket(`${wsBase}/transcribe-stream`)
-      ws.binaryType = 'arraybuffer'
-      wsRef.current = ws
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          if (data.type === 'Results') {
-            const alt = data.channel?.alternatives?.[0]
-            if (!alt) return
-            const text = (alt.transcript || '').trim()
-            if (!text) return
-            if (data.is_final) {
-              finalTranscriptRef.current = [
-                finalTranscriptRef.current, text,
-              ].filter(Boolean).join(' ').trim()
-              setTranscript(finalTranscriptRef.current)
-              setInterimText('')
-            } else {
-              setInterimText(text)
-            }
+      recognitionRef.current.start()
+    } catch {
+      // Already started — stop and restart to reset results buffer
+      try {
+        recognitionRef.current.stop()
+        setTimeout(() => {
+          if (isListeningRef.current) {
+            try { recognitionRef.current.start() } catch {}
           }
-        } catch {}
-      }
-
-      ws.onerror = () => {
-        setMicError('Connection error — please try again.')
-      }
-
-      ws.onopen = () => {
-        const mime = pickMimeType()
-        const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
-        mediaRecorderRef.current = recorder
-
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-            e.data.arrayBuffer().then(buf => {
-              if (ws.readyState === WebSocket.OPEN) ws.send(buf)
-            })
-          }
-        }
-
-        recorder.onerror = () => {
-          setMicError('Recording error — please try again.')
-          cleanup()
-          setIsListening(false)
-        }
-
-        recorder.start(250)
-        setIsListening(true)
-      }
-
-      ws.onclose = () => {
-        if (wsRef.current === ws) wsRef.current = null
-      }
-
-    } catch (err: any) {
-      cleanup()
-      setIsListening(false)
-      if (err?.name === 'NotAllowedError') {
-        setMicError('Microphone access denied — allow microphone in your browser settings.')
-      } else {
-        setMicError('Could not access microphone.')
-      }
+        }, 100)
+      } catch {}
     }
-  }, [cleanup])
+  }, [])
 
   const stopListening = useCallback(() => {
-    cleanup()
-    setIsListening(false)
-    setInterimText('')
-  }, [cleanup])
+    isListeningRef.current = false
+    try { recognitionRef.current?.stop() } catch {}
+  }, [])
 
   const resetTranscript = useCallback(() => {
-    finalTranscriptRef.current = ''
     setTranscript('')
     setInterimText('')
+    if (isListeningRef.current && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop()
+      } catch {}
+    }
   }, [])
 
   const stopAllAudio = useCallback(() => {
@@ -252,6 +195,9 @@ export function useVoice() {
     }
 
     try {
+      const apiBase = import.meta.env.VITE_API_URL
+        ? `${import.meta.env.VITE_API_URL}/api`
+        : '/api'
       const res = await fetch(`${apiBase}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -265,18 +211,19 @@ export function useVoice() {
         if (speakSeqRef.current !== myId) return
 
         const url = URL.createObjectURL(blob)
+        // Reuse the audio element that was primed during the user gesture
         const audio = primedAudioRef.current ?? new Audio()
         if (!primedAudioRef.current) primedAudioRef.current = audio
 
-        const cleanupAudio = () => {
+        const cleanup = () => {
           URL.revokeObjectURL(url)
           audio.onended = null
           audio.onerror = null
         }
 
-        audio.onended = () => { cleanupAudio(); finishIfCurrent() }
+        audio.onended = () => { cleanup(); finishIfCurrent() }
         audio.onerror = () => {
-          cleanupAudio()
+          cleanup()
           if (speakSeqRef.current === myId) browserTTS()
         }
 
@@ -284,7 +231,7 @@ export function useVoice() {
         try {
           await audio.play()
         } catch {
-          cleanupAudio()
+          cleanup()
           if (speakSeqRef.current === myId) browserTTS()
         }
         return
@@ -302,7 +249,6 @@ export function useVoice() {
 
   return {
     isListening,
-    isTranscribing: false,
     transcript,
     interimText,
     isSpeaking,
