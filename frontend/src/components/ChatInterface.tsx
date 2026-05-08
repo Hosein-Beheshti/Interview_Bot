@@ -4,48 +4,77 @@ import { useVoice } from '../hooks/useVoice'
 import { ScoreResult } from '../types'
 import '../styles/chat.css'
 
+const AUTO_SEND_DELAY_MS = 6000
+
 export function ChatInterface() {
   const { messages, session_id, question_number, is_complete, loading, error, send, reset } = useChat()
-  const { isListening, transcript, isSpeaking, micError, unlockAudio, startListening, stopListening, speak, stopSpeaking } = useVoice()
+  const {
+    isListening, transcript, interimText, isSpeaking, micError,
+    unlockAudio, startListening, stopListening, resetTranscript,
+    speak, stopSpeaking,
+  } = useVoice()
   const [input, setInput] = useState('')
   const [role, setRole] = useState('Software Engineer')
   const [copied, setCopied] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const lastSpokenRef = useRef('')
+  const lastSpokenIdxRef = useRef(-1)
   const autoSendTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const sendRef = useRef(send)
+  const stopListeningRef = useRef(stopListening)
+  const resetTranscriptRef = useRef(resetTranscript)
 
   useEffect(() => { sendRef.current = send }, [send])
+  useEffect(() => { stopListeningRef.current = stopListening }, [stopListening])
+  useEffect(() => { resetTranscriptRef.current = resetTranscript }, [resetTranscript])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Speak each assistant message exactly once, identified by index
   useEffect(() => {
     if (loading || messages.length === 0) return
-    const last = messages[messages.length - 1]
-    if (last.role === 'assistant' && last.content !== lastSpokenRef.current) {
-      lastSpokenRef.current = last.content
+    const lastIdx = messages.length - 1
+    const last = messages[lastIdx]
+    if (last.role === 'assistant' && lastIdx !== lastSpokenIdxRef.current) {
+      lastSpokenIdxRef.current = lastIdx
       speak(last.content, is_complete ? undefined : () => startListening())
     }
   }, [messages, loading, is_complete, speak, startListening])
 
+  // Mirror live transcript into the input box for visibility (interim takes priority while user is talking)
   useEffect(() => {
-    if (!transcript) return
-    setInput(transcript)
+    if (!isListening) return
+    const display = (transcript + (interimText ? ' ' + interimText : '')).trim()
+    if (display) setInput(display)
+  }, [transcript, interimText, isListening])
+
+  // Auto-send only after a confirmed pause AFTER a final transcript with no interim activity
+  useEffect(() => {
     clearTimeout(autoSendTimerRef.current)
+    if (!isListening) return
+    if (interimText) return  // user is still talking
+    const trimmed = transcript.trim()
+    if (!trimmed) return
+
     autoSendTimerRef.current = setTimeout(() => {
-      const trimmed = transcript.trim()
-      if (trimmed) { sendRef.current(trimmed, undefined); setInput('') }
-    }, 4000)
+      stopListeningRef.current()
+      sendRef.current(trimmed, undefined)
+      setInput('')
+      resetTranscriptRef.current()
+    }, AUTO_SEND_DELAY_MS)
+
     return () => clearTimeout(autoSendTimerRef.current)
-  }, [transcript])
+  }, [transcript, interimText, isListening])
 
   const handleSend = () => {
     unlockAudio()
     clearTimeout(autoSendTimerRef.current)
-    if (!input.trim()) return
-    send(input.trim(), messages.length === 0 ? role : undefined)
+    const text = input.trim()
+    if (!text) return
+    if (isListening) stopListening()
+    resetTranscript()
+    send(text, messages.length === 0 ? role : undefined)
     setInput('')
   }
 
@@ -118,7 +147,7 @@ export function ChatInterface() {
                 <button className="btn-primary" onClick={() => { unlockAudio(); send('Continue', role) }}>
                   Resume Interview
                 </button>
-                <button className="btn-ghost" onClick={reset}>Start Fresh</button>
+                <button className="btn-ghost" onClick={() => { lastSpokenIdxRef.current = -1; stopSpeaking(); stopListening(); reset() }}>Start Fresh</button>
               </div>
             ) : (
               <div className="card">
@@ -194,7 +223,7 @@ export function ChatInterface() {
                 overallScore={overallScore}
                 copied={copied}
                 onCopy={handleCopyResults}
-                onReset={reset}
+                onReset={() => { lastSpokenIdxRef.current = -1; stopSpeaking(); stopListening(); reset() }}
               />
             )}
 
@@ -247,7 +276,17 @@ export function ChatInterface() {
             />
             <button
               className={`mic-btn${isListening ? ' mic-active' : ''}`}
-              onClick={() => { unlockAudio(); if (isListening) { stopListening() } else { setInput(''); startListening() } }}
+              onClick={() => {
+                unlockAudio()
+                clearTimeout(autoSendTimerRef.current)
+                if (isListening) {
+                  stopListening()
+                } else {
+                  setInput('')
+                  resetTranscript()
+                  startListening()
+                }
+              }}
               disabled={loading}
               title={isListening ? 'Stop recording' : 'Record answer'}
             >

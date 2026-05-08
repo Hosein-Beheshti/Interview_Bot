@@ -3,12 +3,16 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 export function useVoice() {
   const [isListening, setIsListening] = useState(false)
   const [transcript, setTranscript] = useState('')
+  const [interimText, setInterimText] = useState('')
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
+
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<any>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const isListeningRef = useRef(false)
+  const speakSeqRef = useRef(0)
+  const speechUtterRef = useRef<SpeechSynthesisUtterance | null>(null)
 
   const unlockAudio = useCallback(() => {
     try {
@@ -33,54 +37,67 @@ export function useVoice() {
 
     const r = new SR()
     r.continuous = true
-    r.interimResults = false
+    r.interimResults = true
     r.lang = 'en-US'
 
     r.onresult = (e: any) => {
-      // Accumulate all results from this session, not just the first one
-      let text = ''
+      let final = ''
+      let interim = ''
       for (let i = 0; i < e.results.length; i++) {
-        text += (e.results[i][0]?.transcript ?? '') + ' '
+        const seg = e.results[i][0]?.transcript ?? ''
+        if (e.results[i].isFinal) final += seg + ' '
+        else interim += seg + ' '
       }
-      const trimmed = text.trim()
-      if (trimmed) setTranscript(trimmed)
+      setTranscript(final.trim())
+      setInterimText(interim.trim())
     }
 
-    // Restart automatically if still supposed to be listening (handles browser timeouts)
     r.onend = () => {
       if (isListeningRef.current) {
         try { r.start() } catch {}
       } else {
         setIsListening(false)
+        setInterimText('')
       }
     }
 
     r.onerror = (e: any) => {
       if (e.error === 'not-allowed') {
-        setMicError('Microphone access denied — click the 🔒 icon in the address bar and allow microphone.')
+        setMicError('Microphone access denied — allow microphone in your browser settings.')
         isListeningRef.current = false
         setIsListening(false)
       }
-      // For other errors (network, aborted) let onend handle the restart
     }
 
     recognitionRef.current = r
+    return () => {
+      isListeningRef.current = false
+      try { r.stop() } catch {}
+    }
   }, [])
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current) {
-      setMicError('Speech recognition is not supported in this browser. Please use Chrome or Edge.')
+      setMicError('Speech recognition is not supported. Please use Chrome, Edge, or Safari.')
       return
     }
     setTranscript('')
+    setInterimText('')
     setMicError(null)
     isListeningRef.current = true
     setIsListening(true)
     try {
       recognitionRef.current.start()
     } catch {
-      isListeningRef.current = false
-      setIsListening(false)
+      // Already started — stop and restart to reset results buffer
+      try {
+        recognitionRef.current.stop()
+        setTimeout(() => {
+          if (isListeningRef.current) {
+            try { recognitionRef.current.start() } catch {}
+          }
+        }, 100)
+      } catch {}
     }
   }, [])
 
@@ -89,19 +106,57 @@ export function useVoice() {
     try { recognitionRef.current?.stop() } catch {}
   }, [])
 
+  const resetTranscript = useCallback(() => {
+    setTranscript('')
+    setInterimText('')
+    if (isListeningRef.current && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop()
+      } catch {}
+    }
+  }, [])
+
+  const stopAllAudio = useCallback(() => {
+    if (audioRef.current) {
+      try { audioRef.current.pause() } catch {}
+      audioRef.current = null
+    }
+    if (speechUtterRef.current) {
+      speechUtterRef.current.onend = null
+      speechUtterRef.current.onerror = null
+      speechUtterRef.current = null
+    }
+    try { window.speechSynthesis?.cancel() } catch {}
+  }, [])
+
   const speak = useCallback(async (text: string, onEnd?: () => void) => {
-    if (audioRef.current) audioRef.current.pause()
-    window.speechSynthesis?.cancel()
+    const myId = ++speakSeqRef.current
+
+    stopAllAudio()
     setIsSpeaking(true)
 
+    const finishIfCurrent = () => {
+      if (speakSeqRef.current !== myId) return
+      setIsSpeaking(false)
+      onEnd?.()
+    }
+
     const browserTTS = () => {
-      if (!('speechSynthesis' in window)) { setIsSpeaking(false); onEnd?.(); return }
+      if (speakSeqRef.current !== myId) return
+      if (!('speechSynthesis' in window)) { finishIfCurrent(); return }
       const u = new SpeechSynthesisUtterance(text)
-      u.rate = 0.92
+      u.rate = 0.95
       u.pitch = 1
-      u.onend = () => { setIsSpeaking(false); onEnd?.() }
-      u.onerror = () => { setIsSpeaking(false) }
-      window.speechSynthesis.speak(u)
+      speechUtterRef.current = u
+      u.onend = () => {
+        if (speechUtterRef.current === u) speechUtterRef.current = null
+        finishIfCurrent()
+      }
+      u.onerror = () => {
+        if (speechUtterRef.current === u) speechUtterRef.current = null
+        if (speakSeqRef.current === myId) setIsSpeaking(false)
+      }
+      try { window.speechSynthesis.speak(u) } catch { finishIfCurrent() }
     }
 
     try {
@@ -113,37 +168,58 @@ export function useVoice() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       })
+
+      if (speakSeqRef.current !== myId) return
+
       if (res.ok) {
         const blob = await res.blob()
+        if (speakSeqRef.current !== myId) return
+
         const url = URL.createObjectURL(blob)
         const audio = new Audio(url)
         audioRef.current = audio
-        audio.onended = () => { setIsSpeaking(false); URL.revokeObjectURL(url); onEnd?.() }
-        audio.onerror = () => { setIsSpeaking(false); URL.revokeObjectURL(url); browserTTS() }
-        audio.play().catch(() => { setIsSpeaking(false); URL.revokeObjectURL(url); browserTTS() })
+
+        const cleanup = () => {
+          URL.revokeObjectURL(url)
+          if (audioRef.current === audio) audioRef.current = null
+        }
+
+        audio.onended = () => { cleanup(); finishIfCurrent() }
+        audio.onerror = () => {
+          cleanup()
+          if (speakSeqRef.current === myId) browserTTS()
+        }
+
+        try {
+          await audio.play()
+        } catch {
+          cleanup()
+          if (speakSeqRef.current === myId) browserTTS()
+        }
         return
       }
     } catch {}
 
-    browserTTS()
-  }, [])
+    if (speakSeqRef.current === myId) browserTTS()
+  }, [stopAllAudio])
 
   const stopSpeaking = useCallback(() => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 }
-    window.speechSynthesis?.cancel()
+    speakSeqRef.current++
+    stopAllAudio()
     setIsSpeaking(false)
-  }, [])
+  }, [stopAllAudio])
 
   return {
     isListening,
     transcript,
+    interimText,
     isSpeaking,
     micError,
     unlockAudio,
     startListening,
     stopListening,
+    resetTranscript,
     speak,
     stopSpeaking,
-    clearTranscript: () => setTranscript(''),
   }
 }
