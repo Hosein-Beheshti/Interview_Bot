@@ -7,9 +7,11 @@ from routes.cv import router as cv_router
 from database import engine
 from models.interview import Base
 from services.vector_store import ensure_extension
+from migrations import run_migrations
 
 ensure_extension()
 Base.metadata.create_all(bind=engine)
+run_migrations()
 
 app = FastAPI(title="Interview Bot API", version="1.0.0")
 
