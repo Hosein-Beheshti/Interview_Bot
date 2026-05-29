@@ -596,3 +596,128 @@ body {
   0%, 100% { box-shadow: 0 0 10px var(--accent-glow); }
   50%       { box-shadow: 0 0 22px rgba(99,102,241,0.6); }
 }
+
+/* ── CV upload ──────────────────────────────────────────────────────── */
+.cv-dropzone {
+  margin-top: 14px;
+  padding: 22px 18px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r);
+  background: rgba(255,255,255,0.015);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  color: var(--t2);
+  text-align: center;
+}
+.cv-dropzone:hover,
+.cv-dropzone:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--t1);
+  outline: none;
+}
+.cv-dropzone.dragging {
+  border-color: var(--accent-hi);
+  background: var(--accent-dim);
+  color: var(--t1);
+  transform: scale(1.01);
+}
+.cv-dropzone.uploading {
+  cursor: progress;
+  border-style: solid;
+  border-color: var(--accent);
+}
+.cv-dropzone svg { color: var(--accent-hi); }
+.cv-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cv-prompt strong {
+  color: var(--t1);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.cv-prompt span {
+  font-size: 12px;
+  color: var(--t2);
+}
+
+.cv-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--t1);
+}
+.cv-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: cvSpin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes cvSpin { to { transform: rotate(360deg); } }
+
+.cv-error {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--red);
+}
+
+.cv-attached {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: rgba(34,197,94,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cv-attached-info {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.cv-attached svg { color: var(--green); flex-shrink: 0; }
+.cv-attached-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cv-filename {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cv-meta {
+  font-size: 11.5px;
+  color: var(--t2);
+}
+.cv-remove {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--t2);
+  padding: 6px 12px;
+  border-radius: var(--rs);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.cv-remove:hover {
+  color: var(--red);
+  border-color: var(--red);
+}

@@ -18,6 +18,19 @@ export interface ChatResponse {
   score?: ScoreResult
 }
 
+export interface CVUploadResponse {
+  session_id: string
+  filename: string
+  chunk_count: number
+  sections: string[]
+}
+
+export interface CVInfo {
+  filename: string
+  sections: string[]
+  chunk_count: number
+}
+
 export interface ChatState {
   messages: Message[]
   session_id: string | null

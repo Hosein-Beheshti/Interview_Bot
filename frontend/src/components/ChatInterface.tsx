@@ -1,18 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
 import { useChat } from '../hooks/useChat'
 import { useVoice } from '../hooks/useVoice'
+import { useCV } from '../hooks/useCV'
+import { CVUpload } from './CVUpload'
 import { ScoreResult } from '../types'
 import '../styles/chat.css'
 
 const AUTO_SEND_DELAY_MS = 6000
 
 export function ChatInterface() {
-  const { messages, session_id, question_number, is_complete, loading, error, send, reset } = useChat()
+  const { messages, session_id, question_number, is_complete, loading, error, send, reset, adoptSession } = useChat()
   const {
     isListening, transcript, interimText, isSpeaking, micError,
     unlockAudio, startListening, stopListening, resetTranscript,
     speak, stopSpeaking,
   } = useVoice()
+  const cv = useCV()
   const [input, setInput] = useState('')
   const [role, setRole] = useState('Software Engineer')
   const [copied, setCopied] = useState(false)
@@ -147,7 +150,7 @@ export function ChatInterface() {
                 <button className="btn-primary" onClick={() => { unlockAudio(); send('Continue', role) }}>
                   Resume Interview
                 </button>
-                <button className="btn-ghost" onClick={() => { lastSpokenIdxRef.current = -1; stopSpeaking(); stopListening(); reset() }}>Start Fresh</button>
+                <button className="btn-ghost" onClick={() => { lastSpokenIdxRef.current = -1; stopSpeaking(); stopListening(); cv.clear(); reset() }}>Start Fresh</button>
               </div>
             ) : (
               <div className="card">
@@ -171,12 +174,28 @@ export function ChatInterface() {
                   <option value="QA Engineer" />
                   <option value="Mobile Engineer" />
                 </datalist>
+
+                <CVUpload
+                  info={cv.info}
+                  uploading={cv.uploading}
+                  error={cv.error}
+                  onUpload={async (file) => {
+                    const newSessionId = await cv.upload(file, role, session_id ?? undefined)
+                    if (newSessionId) adoptSession(newSessionId)
+                  }}
+                  onRemove={async () => {
+                    if (session_id) await cv.remove(session_id)
+                    else cv.clear()
+                  }}
+                />
+
                 <button
                   className="btn-primary btn-full"
                   onClick={() => { unlockAudio(); send('Hi, ready to start', role) }}
-                  disabled={!role.trim()}
+                  disabled={!role.trim() || cv.uploading}
+                  style={{ marginTop: 14 }}
                 >
-                  Start Interview
+                  {cv.info ? 'Start CV-Aware Interview' : 'Start Interview'}
                 </button>
               </div>
             )}
@@ -223,7 +242,7 @@ export function ChatInterface() {
                 overallScore={overallScore}
                 copied={copied}
                 onCopy={handleCopyResults}
-                onReset={() => { lastSpokenIdxRef.current = -1; stopSpeaking(); stopListening(); reset() }}
+                onReset={() => { lastSpokenIdxRef.current = -1; stopSpeaking(); stopListening(); cv.clear(); reset() }}
               />
             )}
 

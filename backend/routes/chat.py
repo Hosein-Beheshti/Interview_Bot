@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from models.schemas import ChatRequest, ChatResponse, ScoreResult
 from models.interview import InterviewSession
-from services import llm, prompt, evaluation
+from services import llm, prompt, evaluation, rag
 from database import get_db
 from logger import logger
 
@@ -27,7 +27,8 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     flag_modified(session, "messages")
 
     try:
-        system = prompt.get_system_prompt(session.role)
+        cv_context = await _build_cv_context(session, request.message)
+        system = prompt.get_system_prompt(session.role, cv_context=cv_context)
         reply = await llm.chat(session.messages, system)
     except Exception as e:
         logger.error(f"LLM call failed: {e}")
@@ -69,6 +70,31 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
         is_complete=session.is_complete,
         score=score_result,
     )
+
+
+async def _build_cv_context(session: InterviewSession, user_message: str) -> str:
+    """Build CV context for the current turn.
+
+    Hybrid strategy:
+    - Turn 1 (introduction + Question 1): inject the full CV. The model needs
+      a holistic view of the candidate to plan a coherent 5-question arc.
+    - Turn 2+: inject only the top-k chunks most relevant to the user's last
+      answer. Keeps subsequent prompts compact while still grounding follow-ups
+      in the candidate's actual experience.
+    """
+    if not session.has_cv:
+        return ""
+
+    is_first_turn = len(session.messages) <= 1
+
+    if is_first_turn and session.cv_full_text:
+        return f"Full CV of the candidate:\n{session.cv_full_text}"
+
+    try:
+        return await rag.retrieve(session.session_id, user_message)
+    except Exception as e:
+        logger.warning(f"CV retrieval failed | session={session.session_id} | error={e}")
+        return ""
 
 
 def _get_or_create_session(request: ChatRequest, db: Session) -> InterviewSession:

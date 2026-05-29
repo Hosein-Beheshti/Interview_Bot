@@ -69,5 +69,10 @@ export function useChat() {
     setState(initialState)
   }, [])
 
-  return { ...state, send, reset }
+  const adoptSession = useCallback((sessionId: string) => {
+    localStorage.setItem(SESSION_STORAGE_KEY, sessionId)
+    setState((prev) => ({ ...prev, session_id: sessionId }))
+  }, [])
+
+  return { ...state, send, reset, adoptSession }
 }
