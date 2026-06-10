@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     embedding_dim: int = 512
     cv_max_bytes: int = 5 * 1024 * 1024
     rag_top_k: int = 4
+    max_questions: int = 5
 
     model_config = {"env_file": ".env"}
 

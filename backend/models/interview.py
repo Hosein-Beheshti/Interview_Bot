@@ -13,6 +13,8 @@ class InterviewSession(Base):
 
     session_id = Column(String, primary_key=True, index=True)
     role = Column(String, nullable=False)
+    status = Column(String, default="created", nullable=False)
+    num_questions = Column(Integer, default=5, nullable=False)
     messages = Column(JSON, default=list, nullable=False)
     answers_given = Column(Integer, default=0, nullable=False)
     is_complete = Column(Boolean, default=False, nullable=False)
@@ -28,7 +30,7 @@ class InterviewSession(Base):
 
     @property
     def question_number(self) -> int:
-        return min(self.answers_given + 1, 5)
+        return min(self.answers_given + 1, self.num_questions)
 
 
 class CVChunk(Base):

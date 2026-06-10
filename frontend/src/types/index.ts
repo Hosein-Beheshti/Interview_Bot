@@ -13,6 +13,7 @@ export interface ScoreResult {
 export interface ChatResponse {
   reply: string
   session_id: string
+  status: string
   question_number: number
   is_complete: boolean
   score?: ScoreResult
@@ -34,6 +35,7 @@ export interface CVInfo {
 export interface ChatState {
   messages: Message[]
   session_id: string | null
+  status: string
   question_number: number
   is_complete: boolean
   loading: boolean

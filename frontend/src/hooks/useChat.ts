@@ -7,6 +7,7 @@ const SESSION_STORAGE_KEY = 'interview_session_id'
 const initialState: ChatState = {
   messages: [],
   session_id: null,
+  status: 'created',
   question_number: 0,
   is_complete: false,
   loading: false,
@@ -54,6 +55,7 @@ export function useChat() {
           assistantMsg,
         ],
         session_id: response.session_id,
+        status: response.status,
         question_number: response.question_number,
         is_complete: response.is_complete,
         loading: false,

@@ -24,5 +24,3 @@ def parse_score(tool_input: dict) -> Optional[ScoreData]:
         return None
 
 
-def is_interview_complete(reply: str) -> bool:
-    return "INTERVIEW_COMPLETE" in reply

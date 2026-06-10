@@ -14,20 +14,23 @@ router = APIRouter()
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     session = _get_or_create_session(request, db)
-    logger.info(f"Chat request | session={session.session_id} | answers={session.answers_given}")
+    logger.info(f"Chat request | session={session.session_id} | status={session.status} | answers={session.answers_given}")
 
-    if session.is_complete:
+    if session.status == "complete":
         logger.warning(f"Attempt to use completed session: {session.session_id}")
         raise HTTPException(status_code=400, detail="Interview already completed")
 
     is_first_message = len(session.messages) == 0
+
+    if session.status == "created" and not is_first_message:
+        session.status = "active"
 
     session.messages.append({"role": "user", "content": request.message})
     flag_modified(session, "messages")
 
     try:
         cv_context = await _build_cv_context(session, request.message)
-        system = prompt.get_system_prompt(session.role, cv_context=cv_context)
+        system = prompt.get_system_prompt(session.role, num_questions=session.num_questions, cv_context=cv_context)
         reply = await llm.chat(session.messages, system)
     except Exception as e:
         logger.error(f"LLM call failed: {e}")
@@ -35,6 +38,9 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
 
     session.messages.append({"role": "assistant", "content": reply})
     flag_modified(session, "messages")
+
+    if session.status == "created":
+        session.status = "active"
 
     score_result = None
     if not is_first_message:
@@ -57,19 +63,19 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
         except Exception as e:
             logger.warning(f"Scoring failed | session={session.session_id} | error={e}")
 
-    if evaluation.is_interview_complete(reply):
-        session.is_complete = True
-        logger.info(f"Interview complete | session={session.session_id}")
+        if session.answers_given >= session.num_questions:
+            session.status = "complete"
+            session.is_complete = True
+            logger.info(f"Interview complete | session={session.session_id} | answers={session.answers_given}")
 
     db.add(session)
     db.commit()
     db.refresh(session)
 
-    clean_reply = reply.replace('INTERVIEW_COMPLETE', '').strip()
-
     return ChatResponse(
-        reply=clean_reply,
+        reply=reply,
         session_id=session.session_id,
+        status=session.status,
         question_number=session.question_number,
         is_complete=session.is_complete,
         score=score_result,
@@ -77,15 +83,6 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
 
 
 async def _build_cv_context(session: InterviewSession, user_message: str) -> str:
-    """Build CV context for the current turn.
-
-    Hybrid strategy:
-    - Turn 1 (introduction + Question 1): inject the full CV. The model needs
-      a holistic view of the candidate to plan a coherent 5-question arc.
-    - Turn 2+: inject only the top-k chunks most relevant to the user's last
-      answer. Keeps subsequent prompts compact while still grounding follow-ups
-      in the candidate's actual experience.
-    """
     if not session.has_cv:
         return ""
 
@@ -106,12 +103,13 @@ def _get_or_create_session(request: ChatRequest, db: Session) -> InterviewSessio
         session = InterviewSession(
             session_id=str(uuid.uuid4()),
             role=request.role,
+            num_questions=request.num_questions,
             messages=[],
         )
         db.add(session)
         db.commit()
         db.refresh(session)
-        logger.info(f"New session created | id={session.session_id} | role={request.role}")
+        logger.info(f"New session | id={session.session_id} | role={request.role} | questions={request.num_questions}")
         return session
 
     session = db.query(InterviewSession).filter(

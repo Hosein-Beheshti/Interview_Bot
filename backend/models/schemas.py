@@ -6,6 +6,7 @@ class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     role: str = "Software Engineer"
+    num_questions: int = 5
 
 
 class ScoreResult(BaseModel):
@@ -17,6 +18,7 @@ class ScoreResult(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     session_id: str
+    status: str
     question_number: int
     is_complete: bool
     score: Optional[ScoreResult] = None
