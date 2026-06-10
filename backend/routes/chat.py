@@ -1,4 +1,3 @@
-import re
 import uuid
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -40,16 +39,23 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     score_result = None
     if not is_first_message:
         session.answers_given += 1
-        score_data = evaluation.extract_score_json(reply)
-        if score_data:
-            score_result = ScoreResult(
-                score=score_data.score,
-                strengths=score_data.strengths,
-                improvements=score_data.improvements,
-            )
-            logger.info(f"Score extracted | session={session.session_id} | score={score_data.score}")
-        else:
-            logger.warning(f"Could not extract score | session={session.session_id}")
+        user_answer = session.messages[-2]["content"]
+        last_question = next(
+            (m["content"] for m in reversed(session.messages[:-2]) if m["role"] == "assistant"),
+            "",
+        )
+        try:
+            tool_input = await llm.score(last_question, user_answer, session.role)
+            score_data = evaluation.parse_score(tool_input)
+            if score_data:
+                score_result = ScoreResult(
+                    score=score_data.score,
+                    strengths=score_data.strengths,
+                    improvements=score_data.improvements,
+                )
+                logger.info(f"Score | session={session.session_id} | score={score_data.score}")
+        except Exception as e:
+            logger.warning(f"Scoring failed | session={session.session_id} | error={e}")
 
     if evaluation.is_interview_complete(reply):
         session.is_complete = True
@@ -59,9 +65,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(session)
 
-    clean_reply = re.sub(r'\*+', '', reply)
-    clean_reply = re.sub(r'\{[^{}]*"score"[^{}]*\}', '', clean_reply, flags=re.DOTALL)
-    clean_reply = clean_reply.replace('INTERVIEW_COMPLETE', '').strip()
+    clean_reply = reply.replace('INTERVIEW_COMPLETE', '').strip()
 
     return ChatResponse(
         reply=clean_reply,
