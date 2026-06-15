@@ -1,16 +1,45 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
+class JobProfileSchema(BaseModel):
+    role: str
+    company: Optional[str] = None
+    seniority: Optional[str] = None
+    key_skills: list[str] = Field(default_factory=list)
+    focus_areas: list[str] = Field(default_factory=list)
+
+
+class SessionCreateRequest(BaseModel):
+    job_context: str = Field(..., min_length=1, max_length=8000)
+    num_questions: int = Field(default=5, ge=1, le=20)
+
+
+class SessionCreateResponse(BaseModel):
+    session_id: str
+    role: str
+    num_questions: int
+    job_profile: JobProfileSchema
+
+
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(..., min_length=1, max_length=4000)
     session_id: Optional[str] = None
-    role: str = "Software Engineer"
-    num_questions: int = 5
+    # Optional: only used when no session_id is supplied (lazy session creation).
+    role: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    num_questions: Optional[int] = Field(default=None, ge=1, le=20)
+    job_context: Optional[str] = Field(default=None, min_length=1, max_length=8000)
+
+
+class DimensionScore(BaseModel):
+    key: str
+    label: str
+    score: int
 
 
 class ScoreResult(BaseModel):
-    score: int
+    score: int  # overall (weighted average) — kept for backward compatibility
+    dimensions: list[DimensionScore] = Field(default_factory=list)
     strengths: list[str]
     improvements: list[str]
 

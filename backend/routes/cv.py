@@ -13,6 +13,8 @@ from logger import logger
 from models.interview import InterviewSession
 from models.schemas import CVStatusResponse, CVUploadResponse
 from services import cv_parser, rag
+from services import job_profile as job_profile_service
+from routes.sessions import build_profile
 
 router = APIRouter(prefix="/cv", tags=["cv"])
 
@@ -21,7 +23,8 @@ router = APIRouter(prefix="/cv", tags=["cv"])
 async def upload_cv(
     file: UploadFile = File(...),
     session_id: str | None = None,
-    role: str = "Software Engineer",
+    role: str | None = None,
+    job_context: str | None = None,
     db: Session = Depends(get_db),
 ) -> CVUploadResponse:
     content = await file.read()
@@ -33,7 +36,7 @@ async def upload_cv(
         logger.warning(f"CV parse failed | filename={file.filename} | error={e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-    session = _get_or_create_session(session_id, role, db)
+    session = await _get_or_create_session(session_id, role, job_context, db)
 
     try:
         result = await rag.index_cv(session.session_id, parsed)
@@ -106,8 +109,8 @@ def _validate_upload(filename: str, content: bytes) -> None:
         )
 
 
-def _get_or_create_session(
-    session_id: str | None, role: str, db: Session
+async def _get_or_create_session(
+    session_id: str | None, role: str | None, job_context: str | None, db: Session
 ) -> InterviewSession:
     if session_id:
         session = db.query(InterviewSession).filter(
@@ -116,13 +119,24 @@ def _get_or_create_session(
         if session:
             return session
 
+    # A pasted job description takes precedence: extract a structured profile from
+    # it (matching the /chat and /sessions paths). Otherwise fall back to role-only.
+    if job_context:
+        profile = await build_profile(job_context)
+    else:
+        profile = job_profile_service.minimal(role or settings.default_role)
+
     session = InterviewSession(
         session_id=str(uuid.uuid4()),
-        role=role,
+        role=profile.role,
         messages=[],
+        job_context=job_context,
+        job_profile=profile.to_dict(),
     )
     db.add(session)
     db.commit()
     db.refresh(session)
-    logger.info(f"Session created via CV upload | id={session.session_id} | role={role}")
+    logger.info(
+        f"Session created via CV upload | id={session.session_id} | role={profile.role}"
+    )
     return session

@@ -23,10 +23,23 @@ class InterviewSession(Base):
     cv_indexed_at = Column(DateTime, nullable=True)
     cv_sections = Column(JSON, nullable=True)
     cv_full_text = Column(Text, nullable=True)
+    job_context = Column(Text, nullable=True)
+    job_profile = Column(JSON, nullable=True)
 
     @property
     def has_cv(self) -> bool:
         return self.cv_indexed_at is not None
+
+    def resolve_profile(self):
+        """Return the session's JobProfile, falling back to a role-only profile.
+
+        Imported lazily to keep the ORM model free of service-layer dependencies.
+        """
+        from services import job_profile as job_profile_service
+
+        if self.job_profile:
+            return job_profile_service.JobProfile.from_dict(self.job_profile)
+        return job_profile_service.minimal(self.role)
 
     @property
     def question_number(self) -> int:

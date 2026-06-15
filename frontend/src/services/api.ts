@@ -7,7 +7,8 @@ const API_BASE = import.meta.env.VITE_API_URL
 export async function sendMessage(
   message: string,
   sessionId?: string,
-  role?: string
+  role?: string,
+  jobContext?: string
 ): Promise<ChatResponse> {
   const response = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
@@ -16,6 +17,7 @@ export async function sendMessage(
       message,
       session_id: sessionId,
       role: role || 'Software Engineer',
+      ...(jobContext ? { job_context: jobContext } : {}),
     }),
   })
 
@@ -31,12 +33,14 @@ export async function uploadCV(
   file: File,
   role: string,
   sessionId?: string,
+  jobContext?: string,
 ): Promise<CVUploadResponse> {
   const form = new FormData()
   form.append('file', file)
 
   const params = new URLSearchParams({ role })
   if (sessionId) params.set('session_id', sessionId)
+  if (jobContext) params.set('job_context', jobContext)
 
   const response = await fetch(`${API_BASE}/cv/upload?${params.toString()}`, {
     method: 'POST',

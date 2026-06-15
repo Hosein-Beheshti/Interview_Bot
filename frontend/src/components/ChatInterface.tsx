@@ -18,6 +18,7 @@ export function ChatInterface() {
   const cv = useCV()
   const [input, setInput] = useState('')
   const [role, setRole] = useState('Software Engineer')
+  const [jobDescription, setJobDescription] = useState('')
   const [copied, setCopied] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastSpokenIdxRef = useRef(-1)
@@ -175,12 +176,23 @@ export function ChatInterface() {
                   <option value="Mobile Engineer" />
                 </datalist>
 
+                <label className="field-label" style={{ marginTop: 14 }}>Job description (optional)</label>
+                <textarea
+                  className="field-input"
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  placeholder="Paste the full job description to get questions tailored to the role, seniority, and required skills."
+                  rows={4}
+                  maxLength={8000}
+                  style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                />
+
                 <CVUpload
                   info={cv.info}
                   uploading={cv.uploading}
                   error={cv.error}
                   onUpload={async (file) => {
-                    const newSessionId = await cv.upload(file, role, session_id ?? undefined)
+                    const newSessionId = await cv.upload(file, role, session_id ?? undefined, jobDescription.trim() || undefined)
                     if (newSessionId) adoptSession(newSessionId)
                   }}
                   onRemove={async () => {
@@ -191,7 +203,7 @@ export function ChatInterface() {
 
                 <button
                   className="btn-primary btn-full"
-                  onClick={() => { unlockAudio(); send('Hi, ready to start', role) }}
+                  onClick={() => { unlockAudio(); send('Hi, ready to start', role, jobDescription.trim() || undefined) }}
                   disabled={!role.trim() || cv.uploading}
                   style={{ marginTop: 14 }}
                 >

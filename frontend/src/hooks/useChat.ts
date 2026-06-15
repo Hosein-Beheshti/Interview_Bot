@@ -24,7 +24,7 @@ export function useChat() {
     }
   }, [])
 
-  const send = useCallback(async (text: string, role?: string) => {
+  const send = useCallback(async (text: string, role?: string, jobContext?: string) => {
     if (!text.trim()) return
 
     setState((prev) => ({ ...prev, loading: true, error: null }))
@@ -33,7 +33,8 @@ export function useChat() {
       const response = await sendMessage(
         text,
         state.session_id || undefined,
-        role || undefined
+        role || undefined,
+        jobContext || undefined
       )
 
       localStorage.setItem(SESSION_STORAGE_KEY, response.session_id)

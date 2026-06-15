@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     cv_max_bytes: int = 5 * 1024 * 1024
     rag_top_k: int = 4
     max_questions: int = 5
+    # Fallback role used when no job context is provided or extraction fails.
+    default_role: str = "Software Engineer"
+    # ~150K tokens — safety net for large CVs; well within Haiku's 200K context limit
+    max_context_chars: int = 600_000
 
     model_config = {"env_file": ".env"}
 

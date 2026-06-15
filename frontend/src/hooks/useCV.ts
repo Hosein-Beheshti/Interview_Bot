@@ -17,7 +17,7 @@ export function useCV() {
   const [state, setState] = useState<CVState>(initial)
 
   const upload = useCallback(
-    async (file: File, role: string, sessionId?: string): Promise<string | null> => {
+    async (file: File, role: string, sessionId?: string, jobContext?: string): Promise<string | null> => {
       const validation = validate(file)
       if (validation) {
         setState((p) => ({ ...p, error: validation }))
@@ -26,7 +26,7 @@ export function useCV() {
 
       setState((p) => ({ ...p, uploading: true, error: null }))
       try {
-        const result = await uploadCV(file, role, sessionId)
+        const result = await uploadCV(file, role, sessionId, jobContext)
         setState({
           info: {
             filename: result.filename,

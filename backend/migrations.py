@@ -20,6 +20,8 @@ _MIGRATIONS = (
     "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS cv_full_text TEXT",
     "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS status VARCHAR NOT NULL DEFAULT 'created'",
     "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS num_questions INTEGER NOT NULL DEFAULT 5",
+    "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS job_context TEXT",
+    "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS job_profile JSON",
 )
 
 

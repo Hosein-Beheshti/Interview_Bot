@@ -4,6 +4,7 @@ from routes.health import router as health_router
 from routes.chat import router as chat_router
 from routes.voice import router as voice_router
 from routes.cv import router as cv_router
+from routes.sessions import router as sessions_router
 from database import engine
 from models.interview import Base
 from services.vector_store import ensure_extension
@@ -26,3 +27,4 @@ app.include_router(health_router)
 app.include_router(chat_router, prefix="/api")
 app.include_router(voice_router, prefix="/api")
 app.include_router(cv_router, prefix="/api")
+app.include_router(sessions_router, prefix="/api")
