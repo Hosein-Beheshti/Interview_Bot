@@ -5,10 +5,22 @@ def test_score_tool_schema_requires_all_dimensions():
     schema = rubric.build_score_tool_schema()
     dims = schema["input_schema"]["properties"]["dimensions"]
     assert set(dims["required"]) == {d.key for d in rubric.DEFAULT_RUBRIC}
+    expected_scores = list(range(rubric.MIN_SCORE, rubric.MAX_SCORE + 1))
     for d in rubric.DEFAULT_RUBRIC:
         prop = dims["properties"][d.key]
-        assert prop["minimum"] == rubric.MIN_SCORE
-        assert prop["maximum"] == rubric.MAX_SCORE
+        assert prop["type"] == "integer"
+        # Strict mode ignores numeric minimum/maximum, so the score range is an
+        # enum of allowed integers — which strict mode does enforce.
+        assert prop["enum"] == expected_scores
+        assert "minimum" not in prop and "maximum" not in prop
+
+
+def test_score_tool_schema_is_strict():
+    schema = rubric.build_score_tool_schema()
+    assert schema["strict"] is True
+    # strict mode requires additionalProperties:false on every object
+    assert schema["input_schema"]["additionalProperties"] is False
+    assert schema["input_schema"]["properties"]["dimensions"]["additionalProperties"] is False
 
 
 def test_compute_overall_unweighted():

@@ -43,12 +43,17 @@ class JobProfile:
         )
 
 
-# Tool schema for the extraction call (forced tool use → guaranteed shape).
+# Tool schema for the extraction call (forced + strict tool use → guaranteed shape).
+# `strict: True` constrains generation to this schema; it requires
+# `additionalProperties: false` on every object. `company`/`seniority` stay
+# optional (absent from `required`), which strict mode permits.
 EXTRACT_TOOL = {
     "name": "submit_job_profile",
     "description": "Extract a structured interview profile from the job context.",
+    "strict": True,
     "input_schema": {
         "type": "object",
+        "additionalProperties": False,
         "properties": {
             "role": {
                 "type": "string",

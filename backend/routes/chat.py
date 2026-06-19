@@ -3,9 +3,16 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from config import settings
-from models.schemas import ChatRequest, ChatResponse, DimensionScore, ScoreResult
+from models.schemas import (
+    ChatRequest,
+    ChatResponse,
+    DimensionScore,
+    InterviewSummary,
+    ScoreResult,
+)
 from models.interview import InterviewSession
-from services import llm, prompt, evaluation, rag, rubric
+from services import llm, prompt, evaluation, progression, rag, rubric
+from services import summary as summary_service
 from services.evaluation import ScoreData
 from routes.sessions import build_profile
 from database import get_db
@@ -32,11 +39,21 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     session.messages.append({"role": "user", "content": request.message})
     flag_modified(session, "messages")
 
-    # Count assistant messages already in history to determine the next question
-    # number. Server-authoritative — the LLM is told which number to ask, so it
-    # cannot miscount.
-    questions_asked = sum(1 for m in session.messages if m["role"] == "assistant")
-    current_question_number = questions_asked + 1
+    # Score the candidate's answer first (when there is one). Scoring yields the
+    # control signals — answer_type and follow_up_recommended — that the server
+    # uses to choose the next turn. The first message has no answer to score.
+    # Capture which question is being answered BEFORE progression mutates state.
+    score_data = None
+    answered_q = answered_follow_up = None
+    if not is_first_message:
+        session.answers_given += 1
+        answered_q = session.questions_asked
+        answered_follow_up = session.followups_on_current > 0
+        score_data = await _score_last_answer(session, profile)
+
+    # Server-authoritative progression: decide what the next turn must be, then
+    # tell the model exactly that. The model never owns the counter.
+    mode, follow_up_kind = progression.decide_next_turn(session, score_data)
 
     try:
         cv_context = await _build_cv_context(session)
@@ -44,11 +61,16 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
             profile,
             num_questions=session.num_questions,
             cv_context=cv_context,
-            current_question_number=current_question_number,
+            mode=mode,
+            question_number=session.questions_asked + 1,
+            follow_up_kind=follow_up_kind,
         )
         reply = await llm.chat(session.messages, system)
     except Exception as e:
         logger.error(f"LLM call failed | session={session.session_id} | error={e}")
+        # Roll back the answer bookkeeping so a retry re-scores cleanly.
+        if not is_first_message:
+            session.answers_given -= 1
         raise HTTPException(status_code=502, detail="AI service unavailable")
 
     session.messages.append({"role": "assistant", "content": reply})
@@ -57,18 +79,25 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     if session.status == "created":
         session.status = "active"
 
-    score_result = None
-    if not is_first_message:
-        session.answers_given += 1
-        score_result = await _score_last_answer(session, profile)
+    progression.apply_turn(session, mode)
 
-        if session.answers_given >= session.num_questions:
-            session.status = "complete"
-            session.is_complete = True
-            logger.info(
-                f"Interview complete | session={session.session_id} | "
-                f"answers={session.answers_given}"
-            )
+    # Persist the score only now that the whole turn has succeeded, so a failed
+    # generation followed by a retry cannot double-record an answer.
+    if score_data is not None:
+        session.scores = session.scores + [
+            {
+                "q": answered_q,
+                "follow_up": answered_follow_up,
+                "score": score_data.overall,
+                "strengths": score_data.strengths,
+                "improvements": score_data.improvements,
+            }
+        ]
+        flag_modified(session, "scores")
+
+    summary = None
+    if session.is_complete:
+        summary = summary_service.build_summary(profile.role, session.scores)
 
     db.add(session)
     db.commit()
@@ -79,16 +108,24 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
         session_id=session.session_id,
         status=session.status,
         question_number=session.question_number,
+        num_questions=session.num_questions,
         is_complete=session.is_complete,
-        score=score_result,
+        score=_to_score_result(score_data) if score_data else None,
+        mode=mode,
+        summary=InterviewSummary(**summary) if summary else None,
     )
 
 
-async def _score_last_answer(session, profile) -> ScoreResult | None:
-    """Score the most recent answer against the rubric. Never raises."""
-    user_answer = session.messages[-2]["content"]
+async def _score_last_answer(session, profile) -> ScoreData | None:
+    """Score the most recent answer against the rubric. Never raises.
+
+    Called after the candidate's message is appended but before the interviewer's
+    reply is generated, so the answer is the last message and the question is the
+    most recent assistant message before it.
+    """
+    user_answer = session.messages[-1]["content"]
     last_question = next(
-        (m["content"] for m in reversed(session.messages[:-2]) if m["role"] == "assistant"),
+        (m["content"] for m in reversed(session.messages[:-1]) if m["role"] == "assistant"),
         "",
     )
     try:
@@ -98,9 +135,11 @@ async def _score_last_answer(session, profile) -> ScoreResult | None:
             return None
         logger.info(
             f"Score | session={session.session_id} | "
-            f"q={session.answers_given} | overall={score_data.overall}"
+            f"q={session.answers_given} | overall={score_data.overall} | "
+            f"answer_type={score_data.answer_type} | "
+            f"follow_up={score_data.follow_up_recommended}"
         )
-        return _to_score_result(score_data)
+        return score_data
     except Exception as e:
         logger.warning(
             f"Scoring failed | session={session.session_id} | "

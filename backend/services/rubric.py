@@ -52,12 +52,20 @@ DEFAULT_RUBRIC: tuple[Dimension, ...] = (
 
 
 def build_score_tool_schema(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> dict:
-    """Build the Anthropic tool schema for scoring directly from the rubric."""
+    """Build the Anthropic tool schema for scoring directly from the rubric.
+
+    Uses strict structured outputs so the API constrains generation to this exact
+    shape — every dimension present, every score a valid integer in range. Note
+    that strict mode does not honor numeric `minimum`/`maximum`; the score range is
+    therefore expressed as an `enum` of the allowed integers, which strict mode
+    does enforce. All objects set `additionalProperties: false`, a strict-mode
+    requirement.
+    """
+    allowed_scores = list(range(MIN_SCORE, MAX_SCORE + 1))
     dimension_props = {
         d.key: {
             "type": "integer",
-            "minimum": MIN_SCORE,
-            "maximum": MAX_SCORE,
+            "enum": allowed_scores,
             "description": d.description,
         }
         for d in rubric
@@ -65,11 +73,14 @@ def build_score_tool_schema(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> d
     return {
         "name": "submit_score",
         "description": "Score the candidate's answer on every rubric dimension.",
+        "strict": True,
         "input_schema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
                 "dimensions": {
                     "type": "object",
+                    "additionalProperties": False,
                     "properties": dimension_props,
                     "required": [d.key for d in rubric],
                 },
@@ -83,8 +94,35 @@ def build_score_tool_schema(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> d
                     "items": {"type": "string"},
                     "description": "1-3 concrete, actionable areas to improve.",
                 },
+                "answer_type": {
+                    "type": "string",
+                    "enum": ["substantive", "partial", "no_answer"],
+                    "description": (
+                        "Classify the answer: 'substantive' = a genuine attempt "
+                        "with real content; 'partial' = on the right track but "
+                        "incomplete or shallow; 'no_answer' = the candidate did "
+                        "not attempt it (said they don't know, asked to skip, or "
+                        "responded with no relevant content)."
+                    ),
+                },
+                "follow_up_recommended": {
+                    "type": "boolean",
+                    "description": (
+                        "True if a single follow-up on the SAME topic would "
+                        "meaningfully reveal more about the candidate's depth — "
+                        "e.g. the answer was promising but shallow, or made a "
+                        "claim worth probing. False if the topic is sufficiently "
+                        "covered and the interview should move to a new question."
+                    ),
+                },
             },
-            "required": ["dimensions", "strengths", "improvements"],
+            "required": [
+                "dimensions",
+                "strengths",
+                "improvements",
+                "answer_type",
+                "follow_up_recommended",
+            ],
         },
     }
 

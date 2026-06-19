@@ -8,12 +8,19 @@ from services import rubric as rubric_service
 from services.rubric import MAX_SCORE, MIN_SCORE, Dimension
 
 
+# Allowed values for ScoreData.answer_type; anything else falls back to the first.
+ANSWER_TYPES = ("substantive", "partial", "no_answer")
+
+
 @dataclass
 class ScoreData:
     overall: int
     dimensions: dict[str, int] = field(default_factory=dict)
     strengths: list[str] = field(default_factory=list)
     improvements: list[str] = field(default_factory=list)
+    # Control signals that drive interview progression (see routes/chat.py).
+    answer_type: str = "substantive"
+    follow_up_recommended: bool = False
 
 
 def parse_score(
@@ -36,9 +43,27 @@ def parse_score(
     except (KeyError, ValueError, TypeError):
         return None
 
+    answer_type = tool_input.get("answer_type", "substantive")
+    if answer_type not in ANSWER_TYPES:
+        answer_type = "substantive"
+
+    strengths = [str(s) for s in tool_input.get("strengths", [])]
+    improvements = [str(s) for s in tool_input.get("improvements", [])]
+
+    # A non-answer earns no credit: force the overall to 0 and drop strengths,
+    # regardless of how the model scored the individual dimensions.
+    if answer_type == "no_answer":
+        overall = 0
+        strengths = []
+        dimension_scores = {key: 0 for key in dimension_scores}
+    else:
+        overall = rubric_service.compute_overall(dimension_scores, rubric)
+
     return ScoreData(
-        overall=rubric_service.compute_overall(dimension_scores, rubric),
+        overall=overall,
         dimensions=dimension_scores,
-        strengths=[str(s) for s in tool_input.get("strengths", [])],
-        improvements=[str(s) for s in tool_input.get("improvements", [])],
+        strengths=strengths,
+        improvements=improvements,
+        answer_type=answer_type,
+        follow_up_recommended=bool(tool_input.get("follow_up_recommended", False)),
     )

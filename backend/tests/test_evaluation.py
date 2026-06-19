@@ -50,3 +50,45 @@ def test_parse_score_malformed_returns_none():
     assert parse_score({}) is None
     assert parse_score({"dimensions": {}}) is None
     assert parse_score({"dimensions": {"technical_relevance": "abc"}}) is None
+
+
+def test_parse_score_reads_control_signals():
+    result = parse_score(
+        {
+            "dimensions": _full_dimensions(6),
+            "answer_type": "no_answer",
+            "follow_up_recommended": True,
+        }
+    )
+    assert result is not None
+    assert result.answer_type == "no_answer"
+    assert result.follow_up_recommended is True
+
+
+def test_parse_score_defaults_control_signals_when_absent():
+    result = parse_score({"dimensions": _full_dimensions(6)})
+    assert result is not None
+    assert result.answer_type == "substantive"
+    assert result.follow_up_recommended is False
+
+
+def test_parse_score_rejects_unknown_answer_type():
+    result = parse_score(
+        {"dimensions": _full_dimensions(6), "answer_type": "bogus"}
+    )
+    assert result is not None
+    assert result.answer_type == "substantive"
+
+
+def test_no_answer_scores_zero_with_no_strengths():
+    result = parse_score(
+        {
+            "dimensions": _full_dimensions(7),  # model may still emit dimension scores
+            "strengths": ["was honest"],
+            "answer_type": "no_answer",
+        }
+    )
+    assert result is not None
+    assert result.overall == 0
+    assert result.strengths == []
+    assert all(v == 0 for v in result.dimensions.values())

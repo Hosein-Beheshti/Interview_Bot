@@ -52,6 +52,18 @@ def test_minimal_profile():
     assert profile.key_skills == ()
 
 
+def test_extract_tool_is_strict():
+    tool = jp.EXTRACT_TOOL
+    assert tool["strict"] is True
+    schema = tool["input_schema"]
+    # strict mode requires additionalProperties:false on the object
+    assert schema["additionalProperties"] is False
+    # role is required; company/seniority remain optional (strict permits this)
+    assert "role" in schema["required"]
+    assert "company" not in schema["required"]
+    assert "seniority" not in schema["required"]
+
+
 def test_build_context_includes_fields():
     profile = jp.JobProfile(
         role="Backend Engineer",

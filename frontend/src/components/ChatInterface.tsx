@@ -3,13 +3,13 @@ import { useChat } from '../hooks/useChat'
 import { useVoice } from '../hooks/useVoice'
 import { useCV } from '../hooks/useCV'
 import { CVUpload } from './CVUpload'
-import { ScoreResult } from '../types'
+import { InterviewSummary, ScoreResult } from '../types'
 import '../styles/chat.css'
 
 const AUTO_SEND_DELAY_MS = 6000
 
 export function ChatInterface() {
-  const { messages, session_id, question_number, is_complete, loading, error, send, reset, adoptSession } = useChat()
+  const { messages, session_id, question_number, num_questions, is_complete, summary, loading, error, send, reset, adoptSession } = useChat()
   const {
     isListening, transcript, interimText, isSpeaking, micError,
     unlockAudio, startListening, stopListening, resetTranscript,
@@ -91,23 +91,9 @@ export function ChatInterface() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
-  const scores = messages.filter(m => m.score).map(m => m.score!)
-  const overallScore = scores.length > 0
-    ? Math.round((scores.reduce((sum, s) => sum + s.score, 0) / scores.length) * 10) / 10
-    : 0
-
   const handleCopyResults = () => {
-    const lines = [
-      `AI Interview Results — ${role}`,
-      `Overall Score: ${overallScore}/10`,
-      '',
-      ...scores.flatMap((s, i) => [
-        `Q${i + 1}: ${s.score}/10`,
-        ...(s.strengths.length ? [`  + ${s.strengths.join(', ')}`] : []),
-        ...(s.improvements.length ? [`  › ${s.improvements.join(', ')}`] : []),
-      ]),
-    ]
-    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    if (!summary) return
+    navigator.clipboard.writeText(summary.copy_text).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -122,14 +108,14 @@ export function ChatInterface() {
           <div className="brand-mark" />
           <h1>AI Interviewer</h1>
         </div>
-        {messages.length > 0 && !is_complete && (
+        {messages.length > 0 && !is_complete && num_questions > 0 && (
           <div className="header-meta">
             <div className="progress-track">
-              {[1, 2, 3, 4, 5].map((n) => (
+              {Array.from({ length: num_questions }, (_, i) => i + 1).map((n) => (
                 <div key={n} className={`pdot ${n < question_number ? 'done' : n === question_number ? 'active' : ''}`} />
               ))}
             </div>
-            <span className="q-label">Q {question_number} / 5</span>
+            <span className="q-label">Q {question_number} / {num_questions}</span>
           </div>
         )}
       </header>
@@ -247,11 +233,9 @@ export function ChatInterface() {
               </div>
             )}
 
-            {is_complete && (
+            {is_complete && summary && (
               <SummaryCard
-                role={role}
-                scores={scores}
-                overallScore={overallScore}
+                summary={summary}
                 copied={copied}
                 onCopy={handleCopyResults}
                 onReset={() => { lastSpokenIdxRef.current = -1; stopSpeaking(); stopListening(); cv.clear(); reset() }}
@@ -360,54 +344,49 @@ function ScoreCard({ score }: { score: ScoreResult }) {
 }
 
 function SummaryCard({
-  role, scores, overallScore, copied, onCopy, onReset
+  summary, copied, onCopy, onReset
 }: {
-  role: string
-  scores: ScoreResult[]
-  overallScore: number
+  summary: InterviewSummary
   copied: boolean
   onCopy: () => void
   onReset: () => void
 }) {
-  const allStrengths = [...new Set(scores.flatMap(s => s.strengths))].slice(0, 4)
-  const allImprovements = [...new Set(scores.flatMap(s => s.improvements))].slice(0, 4)
-
   return (
     <div className="summary-card">
       <div className="summary-header">
         <div className="summary-orb">
-          <span className="orb-score">{overallScore}</span>
+          <span className="orb-score">{summary.overall}</span>
           <span className="orb-denom">/10</span>
         </div>
         <div className="summary-title">
           <h3>Interview Complete</h3>
-          <p>{role} — overall score</p>
+          <p>{summary.role} — overall score</p>
         </div>
       </div>
 
       <div className="summary-bars">
-        {scores.map((s, i) => (
+        {summary.breakdown.map((b, i) => (
           <div key={i} className="summary-bar-row">
-            <span className="summary-bar-label">Q{i + 1}</span>
+            <span className="summary-bar-label">{b.label}</span>
             <div className="score-track">
-              <div className="score-fill" style={{ width: `${s.score * 10}%` }} />
+              <div className="score-fill" style={{ width: `${b.score * 10}%` }} />
             </div>
-            <span className="summary-bar-val">{s.score}/10</span>
+            <span className="summary-bar-val">{b.score}/10</span>
           </div>
         ))}
       </div>
 
-      {allStrengths.length > 0 && (
+      {summary.strengths.length > 0 && (
         <div className="score-block">
           <p className="sbt green">Top Strengths</p>
-          <ul>{allStrengths.map((s, i) => <li key={i} className="si green-li">{s}</li>)}</ul>
+          <ul>{summary.strengths.map((s, i) => <li key={i} className="si green-li">{s}</li>)}</ul>
         </div>
       )}
 
-      {allImprovements.length > 0 && (
+      {summary.improvements.length > 0 && (
         <div className="score-block">
           <p className="sbt amber">Focus Areas</p>
-          <ul>{allImprovements.map((s, i) => <li key={i} className="si amber-li">{s}</li>)}</ul>
+          <ul>{summary.improvements.map((s, i) => <li key={i} className="si amber-li">{s}</li>)}</ul>
         </div>
       )}
 

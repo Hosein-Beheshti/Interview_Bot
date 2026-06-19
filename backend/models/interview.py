@@ -17,6 +17,15 @@ class InterviewSession(Base):
     num_questions = Column(Integer, default=5, nullable=False)
     messages = Column(JSON, default=list, nullable=False)
     answers_given = Column(Integer, default=0, nullable=False)
+    # Count of distinct MAIN questions posed so far. Server-authoritative driver
+    # of interview progression — follow-ups do not increment this.
+    questions_asked = Column(Integer, default=0, nullable=False)
+    # Follow-up turns spent on the current main question; reset to 0 whenever a
+    # new main question is posed.
+    followups_on_current = Column(Integer, default=0, nullable=False)
+    # Per-answer score records (see services/summary.py for the shape). The
+    # interview result summary is derived from this server-side.
+    scores = Column(JSON, default=list, nullable=False)
     is_complete = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     cv_filename = Column(String, nullable=True)
@@ -43,7 +52,8 @@ class InterviewSession(Base):
 
     @property
     def question_number(self) -> int:
-        return min(self.answers_given + 1, self.num_questions)
+        """1-based number of the main question currently in play (for display)."""
+        return min(max(self.questions_asked, 1), self.num_questions)
 
 
 class CVChunk(Base):

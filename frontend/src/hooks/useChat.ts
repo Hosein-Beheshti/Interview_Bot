@@ -9,7 +9,9 @@ const initialState: ChatState = {
   session_id: null,
   status: 'created',
   question_number: 0,
+  num_questions: 0,
   is_complete: false,
+  summary: null,
   loading: false,
   error: null,
 }
@@ -46,6 +48,7 @@ export function useChat() {
         role: 'assistant',
         content: response.reply,
         ...(response.score && { score: response.score }),
+        ...(response.mode && { mode: response.mode }),
       }
 
       setState((prev) => ({
@@ -58,7 +61,9 @@ export function useChat() {
         session_id: response.session_id,
         status: response.status,
         question_number: response.question_number,
+        num_questions: response.num_questions,
         is_complete: response.is_complete,
+        summary: response.summary ?? prev.summary,
         loading: false,
       }))
     } catch (err) {

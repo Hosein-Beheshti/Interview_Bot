@@ -1,0 +1,48 @@
+"""Tests for mode-aware interviewer prompt rendering (services/prompt.py)."""
+from services import prompt
+from services.job_profile import minimal
+
+
+PROFILE = minimal("Backend Engineer")
+
+
+def _build(mode, question_number=1, follow_up_kind=None):
+    return prompt.get_system_prompt(
+        PROFILE,
+        num_questions=5,
+        mode=mode,
+        question_number=question_number,
+        follow_up_kind=follow_up_kind,
+    )
+
+
+def test_first_main_question_introduces_and_labels():
+    text = _build(prompt.MODE_MAIN, question_number=1)
+    assert "introduce yourself" in text
+    assert '"Question 1:"' in text
+
+
+def test_later_main_question_labels_number_without_intro():
+    text = _build(prompt.MODE_MAIN, question_number=3)
+    assert '"Question 3:"' in text
+    assert "introduce yourself" not in text
+
+
+def test_deepen_follow_up_stays_on_topic_and_unnumbered():
+    text = _build(prompt.MODE_FOLLOW_UP, question_number=2, follow_up_kind=prompt.FOLLOW_UP_DEEPEN)
+    assert "deeper" in text.lower()
+    assert "SAME topic" in text
+    assert "numbered question" in text
+
+
+def test_simplify_follow_up_is_supportive_and_does_not_reveal_answer():
+    text = _build(prompt.MODE_FOLLOW_UP, question_number=2, follow_up_kind=prompt.FOLLOW_UP_SIMPLIFY)
+    assert "could not answer" in text
+    assert "simpler" in text
+    assert "reveal the answer" in text
+
+
+def test_closing_gives_feedback_and_asks_nothing():
+    text = _build(prompt.MODE_CLOSING)
+    assert "interview is over" in text.lower()
+    assert "Do not ask another question" in text

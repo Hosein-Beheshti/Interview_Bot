@@ -21,7 +21,11 @@ _RETRYABLE_ERRORS = (
 _SCORE_SYSTEM = (
     "You are an expert interview evaluator. Given the job context, the question, "
     "and the candidate's answer, score the answer honestly against every rubric "
-    "dimension using the submit_score tool.\n\n"
+    "dimension using the submit_score tool. Also classify the answer (answer_type) "
+    "and judge whether a single follow-up on the same topic is warranted "
+    "(follow_up_recommended), so the interviewer can adapt. Treat an answer with no "
+    "relevant content, an explicit 'I don't know', or a request to skip as "
+    "'no_answer'.\n\n"
 )
 
 
