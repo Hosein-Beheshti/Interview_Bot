@@ -26,6 +26,8 @@ The interviewer is **not** trusted to count questions or decide when to stop —
 
 This keeps the LLM responsible for *language* and the server responsible for *control* — the result is predictable interview length, correct numbering, and graceful handling of edge cases like non-answers.
 
+> **Want the full picture?** [ARCHITECTURE.md](ARCHITECTURE.md) is a detailed, course-style walkthrough of every file, the request flow, and the reasoning behind each design decision (the control-vs-language split, the scoring sub-call, the progression state machine, RAG, and where the LLM is — and deliberately isn't — agentic).
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -42,22 +44,29 @@ This keeps the LLM responsible for *language* and the server responsible for *co
 
 ```
 backend/
-  routes/        FastAPI endpoints (chat, sessions, cv, voice, health)
+  routes/          FastAPI endpoints (chat, sessions, cv, voice, health)
   services/
-    llm.py          Claude calls (chat, scoring, profile extraction)
-    progression.py  Server-authoritative interview state machine
-    prompt.py       Mode-aware system prompts
-    rubric.py       Data-driven scoring rubric + tool schema
-    evaluation.py   Validates & parses model scores
-    summary.py      Server-side result aggregation
-    job_profile.py  Structured job-profile extraction
-    rag.py / embeddings.py / vector_store.py / cv_parser.py   CV ingestion & retrieval
-    stt.py / tts.py Deepgram voice
-  models/        SQLAlchemy models & Pydantic schemas
-  tests/         Pytest suite
+    session.py     Session lifecycle: creation, lookup, profile resolution
+    interview/     The interview domain (pure-ish business logic)
+      orchestration.py  Runs one turn: score → decide → generate
+      progression.py    Server-authoritative interview state machine
+      prompt.py         Mode-aware system prompts
+      rubric.py         Data-driven scoring rubric + output schema
+      evaluation.py     Validates & parses model scores
+      job_profile.py    Structured job-profile extraction
+      summary.py        Server-side result aggregation
+    integrations/  Vendor adapters (the only code that knows the vendors)
+      llm.py            Claude calls (chat, scoring, profile extraction)
+      embeddings.py     Voyage embeddings
+      speech.py         Deepgram STT + TTS
+      rag.py / vector_store.py / cv_parser.py   CV ingestion & retrieval
+  models/          SQLAlchemy models & Pydantic schemas
+  tests/           Pytest suite
 frontend/
-  src/           React app (chat UI, voice, CV upload)
+  src/             React app (chat UI, voice, CV upload)
 ```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a file-by-file explanation of how these fit together.
 
 ## Getting Started
 
