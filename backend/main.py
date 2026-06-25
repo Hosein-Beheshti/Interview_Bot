@@ -7,7 +7,7 @@ from routes.cv import router as cv_router
 from routes.sessions import router as sessions_router
 from database import engine
 from models.interview import Base
-from services.vector_store import ensure_extension
+from services.integrations.vector_store import ensure_extension
 from migrations import run_migrations
 
 ensure_extension()

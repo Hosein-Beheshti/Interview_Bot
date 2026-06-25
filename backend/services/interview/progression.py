@@ -23,8 +23,8 @@ from typing import Optional, Protocol
 
 from config import settings
 from logger import logger
-from services import prompt
-from services.evaluation import ScoreData
+from . import prompt
+from .evaluation import ScoreData
 
 
 class InterviewState(Protocol):

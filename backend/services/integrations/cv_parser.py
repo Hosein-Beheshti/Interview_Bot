@@ -27,8 +27,14 @@ class ParsedCV:
     char_count: int
 
 
+def extension(filename: str) -> str:
+    """Return the lowercased file extension (including the dot), or ''."""
+    idx = filename.rfind(".")
+    return filename[idx:].lower() if idx != -1 else ""
+
+
 def parse(filename: str, content: bytes) -> ParsedCV:
-    ext = _extension(filename)
+    ext = extension(filename)
     if ext not in SUPPORTED_EXTENSIONS:
         raise CVParseError(f"Unsupported file type: {ext or filename}")
 
@@ -40,11 +46,6 @@ def parse(filename: str, content: bytes) -> ParsedCV:
         raise CVParseError("CV appears to be empty or unreadable")
 
     return ParsedCV(filename=filename, text=cleaned, char_count=len(cleaned))
-
-
-def _extension(filename: str) -> str:
-    idx = filename.rfind(".")
-    return filename[idx:].lower() if idx != -1 else ""
 
 
 def _extract_pdf(content: bytes) -> str:

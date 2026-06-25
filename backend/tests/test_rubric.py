@@ -1,26 +1,30 @@
-from services import rubric
+from services.interview import rubric
 
 
-def test_score_tool_schema_requires_all_dimensions():
-    schema = rubric.build_score_tool_schema()
-    dims = schema["input_schema"]["properties"]["dimensions"]
+def test_score_format_requires_all_dimensions():
+    fmt = rubric.build_score_format()
+    dims = fmt["schema"]["properties"]["dimensions"]
     assert set(dims["required"]) == {d.key for d in rubric.DEFAULT_RUBRIC}
     expected_scores = list(range(rubric.MIN_SCORE, rubric.MAX_SCORE + 1))
     for d in rubric.DEFAULT_RUBRIC:
         prop = dims["properties"][d.key]
         assert prop["type"] == "integer"
-        # Strict mode ignores numeric minimum/maximum, so the score range is an
-        # enum of allowed integers — which strict mode does enforce.
+        # Structured outputs ignore numeric minimum/maximum, so the score range is
+        # an enum of allowed integers — which structured outputs do enforce.
         assert prop["enum"] == expected_scores
         assert "minimum" not in prop and "maximum" not in prop
 
 
-def test_score_tool_schema_is_strict():
-    schema = rubric.build_score_tool_schema()
-    assert schema["strict"] is True
-    # strict mode requires additionalProperties:false on every object
-    assert schema["input_schema"]["additionalProperties"] is False
-    assert schema["input_schema"]["properties"]["dimensions"]["additionalProperties"] is False
+def test_score_format_is_json_schema():
+    fmt = rubric.build_score_format()
+    assert fmt["type"] == "json_schema"
+    # structured outputs require additionalProperties:false on every object
+    assert fmt["schema"]["additionalProperties"] is False
+    assert fmt["schema"]["properties"]["dimensions"]["additionalProperties"] is False
+    # critique must be first in required so the model writes it before scores
+    assert fmt["schema"]["required"][0] == "critique"
+    # control signals are part of the guaranteed shape
+    assert set(fmt["schema"]["required"]) >= {"critique", "answer_type", "follow_up_recommended"}
 
 
 def test_compute_overall_unweighted():

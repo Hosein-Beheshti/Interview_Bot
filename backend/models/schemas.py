@@ -38,7 +38,7 @@ class DimensionScore(BaseModel):
 
 
 class ScoreResult(BaseModel):
-    score: int  # overall (weighted average) — kept for backward compatibility
+    score: int  # overall weighted-average score across the rubric dimensions
     dimensions: list[DimensionScore] = Field(default_factory=list)
     strengths: list[str]
     improvements: list[str]

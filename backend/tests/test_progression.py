@@ -1,4 +1,4 @@
-"""Tests for server-authoritative interview progression (services/progression.py).
+"""Tests for server-authoritative interview progression.
 
 The decision of what the interviewer asks next is pure server logic driven by the
 scorer's control signals, so it is exercised here without any LLM or DB calls.
@@ -6,9 +6,9 @@ scorer's control signals, so it is exercised here without any LLM or DB calls.
 from types import SimpleNamespace
 
 from config import settings
-from services import prompt
-from services.evaluation import ScoreData
-from services.progression import apply_turn, decide_next_turn
+from services.interview import prompt
+from services.interview.evaluation import ScoreData
+from services.interview.progression import apply_turn, decide_next_turn
 
 
 def _session(questions_asked=1, followups_on_current=0, num_questions=5):

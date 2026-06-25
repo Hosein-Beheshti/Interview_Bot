@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from pydantic import BaseModel
-from services.stt import transcribe_audio
-from services.tts import synthesize_speech
+
+from services.integrations import speech
 
 router = APIRouter()
 
@@ -16,7 +16,7 @@ async def transcribe(audio: UploadFile = File(...)):
     try:
         audio_bytes = await audio.read()
         content_type = audio.content_type or "audio/webm"
-        transcript = await transcribe_audio(audio_bytes, content_type)
+        transcript = await speech.transcribe(audio_bytes, content_type)
         return {"transcript": transcript}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Transcription failed: {str(e)}")
@@ -25,7 +25,7 @@ async def transcribe(audio: UploadFile = File(...)):
 @router.post("/speak")
 async def speak(request: SpeakRequest):
     try:
-        audio_bytes = await synthesize_speech(request.text)
+        audio_bytes = await speech.synthesize(request.text)
         return Response(content=audio_bytes, media_type="audio/mpeg")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Speech synthesis failed: {str(e)}")

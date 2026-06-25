@@ -1,5 +1,5 @@
 """Tests for server-side interview result aggregation (services/summary.py)."""
-from services.summary import build_summary
+from services.interview.summary import build_summary
 
 
 def _rec(q, score, follow_up=False, strengths=None, improvements=None):

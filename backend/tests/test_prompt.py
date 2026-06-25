@@ -1,6 +1,6 @@
-"""Tests for mode-aware interviewer prompt rendering (services/prompt.py)."""
-from services import prompt
-from services.job_profile import minimal
+"""Tests for mode-aware interviewer prompt rendering (services/interview/prompt.py)."""
+from services.interview import prompt
+from services.interview.job_profile import minimal
 
 
 PROFILE = minimal("Backend Engineer")

@@ -13,8 +13,9 @@ from dataclasses import dataclass
 
 from config import settings
 from logger import logger
-from services import embeddings, vector_store
-from services.cv_parser import ParsedCV
+from . import embeddings, vector_store
+from .cv_parser import ParsedCV
+from .vector_store import RetrievedChunk
 
 # Section headers commonly found in CVs. Matched case-insensitively at line start.
 _SECTION_HEADERS = (
@@ -37,7 +38,9 @@ CHUNK_OVERLAP_CHARS = 100
 
 
 @dataclass(frozen=True)
-class CVChunk:
+class TextChunk:
+    """A pre-embedding slice of CV text, tagged by the section it came from."""
+
     text: str
     section: str
 
@@ -54,8 +57,7 @@ async def index_cv(session_id: str, cv: ParsedCV) -> IndexResult:
     if not chunks:
         raise ValueError("CV produced no chunks")
 
-    client = embeddings.get_client()
-    vectors = await client.embed([c.text for c in chunks], input_type="document")
+    vectors = await embeddings.embed([c.text for c in chunks], input_type="document")
 
     vector_store.upsert(
         session_id=session_id,
@@ -74,8 +76,7 @@ async def index_cv(session_id: str, cv: ParsedCV) -> IndexResult:
 async def retrieve(session_id: str, query: str, top_k: int | None = None) -> str:
     """Return formatted CV context for a query, or empty string if none indexed."""
     k = top_k or settings.rag_top_k
-    client = embeddings.get_client()
-    query_vec = (await client.embed([query], input_type="query"))[0]
+    query_vec = (await embeddings.embed([query], input_type="query"))[0]
 
     chunks = vector_store.query(session_id, query_vec, top_k=k)
     if not chunks:
@@ -92,13 +93,13 @@ def delete_index(session_id: str) -> None:
 # Chunking
 # ---------------------------------------------------------------------------
 
-def chunk_cv(text: str) -> list[CVChunk]:
+def chunk_cv(text: str) -> list[TextChunk]:
     """Split a CV into semantically coherent chunks tagged by section."""
     sections = _split_sections(text)
-    chunks: list[CVChunk] = []
+    chunks: list[TextChunk] = []
     for section_name, body in sections:
         for piece in _split_long_text(body):
-            chunks.append(CVChunk(text=piece, section=section_name))
+            chunks.append(TextChunk(text=piece, section=section_name))
     return chunks
 
 
@@ -157,7 +158,7 @@ def _window_split(text: str) -> list[str]:
 # Formatting
 # ---------------------------------------------------------------------------
 
-def _format_context(chunks) -> str:
+def _format_context(chunks: list[RetrievedChunk]) -> str:
     lines = ["Relevant excerpts from the candidate's CV:"]
     for i, chunk in enumerate(chunks, start=1):
         label = chunk.section.title() if chunk.section else "Excerpt"

@@ -1,4 +1,4 @@
-from services import job_profile as jp
+from services.interview import job_profile as jp
 
 
 def test_parse_profile_full():
@@ -52,16 +52,22 @@ def test_minimal_profile():
     assert profile.key_skills == ()
 
 
-def test_extract_tool_is_strict():
-    tool = jp.EXTRACT_TOOL
-    assert tool["strict"] is True
-    schema = tool["input_schema"]
-    # strict mode requires additionalProperties:false on the object
-    assert schema["additionalProperties"] is False
-    # role is required; company/seniority remain optional (strict permits this)
-    assert "role" in schema["required"]
-    assert "company" not in schema["required"]
-    assert "seniority" not in schema["required"]
+def test_profile_extraction_shape():
+    # The Pydantic extraction model is the single source of truth for the shape.
+    fields = jp.ProfileExtraction.model_fields
+    assert set(fields) == {"role", "company", "seniority", "key_skills", "focus_areas"}
+    # role is required; company/seniority are optional
+    assert fields["role"].is_required()
+    assert not fields["company"].is_required()
+    assert not fields["seniority"].is_required()
+
+
+def test_profile_extraction_normalizes_via_parse_profile():
+    # An extracted model round-trips through parse_profile for normalization.
+    extracted = jp.ProfileExtraction(role="Dev", key_skills=["Python", "python"])
+    profile = jp.parse_profile(extracted.model_dump(), fallback_role="Engineer")
+    assert profile.role == "Dev"
+    assert profile.key_skills == ("Python",)
 
 
 def test_build_context_includes_fields():

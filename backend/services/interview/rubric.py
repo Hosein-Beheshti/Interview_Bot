@@ -1,7 +1,7 @@
 """Evaluation rubric — the criteria a candidate's answer is scored against.
 
 The rubric is a single, data-driven source of truth. Everything else is derived
-from it: the scoring tool's JSON schema, the rubric description handed to the
+from it: the structured-output score format, the rubric description handed to the
 evaluator model, and the weighted overall score. Adding, removing, or reweighting
 a dimension is a one-line change here — no other file needs to be touched.
 """
@@ -51,15 +51,16 @@ DEFAULT_RUBRIC: tuple[Dimension, ...] = (
 )
 
 
-def build_score_tool_schema(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> dict:
-    """Build the Anthropic tool schema for scoring directly from the rubric.
+def build_score_format(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> dict:
+    """Build the structured-output `format` for scoring, derived from the rubric.
 
-    Uses strict structured outputs so the API constrains generation to this exact
-    shape — every dimension present, every score a valid integer in range. Note
-    that strict mode does not honor numeric `minimum`/`maximum`; the score range is
-    therefore expressed as an `enum` of the allowed integers, which strict mode
-    does enforce. All objects set `additionalProperties: false`, a strict-mode
-    requirement.
+    Scoring is a single-shot structured generation, not an action — so the schema
+    is delivered via `output_config.format` (JSON-schema structured outputs), not
+    as a forced tool. The API constrains generation to this exact shape: every
+    dimension present, every score a valid integer in range. Structured outputs do
+    not honor numeric `minimum`/`maximum`, so the score range is expressed as an
+    `enum` of the allowed integers (which is enforced). All objects set
+    `additionalProperties: false`, as structured outputs require.
     """
     allowed_scores = list(range(MIN_SCORE, MAX_SCORE + 1))
     dimension_props = {
@@ -71,13 +72,23 @@ def build_score_tool_schema(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> d
         for d in rubric
     }
     return {
-        "name": "submit_score",
-        "description": "Score the candidate's answer on every rubric dimension.",
-        "strict": True,
-        "input_schema": {
+        "type": "json_schema",
+        "schema": {
             "type": "object",
             "additionalProperties": False,
             "properties": {
+                "critique": {
+                    "type": "string",
+                    "description": (
+                        "Required first step — write this before assigning any scores. "
+                        "In 1-2 sentences, identify the specific gaps, errors, or "
+                        "missing depth: name the exact concepts, tradeoffs, or edge "
+                        "cases that are absent or wrong. If strong, state what is "
+                        "missing for 9-10. Keep it under 40 words. "
+                        "Scores must follow from this critique: significant gaps → "
+                        "below 7; only minor gaps → not above 8."
+                    ),
+                },
                 "dimensions": {
                     "type": "object",
                     "additionalProperties": False,
@@ -98,11 +109,13 @@ def build_score_tool_schema(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> d
                     "type": "string",
                     "enum": ["substantive", "partial", "no_answer"],
                     "description": (
-                        "Classify the answer: 'substantive' = a genuine attempt "
-                        "with real content; 'partial' = on the right track but "
-                        "incomplete or shallow; 'no_answer' = the candidate did "
-                        "not attempt it (said they don't know, asked to skip, or "
-                        "responded with no relevant content)."
+                        "Classify by how COMPLETE the attempt is, not how correct: "
+                        "'substantive' = a complete attempt that engages with the "
+                        "question (a confident but wrong answer is still "
+                        "substantive); 'partial' = a real but incomplete attempt "
+                        "(trails off, bare definition, single word); 'no_answer' = "
+                        "no usable content for this question (don't-know, skip, "
+                        "empty, or entirely off-topic)."
                     ),
                 },
                 "follow_up_recommended": {
@@ -117,6 +130,7 @@ def build_score_tool_schema(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> d
                 },
             },
             "required": [
+                "critique",
                 "dimensions",
                 "strengths",
                 "improvements",
@@ -129,7 +143,16 @@ def build_score_tool_schema(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> d
 
 def describe_rubric(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> str:
     """Human-readable rubric block for the evaluator's system prompt."""
-    lines = [f"Score each dimension from {MIN_SCORE} (poor) to {MAX_SCORE} (excellent):"]
+    lines = [
+        f"Score each dimension from {MIN_SCORE} (poor) to {MAX_SCORE} (excellent). "
+        "Calibrate against the whole scale and reserve the top band:",
+        "- 1-3: incorrect, irrelevant, or barely addresses the dimension.",
+        "- 4-6: partially correct or shallow - the basic idea with little depth.",
+        "- 7-8: correct and solid, but missing nuance, tradeoffs, or edge cases.",
+        "- 9-10: comprehensive and precise - covers tradeoffs, edge cases, or failure modes.",
+        "",
+        "Dimensions:",
+    ]
     lines.extend(f"- {d.label}: {d.description}" for d in rubric)
     return "\n".join(lines)
 

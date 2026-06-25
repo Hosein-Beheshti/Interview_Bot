@@ -1,0 +1,592 @@
+[
+  {
+    "id": "be-concurrency-excellent",
+    "tags": [
+      "strong",
+      "concurrency"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "substantive",
+      "overall_range": [
+        8,
+        10
+      ],
+      "dimensions": {
+        "depth_accuracy": [
+          8,
+          10
+        ],
+        "technical_relevance": [
+          8,
+          10
+        ]
+      },
+      "follow_up_recommended": false
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-ratelimit-excellent",
+    "tags": [
+      "strong",
+      "system-design"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "substantive",
+      "overall_range": [
+        8,
+        10
+      ],
+      "dimensions": {
+        "depth_accuracy": [
+          7,
+          10
+        ]
+      }
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "ml-overfitting-excellent",
+    "tags": [
+      "strong",
+      "ml-fundamentals"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "substantive",
+      "overall_range": [
+        8,
+        10
+      ],
+      "dimensions": {
+        "depth_accuracy": [
+          8,
+          10
+        ]
+      },
+      "follow_up_recommended": false
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "ml-traintest-good",
+    "tags": [
+      "good",
+      "ml-fundamentals"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "substantive",
+      "overall_range": [
+        6,
+        8
+      ]
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-caching-good",
+    "tags": [
+      "good",
+      "caching"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "substantive",
+      "overall_range": [
+        6,
+        8
+      ],
+      "follow_up_recommended": true
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "fe-react-good",
+    "tags": [
+      "good",
+      "frontend"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "substantive",
+      "overall_range": [
+        6,
+        8
+      ]
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-idempotency-good",
+    "tags": [
+      "good",
+      "api"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "substantive",
+      "overall_range": [
+        6,
+        8
+      ]
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "ml-embeddings-partial",
+    "tags": [
+      "shallow",
+      "buzzwords"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "partial",
+      "overall_range": [
+        4,
+        6
+      ],
+      "dimensions": {
+        "depth_accuracy": [
+          3,
+          5
+        ]
+      },
+      "follow_up_recommended": true
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-index-partial",
+    "tags": [
+      "incomplete"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "partial",
+      "overall_range": [
+        4,
+        6
+      ],
+      "follow_up_recommended": true
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-acid-shallow",
+    "tags": [
+      "definition-only"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "partial",
+      "overall_range": [
+        3,
+        5
+      ],
+      "dimensions": {
+        "depth_accuracy": [
+          2,
+          5
+        ]
+      }
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-url-incomplete",
+    "tags": [
+      "trails-off",
+      "incomplete"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "partial",
+      "overall_range": [
+        3,
+        5
+      ],
+      "follow_up_recommended": true
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "ml-biasvariance-poor",
+    "tags": [
+      "misconception"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "partial",
+      "overall_range": [
+        2,
+        4
+      ],
+      "dimensions": {
+        "depth_accuracy": [
+          1,
+          3
+        ]
+      }
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-transaction-confidently-wrong",
+    "tags": [
+      "adversarial",
+      "confidently-wrong"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "substantive",
+      "overall_range": [
+        2,
+        4
+      ],
+      "dimensions": {
+        "depth_accuracy": [
+          1,
+          3
+        ],
+        "communication": [
+          5,
+          8
+        ]
+      }
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "ml-gradient-confidently-wrong",
+    "tags": [
+      "adversarial",
+      "confidently-wrong"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "substantive",
+      "overall_range": [
+        2,
+        4
+      ],
+      "dimensions": {
+        "depth_accuracy": [
+          1,
+          3
+        ]
+      }
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-security-offtopic",
+    "tags": [
+      "off-topic",
+      "no_answer"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "no_answer",
+      "overall_range": [
+        0,
+        0
+      ]
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-comm-poor-but-correct",
+    "tags": [
+      "diagnostic",
+      "dimensions-diverge"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "substantive",
+      "overall_range": [
+        5,
+        7
+      ],
+      "dimensions": {
+        "depth_accuracy": [
+          7,
+          9
+        ],
+        "communication": [
+          2,
+          5
+        ]
+      }
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-comm-great-but-shallow",
+    "tags": [
+      "diagnostic",
+      "dimensions-diverge"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "partial",
+      "overall_range": [
+        3,
+        5
+      ],
+      "dimensions": {
+        "communication": [
+          6,
+          9
+        ],
+        "depth_accuracy": [
+          2,
+          4
+        ]
+      }
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-oneword-minimal",
+    "tags": [
+      "one-word"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "partial",
+      "overall_range": [
+        1,
+        3
+      ],
+      "follow_up_recommended": true
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-injection-explicit",
+    "tags": [
+      "adversarial",
+      "prompt-injection"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "partial",
+      "overall_range": [
+        3,
+        5
+      ],
+      "dimensions": {
+        "depth_accuracy": [
+          2,
+          5
+        ]
+      }
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-injection-system-spoof",
+    "tags": [
+      "adversarial",
+      "prompt-injection",
+      "fake-system"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "partial",
+      "overall_range": [
+        2,
+        4
+      ]
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "ml-idk-noanswer",
+    "tags": [
+      "no_answer",
+      "idk"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "no_answer",
+      "overall_range": [
+        0,
+        0
+      ]
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-skip-noanswer",
+    "tags": [
+      "no_answer",
+      "skip"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "no_answer",
+      "overall_range": [
+        0,
+        0
+      ]
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-blank-noanswer",
+    "tags": [
+      "no_answer",
+      "empty"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "no_answer",
+      "overall_range": [
+        0,
+        0
+      ]
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  },
+  {
+    "id": "be-offtopic-noanswer",
+    "tags": [
+      "no_answer",
+      "off-topic-no-content"
+    ],
+    "passed": false,
+    "hard_fail": false,
+    "expected": {
+      "answer_type": "no_answer",
+      "overall_range": [
+        0,
+        0
+      ]
+    },
+    "score": null,
+    "abs_error": null,
+    "notes": [
+      "scoring returned None (API or parse failure)"
+    ]
+  }
+]

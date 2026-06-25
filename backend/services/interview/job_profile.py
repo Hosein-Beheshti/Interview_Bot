@@ -1,17 +1,19 @@
 """Structured job profile derived from free-text job context.
 
 A user pastes anything they have about a role — title, company, the full job
-description, a bullet list of requirements. One LLM call (in `llm.py`) turns that
-into a `JobProfile`, which then drives both question generation and scoring.
+description, a bullet list of requirements. `services/session.py` turns that into
+a `JobProfile`, which then drives both question generation and scoring.
 
-This module owns the shape of that profile: the extraction tool schema, parsing
-and validation of the model's output, graceful fallbacks for thin input, and the
-formatting of the profile into a prompt-ready context block.
+This module owns the shape of that profile: the extraction schema, parsing and
+validation of the model's output, graceful fallbacks for thin input, and the
+formatting of the profile into a prompt-ready context block. It is pure of I/O.
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 # Cap list lengths so a verbose extraction can't bloat every downstream prompt.
 _MAX_SKILLS = 12
@@ -20,6 +22,8 @@ _MAX_FOCUS_AREAS = 8
 
 @dataclass(frozen=True)
 class JobProfile:
+    """Normalized, immutable profile used throughout the interview domain."""
+
     role: str
     company: Optional[str] = None
     seniority: Optional[str] = None
@@ -43,50 +47,41 @@ class JobProfile:
         )
 
 
-# Tool schema for the extraction call (forced + strict tool use → guaranteed shape).
-# `strict: True` constrains generation to this schema; it requires
-# `additionalProperties: false` on every object. `company`/`seniority` stay
-# optional (absent from `required`), which strict mode permits.
-EXTRACT_TOOL = {
-    "name": "submit_job_profile",
-    "description": "Extract a structured interview profile from the job context.",
-    "strict": True,
-    "input_schema": {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "role": {
-                "type": "string",
-                "description": "The job title being interviewed for, e.g. 'Senior Backend Engineer'.",
-            },
-            "company": {
-                "type": "string",
-                "description": "Company name if stated, otherwise omit.",
-            },
-            "seniority": {
-                "type": "string",
-                "description": "Seniority level if inferable, e.g. 'junior', 'mid', 'senior', 'staff'.",
-            },
-            "key_skills": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Specific skills, tools, or technologies the role requires and that questions should test.",
-            },
-            "focus_areas": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Broader competency areas to probe, e.g. 'system design', 'team leadership'.",
-            },
-        },
-        "required": ["role", "key_skills", "focus_areas"],
-    },
-}
+class ProfileExtraction(BaseModel):
+    """The shape the model fills when extracting a profile from job context.
+
+    The LLM-I/O contract (one of three intentionally distinct profile shapes:
+    this for extraction, `JobProfile` for the domain, `JobProfileSchema` for the
+    API response). Delivered to the API as a structured-output format via
+    `messages.parse`. Normalization (dedupe, caps, blank handling, fallback role)
+    lives in `parse_profile`.
+    """
+
+    role: str = Field(
+        description="The job title being interviewed for, e.g. 'Senior Backend Engineer'."
+    )
+    company: Optional[str] = Field(
+        default=None, description="Company name if stated, otherwise null."
+    )
+    seniority: Optional[str] = Field(
+        default=None,
+        description="Seniority level if inferable, e.g. 'junior', 'mid', 'senior', 'staff'.",
+    )
+    key_skills: list[str] = Field(
+        default_factory=list,
+        description="Specific skills, tools, or technologies the role requires and that questions should test.",
+    )
+    focus_areas: list[str] = Field(
+        default_factory=list,
+        description="Broader competency areas to probe, e.g. 'system design', 'team leadership'.",
+    )
+
 
 EXTRACT_SYSTEM = (
     "You extract a concise, structured interview profile from whatever job "
     "information the user provides (title, company, description, requirements). "
     "Infer sensible values when details are implicit, but never invent a company "
-    "name that isn't present. Use the submit_job_profile tool."
+    "name that isn't present."
 )
 
 
@@ -95,15 +90,15 @@ def minimal(role: str) -> JobProfile:
     return JobProfile(role=role)
 
 
-def parse_profile(tool_input: dict, fallback_role: str) -> JobProfile:
-    """Validate and normalize the extraction tool output into a JobProfile."""
-    role = (tool_input.get("role") or "").strip() or fallback_role
+def parse_profile(extracted: dict, fallback_role: str) -> JobProfile:
+    """Validate and normalize the extracted profile into a JobProfile."""
+    role = (extracted.get("role") or "").strip() or fallback_role
     return JobProfile(
         role=role,
-        company=_clean_optional(tool_input.get("company")),
-        seniority=_clean_optional(tool_input.get("seniority")),
-        key_skills=_clean_list(tool_input.get("key_skills"), _MAX_SKILLS),
-        focus_areas=_clean_list(tool_input.get("focus_areas"), _MAX_FOCUS_AREAS),
+        company=_clean_optional(extracted.get("company")),
+        seniority=_clean_optional(extracted.get("seniority")),
+        key_skills=_clean_list(extracted.get("key_skills"), _MAX_SKILLS),
+        focus_areas=_clean_list(extracted.get("focus_areas"), _MAX_FOCUS_AREAS),
     )
 
 

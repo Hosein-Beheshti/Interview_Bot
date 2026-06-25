@@ -1,5 +1,5 @@
-from services.evaluation import parse_score
-from services.rubric import DEFAULT_RUBRIC
+from services.interview.evaluation import parse_score
+from services.interview.rubric import DEFAULT_RUBRIC
 
 
 def _full_dimensions(value: int) -> dict:
@@ -92,3 +92,26 @@ def test_no_answer_scores_zero_with_no_strengths():
     assert result.overall == 0
     assert result.strengths == []
     assert all(v == 0 for v in result.dimensions.values())
+
+
+def test_parse_score_captures_critique():
+    result = parse_score(
+        {
+            "dimensions": _full_dimensions(6),
+            "critique": "Answer lacked tradeoffs and edge cases.",
+        }
+    )
+    assert result is not None
+    assert result.critique == "Answer lacked tradeoffs and edge cases."
+
+
+def test_parse_score_critique_defaults_empty_when_absent():
+    result = parse_score({"dimensions": _full_dimensions(5)})
+    assert result is not None
+    assert result.critique == ""
+
+
+def test_parse_score_critique_is_string_coerced():
+    result = parse_score({"dimensions": _full_dimensions(5), "critique": 42})
+    assert result is not None
+    assert result.critique == "42"
