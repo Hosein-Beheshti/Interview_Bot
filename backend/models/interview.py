@@ -34,6 +34,10 @@ class InterviewSession(Base):
     cv_full_text = Column(Text, nullable=True)
     job_context = Column(Text, nullable=True)
     job_profile = Column(JSON, nullable=True)
+    # Upfront coverage blueprint: one slot per main question (see
+    # services/interview/plan.py). Null for sessions created before planning
+    # existed or when generation failed — the interviewer self-selects topics then.
+    interview_plan = Column(JSON, nullable=True)
 
     @property
     def has_cv(self) -> bool:

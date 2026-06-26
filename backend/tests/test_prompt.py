@@ -1,6 +1,7 @@
 """Tests for mode-aware interviewer prompt rendering (services/interview/prompt.py)."""
 from services.interview import prompt
 from services.interview.job_profile import minimal
+from services.interview.plan import PlanSlot
 
 
 PROFILE = minimal("Backend Engineer")
@@ -46,3 +47,27 @@ def test_closing_gives_feedback_and_asks_nothing():
     text = _build(prompt.MODE_CLOSING)
     assert "interview is over" in text.lower()
     assert "Do not ask another question" in text
+
+
+def test_main_question_pins_topic_to_plan_slot():
+    slot = PlanSlot(
+        skill="Kubernetes networking",
+        intent="probe production debugging experience.",
+        difficulty="advanced",
+    )
+    text = prompt.turn_instruction(prompt.MODE_MAIN, question_number=2, slot=slot)
+    assert "Kubernetes networking" in text
+    assert "advanced" in text
+
+
+def test_main_question_without_slot_has_no_focus_clause():
+    text = prompt.turn_instruction(prompt.MODE_MAIN, question_number=2)
+    assert "Focus this question on" not in text
+
+
+def test_follow_up_ignores_slot():
+    slot = PlanSlot(skill="Redis", intent="x", difficulty="advanced")
+    text = prompt.turn_instruction(
+        prompt.MODE_FOLLOW_UP, question_number=2, follow_up_kind=prompt.FOLLOW_UP_DEEPEN, slot=slot
+    )
+    assert "Redis" not in text

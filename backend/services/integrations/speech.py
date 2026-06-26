@@ -9,6 +9,7 @@ from __future__ import annotations
 import httpx
 
 from config import settings
+from services.observability import observe_span
 
 # Vendor-specific selections — the only Deepgram-isms in the app. Swapping
 # providers means changing these and the request shapes below; nothing outside
@@ -39,24 +40,34 @@ def _auth_headers(content_type: str) -> dict[str, str]:
 
 async def transcribe(audio: bytes, content_type: str = "audio/webm") -> str:
     """Transcribe audio bytes to text (speech-to-text)."""
-    response = await _get_client().post(
-        _STT_URL,
-        params={"model": _STT_MODEL, "smart_format": "true"},
-        headers=_auth_headers(content_type),
-        content=audio,
-    )
-    response.raise_for_status()
-    data = response.json()
+    async with observe_span(
+        "deepgram.stt",
+        input={"bytes": len(audio), "content_type": content_type},
+        metadata={"model": _STT_MODEL},
+    ):
+        response = await _get_client().post(
+            _STT_URL,
+            params={"model": _STT_MODEL, "smart_format": "true"},
+            headers=_auth_headers(content_type),
+            content=audio,
+        )
+        response.raise_for_status()
+        data = response.json()
     return data["results"]["channels"][0]["alternatives"][0]["transcript"]
 
 
 async def synthesize(text: str) -> bytes:
     """Synthesize text to speech audio (text-to-speech)."""
-    response = await _get_client().post(
-        _TTS_URL,
-        params={"model": _TTS_VOICE},
-        headers=_auth_headers("application/json"),
-        json={"text": text},
-    )
-    response.raise_for_status()
+    async with observe_span(
+        "deepgram.tts",
+        input={"chars": len(text)},
+        metadata={"voice": _TTS_VOICE},
+    ):
+        response = await _get_client().post(
+            _TTS_URL,
+            params={"model": _TTS_VOICE},
+            headers=_auth_headers("application/json"),
+            json={"text": text},
+        )
+        response.raise_for_status()
     return response.content

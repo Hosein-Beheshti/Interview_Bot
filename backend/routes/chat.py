@@ -14,6 +14,7 @@ from services import session as session_service
 from services.interview import orchestration, rubric
 from services.interview.evaluation import ScoreData
 from services.interview.orchestration import InterviewError
+from services.observability import observe_turn
 
 router = APIRouter()
 
@@ -28,7 +29,13 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
 
     profile = session_service.resolve_profile(session)
     try:
-        result = await orchestration.run_turn(session, request.message, profile)
+        async with observe_turn(
+            "interview_turn",
+            session_id=session.session_id,
+            input={"message": request.message},
+            metadata={"role": session.role, "has_cv": session.has_cv, "status": session.status},
+        ):
+            result = await orchestration.run_turn(session, request.message, profile)
     except InterviewError as e:
         raise HTTPException(status_code=502, detail=str(e))
 

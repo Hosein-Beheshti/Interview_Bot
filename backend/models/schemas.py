@@ -15,11 +15,20 @@ class SessionCreateRequest(BaseModel):
     num_questions: int = Field(default=5, ge=1, le=20)
 
 
+class PlanSlotSchema(BaseModel):
+    skill: str
+    intent: str
+    difficulty: str
+
+
 class SessionCreateResponse(BaseModel):
     session_id: str
     role: str
     num_questions: int
     job_profile: JobProfileSchema
+    # The interview blueprint shown to the candidate up front. Empty if planning
+    # was skipped or failed (the interviewer then self-selects topics).
+    plan: list[PlanSlotSchema] = Field(default_factory=list)
 
 
 class ChatRequest(BaseModel):

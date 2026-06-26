@@ -52,6 +52,16 @@ class Settings(BaseSettings):
     # ~150K tokens — safety net for large CVs; well within Haiku's 200K context limit
     max_context_chars: int = 600_000
 
+    # Observability (self-hosted Langfuse). Tracing is best-effort: when disabled
+    # (the default) or misconfigured it is a no-op and never affects a request, so
+    # local/dev/CI run untouched. Point host/keys at your self-hosted instance and
+    # set langfuse_enabled=true to turn it on. Keys come from the Langfuse project
+    # settings page.
+    langfuse_enabled: bool = False
+    langfuse_host: str = "http://localhost:3000"
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+
     # On networks with a TLS-inspecting proxy (corporate Zscaler/Netskope, etc.),
     # outbound HTTPS is re-signed by a private root CA that Python's bundled
     # `certifi` does not trust, so API calls fail with CERTIFICATE_VERIFY_FAILED.

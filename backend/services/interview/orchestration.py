@@ -15,7 +15,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from config import settings
 from logger import logger
 from services.integrations import llm
-from services.interview import evaluation, job_profile, progression, prompt, rubric, summary
+from services.interview import evaluation, job_profile, plan, progression, prompt, rubric, summary
 from services.interview.evaluation import ScoreData
 from services.interview.job_profile import JobProfile
 
@@ -101,13 +101,26 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
         stable = prompt.build_stable_prompt(
             profile, num_questions=session.num_questions, cv_context=cv_context
         )
+        # For a main question, pin the topic to its blueprint slot (if planned).
+        # Follow-ups and the closing turn ignore the slot — they stay on the
+        # current topic or wrap up.
+        next_question_number = session.questions_asked + 1
+        interview_plan = plan.resolve(session)
+        slot = (
+            interview_plan.slot_for(next_question_number)
+            if interview_plan and mode == prompt.MODE_MAIN
+            else None
+        )
         turn = prompt.turn_instruction(
             mode,
-            session.questions_asked + 1,
+            next_question_number,
             follow_up_kind,
             current_topic=_last_question(session),
+            slot=slot,
         )
-        reply = await llm.generate(session.messages, turn, cache_prefix=stable)
+        reply = await llm.generate(
+            session.messages, turn, cache_prefix=stable, operation="interviewer_turn"
+        )
     except Exception as e:
         logger.error(f"LLM generation failed | session={session.session_id} | error={e}")
         raise InterviewError("AI service unavailable") from e
@@ -190,6 +203,7 @@ async def score(profile: JobProfile, question: str, answer: str) -> ScoreData | 
             "", messages, rubric.build_score_format(),
             cache_prefix=_SCORE_CACHE_PREFIX,
             max_tokens=700,
+            operation="score_answer",
         )
         return evaluation.parse_score(raw)
     except Exception as e:

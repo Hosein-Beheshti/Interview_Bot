@@ -25,6 +25,7 @@ _MIGRATIONS = (
     "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS questions_asked INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS followups_on_current INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS scores JSON NOT NULL DEFAULT '[]'",
+    "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS interview_plan JSON",
 )
 
 

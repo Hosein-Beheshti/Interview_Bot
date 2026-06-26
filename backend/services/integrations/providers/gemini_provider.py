@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 from config import settings
+from services.observability import record_generation_usage
 
 from .base import LLMProvider, trim_to_context_limit
 
@@ -73,6 +74,7 @@ class GeminiProvider(LLMProvider):
                 thinking_config=_thinking_config(),
             ),
         )
+        _record_usage(response)
         text = response.text
         if not text:
             raise ValueError("Empty response from Gemini")
@@ -101,6 +103,7 @@ class GeminiProvider(LLMProvider):
                 thinking_config=_thinking_config(),
             ),
         )
+        _record_usage(response)
         if not response.text:
             raise ValueError("Empty structured response from Gemini")
         return json.loads(response.text)
@@ -125,10 +128,35 @@ class GeminiProvider(LLMProvider):
                 thinking_config=_thinking_config(),
             ),
         )
+        _record_usage(response)
         parsed = response.parsed
         if parsed is None:
             raise ValueError("Structured parse returned no output from Gemini")
         return parsed
+
+
+def _record_usage(response) -> None:
+    """Report Gemini token usage / finish reason to the active trace.
+
+    All-`getattr` so a shape change in the SDK degrades to partial metadata, never
+    an error in the response path. Gemini reports cached-prefix tokens in
+    `cached_content_token_count`, surfaced separately to keep cost accurate.
+    """
+    usage = getattr(response, "usage_metadata", None)
+    finish = None
+    candidates = getattr(response, "candidates", None)
+    if candidates:
+        raw_finish = getattr(candidates[0], "finish_reason", None)
+        finish = getattr(raw_finish, "name", raw_finish)  # enum -> str
+    record_generation_usage(
+        provider="gemini",
+        model=settings.gemini_model,
+        input_tokens=getattr(usage, "prompt_token_count", None),
+        output_tokens=getattr(usage, "candidates_token_count", None),
+        cache_read_tokens=getattr(usage, "cached_content_token_count", None),
+        request_id=getattr(response, "response_id", None),
+        stop_reason=str(finish) if finish is not None else None,
+    )
 
 
 def _thinking_config() -> types.ThinkingConfig:

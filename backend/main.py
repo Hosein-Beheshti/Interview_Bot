@@ -8,6 +8,7 @@ from routes.sessions import router as sessions_router
 from database import engine
 from models.interview import Base
 from services.integrations.vector_store import ensure_extension
+from services.observability import shutdown as observability_shutdown
 from migrations import run_migrations
 
 ensure_extension()
@@ -28,3 +29,9 @@ app.include_router(chat_router, prefix="/api")
 app.include_router(voice_router, prefix="/api")
 app.include_router(cv_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
+
+
+@app.on_event("shutdown")
+def _flush_observability() -> None:
+    """Flush buffered traces so the last events aren't lost on shutdown."""
+    observability_shutdown()

@@ -12,6 +12,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from config import settings
+from services.observability import observe_generation
 
 from .providers import get_provider
 
@@ -22,6 +23,7 @@ async def generate(
     *,
     cache_prefix: str | None = None,
     temperature: float | None = None,
+    operation: str = "llm.generate",
 ) -> str:
     """Generate a free-text assistant reply.
 
@@ -29,12 +31,21 @@ async def generate(
     CV) that the provider may mark for prompt caching; `system` is the volatile
     remainder (this turn's instruction). When `cache_prefix` is None, `system` is
     sent as-is. `temperature` defaults to `settings.generation_temperature`.
+    `operation` is the trace label for this call (e.g. 'interviewer_turn').
     """
     if temperature is None:
         temperature = settings.generation_temperature
-    return await get_provider().generate(
-        messages, system, cache_prefix=cache_prefix, temperature=temperature
-    )
+    async with observe_generation(
+        operation,
+        provider=settings.llm_provider,
+        input={"system": system, "cache_prefix": cache_prefix, "messages": messages},
+        metadata={"temperature": temperature},
+    ) as gen:
+        reply = await get_provider().generate(
+            messages, system, cache_prefix=cache_prefix, temperature=temperature
+        )
+        gen.set_output(reply)
+        return reply
 
 
 async def generate_structured(
@@ -45,21 +56,30 @@ async def generate_structured(
     max_tokens: int = 400,
     temperature: float = 0.0,
     cache_prefix: str | None = None,
+    operation: str = "llm.generate_structured",
 ) -> dict:
     """Generate a response constrained to a JSON-schema structured-output format.
 
     Defaults to `temperature=0` because callers (e.g. answer scoring) want a
     reproducible judgement, not a creative one: the same answer should score the
-    same way across runs.
+    same way across runs. `operation` is the trace label (e.g. 'score_answer').
     """
-    return await get_provider().generate_structured(
-        system,
-        messages,
-        schema,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        cache_prefix=cache_prefix,
-    )
+    async with observe_generation(
+        operation,
+        provider=settings.llm_provider,
+        input={"system": system, "cache_prefix": cache_prefix, "messages": messages},
+        metadata={"temperature": temperature, "max_tokens": max_tokens},
+    ) as gen:
+        result = await get_provider().generate_structured(
+            system,
+            messages,
+            schema,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            cache_prefix=cache_prefix,
+        )
+        gen.set_output(result)
+        return result
 
 
 async def parse(
@@ -68,8 +88,20 @@ async def parse(
     output_model: type[BaseModel],
     *,
     max_tokens: int = 500,
+    operation: str = "llm.parse",
 ) -> BaseModel:
-    """Parse a response into a validated Pydantic model via structured outputs."""
-    return await get_provider().parse(
-        system, messages, output_model, max_tokens=max_tokens
-    )
+    """Parse a response into a validated Pydantic model via structured outputs.
+
+    `operation` is the trace label (e.g. 'extract_profile', 'build_plan').
+    """
+    async with observe_generation(
+        operation,
+        provider=settings.llm_provider,
+        input={"system": system, "messages": messages},
+        metadata={"max_tokens": max_tokens, "output_model": output_model.__name__},
+    ) as gen:
+        parsed = await get_provider().parse(
+            system, messages, output_model, max_tokens=max_tokens
+        )
+        gen.set_output(parsed.model_dump() if isinstance(parsed, BaseModel) else parsed)
+        return parsed

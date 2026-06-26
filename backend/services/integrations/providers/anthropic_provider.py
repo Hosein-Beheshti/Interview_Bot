@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from config import settings
+from services.observability import record_generation_usage
 
 from .base import LLMProvider, trim_to_context_limit
 
@@ -58,6 +59,7 @@ class AnthropicProvider(LLMProvider):
             messages=safe_messages,
             **extra,
         )
+        _record_usage(response)
         if not response.content or response.content[0].type != "text":
             raise ValueError(f"Unexpected response: stop_reason={response.stop_reason}")
         return response.content[0].text
@@ -81,6 +83,7 @@ class AnthropicProvider(LLMProvider):
             output_config={"format": schema},
             messages=messages,
         )
+        _record_usage(response)
         return _structured_json(response)
 
     @_RETRY
@@ -99,12 +102,33 @@ class AnthropicProvider(LLMProvider):
             output_format=output_model,
             messages=messages,
         )
+        _record_usage(response)
         parsed = response.parsed_output
         if parsed is None:
             raise ValueError(
                 f"Structured parse returned no output: stop_reason={response.stop_reason}"
             )
         return parsed
+
+
+def _record_usage(response) -> None:
+    """Report token usage / request_id / stop_reason to the active trace.
+
+    All-`getattr` so a shape change in the SDK degrades to partial metadata, never
+    an error in the response path. `cache_*` tokens are surfaced separately so cost
+    stays accurate under prompt caching.
+    """
+    usage = getattr(response, "usage", None)
+    record_generation_usage(
+        provider="anthropic",
+        model=getattr(response, "model", settings.model),
+        input_tokens=getattr(usage, "input_tokens", None),
+        output_tokens=getattr(usage, "output_tokens", None),
+        cache_read_tokens=getattr(usage, "cache_read_input_tokens", None),
+        cache_write_tokens=getattr(usage, "cache_creation_input_tokens", None),
+        request_id=getattr(response, "_request_id", None),
+        stop_reason=getattr(response, "stop_reason", None),
+    )
 
 
 def _system_param(cache_prefix: str | None, system: str):

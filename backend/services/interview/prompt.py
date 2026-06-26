@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from . import job_profile
 from .job_profile import JobProfile
+from .plan import PlanSlot
 
 
 # Interview turn modes. The server decides the mode and the prompt renders the
@@ -80,11 +81,14 @@ def turn_instruction(
     question_number: int = 1,
     follow_up_kind: str | None = None,
     current_topic: str | None = None,
+    slot: PlanSlot | None = None,
 ) -> str:
     """The single instruction telling the model exactly what this turn must be.
 
     `current_topic` (the question just answered) anchors follow-ups so the model
-    stays on the same topic instead of drifting to a new one.
+    stays on the same topic instead of drifting to a new one. `slot` is the
+    blueprint entry for this main question; when present it pins the topic,
+    otherwise the model chooses the topic itself (pre-plan behaviour).
     """
     if mode == MODE_CLOSING:
         return (
@@ -119,12 +123,23 @@ def turn_instruction(
         )
 
     # MODE_MAIN
+    focus = _focus_clause(slot)
     if question_number <= 1:
         return (
             'Begin: introduce yourself in one sentence, then ask Question 1, '
-            'labelled exactly "Question 1:".'
+            'labelled exactly "Question 1:".' + focus
         )
     return (
         f"Ask the next main question now, on a NEW topic, labelled exactly "
-        f'"Question {question_number}:".'
+        f'"Question {question_number}:".' + focus
+    )
+
+
+def _focus_clause(slot: PlanSlot | None) -> str:
+    """The blueprint directive appended to a main-question instruction, if planned."""
+    if slot is None:
+        return ""
+    return (
+        f" Focus this question on {slot.skill} — {slot.intent} "
+        f"Pitch it at a {slot.difficulty} level."
     )
