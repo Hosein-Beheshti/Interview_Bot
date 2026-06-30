@@ -31,6 +31,7 @@ from models.interview import InterviewSession
 from services import session as session_service
 from services.integrations import cv_parser
 from services.interview import job_profile, orchestration
+from services.observability import observe_turn, shutdown as observability_shutdown
 
 # ANSI colors — purely cosmetic; harmless if the terminal ignores them.
 BOLD, DIM, CYAN, GREEN, YELLOW, RESET = (
@@ -61,16 +62,17 @@ def _load_cv(path_str: str) -> tuple[str, str] | None:
 
 
 def _new_session(
-    profile, num_questions: int, cv: tuple[str, str] | None, interview_plan
+    session_id: str, profile, num_questions: int, cv: tuple[str, str] | None, interview_plan
 ) -> InterviewSession:
     """Build a transient, never-persisted session seeded like a fresh interview.
 
     Column defaults are applied by SQLAlchemy at INSERT time, not at construction,
-    so every field the engine reads must be set explicitly here.
+    so every field the engine reads must be set explicitly here. The id is supplied
+    by the caller so the same value can tag the run's traces.
     """
     filename, full_text = cv if cv else (None, None)
     return InterviewSession(
-        session_id=f"cli-{uuid.uuid4().hex[:8]}",
+        session_id=session_id,
         role=profile.role,
         status="created",
         num_questions=num_questions,
@@ -122,11 +124,16 @@ async def _build_profile(role: str | None, job_context: str | None):
 
 
 async def run_interview(role, job_context, num_questions, cv) -> None:
-    profile = await _build_profile(role, job_context)
+    session_id = f"cli-{uuid.uuid4().hex[:8]}"
 
-    print(f"{DIM}Designing the interview plan…{RESET}")
-    interview_plan = await session_service.build_plan(profile, num_questions)
-    session = _new_session(profile, num_questions, cv, interview_plan)
+    # Group the setup-time LLM calls (profile extraction, plan generation) under one
+    # trace tagged with the session id — mirrors the web's `session_create` trace.
+    async with observe_turn("session_create", session_id=session_id, metadata={"source": "cli"}):
+        profile = await _build_profile(role, job_context)
+        print(f"{DIM}Designing the interview plan…{RESET}")
+        interview_plan = await session_service.build_plan(profile, num_questions)
+
+    session = _new_session(session_id, profile, num_questions, cv, interview_plan)
 
     print(f"\n{BOLD}Role:{RESET} {profile.role}   {BOLD}Questions:{RESET} {num_questions}")
     print(f"{DIM}Provider: {settings.llm_provider} ({_active_model()}).  "
@@ -142,11 +149,20 @@ async def run_interview(role, job_context, num_questions, cv) -> None:
     # the first message as the kickoff), mirroring how the UI starts a session.
     message = "Hello, I'm ready to begin the interview."
     while True:
-        try:
-            result = await orchestration.run_turn(session, message, profile)
-        except orchestration.InterviewError as e:
-            print(f"{YELLOW}Interview engine error: {e}{RESET}")
-            return
+        # One trace per engine turn, tagged with the session id — mirrors the web's
+        # `interview_turn` trace. Display and user think-time stay outside the span,
+        # so its latency reflects engine work only.
+        async with observe_turn(
+            "interview_turn",
+            session_id=session_id,
+            input={"message": message},
+            metadata={"source": "cli", "role": profile.role, "has_cv": session.has_cv},
+        ):
+            try:
+                result = await orchestration.run_turn(session, message, profile)
+            except orchestration.InterviewError as e:
+                print(f"{YELLOW}Interview engine error: {e}{RESET}")
+                return
 
         if result.score_data is not None:
             _print_score(result.score_data)
@@ -223,7 +239,11 @@ def main() -> None:
         logger.setLevel(logging.WARNING)
 
     role, job_context, num, cv = _prompt_inputs(args)
-    asyncio.run(run_interview(role, job_context, num, cv))
+    try:
+        asyncio.run(run_interview(role, job_context, num, cv))
+    finally:
+        # Short-lived process: flush buffered traces before exit so nothing is lost.
+        observability_shutdown()
 
 
 if __name__ == "__main__":
