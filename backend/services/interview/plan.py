@@ -20,6 +20,10 @@ from pydantic import BaseModel, Field
 from . import job_profile
 from .job_profile import JobProfile
 
+# Reference key points per slot are capped so a verbose extraction can't bloat the
+# scorer payload. 3-5 is the sweet spot for grading depth without over-constraining.
+_MAX_KEY_POINTS = 6
+
 # Allowed difficulty levels, easiest first. The model is asked for these; anything
 # else is normalized to the middle rung.
 DIFFICULTIES = ("foundational", "intermediate", "advanced")
@@ -43,9 +47,18 @@ class PlanSlot:
     skill: str
     intent: str
     difficulty: str
+    # What a strong answer to this question should cover. Generated with the plan
+    # and fed to the scorer as a reference (reference-guided grading), never to the
+    # interviewer — exposing them would let the question leak its own answer.
+    key_points: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
-        return {"skill": self.skill, "intent": self.intent, "difficulty": self.difficulty}
+        return {
+            "skill": self.skill,
+            "intent": self.intent,
+            "difficulty": self.difficulty,
+            "key_points": list(self.key_points),
+        }
 
 
 @dataclass(frozen=True)
@@ -69,6 +82,7 @@ class InterviewPlan:
                 skill=s.get("skill", ""),
                 intent=s.get("intent", ""),
                 difficulty=s.get("difficulty", _DEFAULT_DIFFICULTY),
+                key_points=tuple(s.get("key_points") or ()),
             )
             for s in (data.get("slots") or [])
         )
@@ -90,6 +104,15 @@ class PlanSlotExtraction(BaseModel):
     difficulty: str = Field(
         description="One of: foundational, intermediate, advanced — calibrated to the role's seniority."
     )
+    key_points: list[str] = Field(
+        default_factory=list,
+        description=(
+            "3-5 specific things a strong answer should cover: the core concepts, "
+            "tradeoffs, edge cases, or facts that distinguish real depth from a "
+            "surface-level reply. Each a short phrase. Used later to grade answers, "
+            "so be concrete and answer-focused, not a restatement of the question."
+        ),
+    )
 
 
 class PlanExtraction(BaseModel):
@@ -105,8 +128,9 @@ EXTRACT_SYSTEM = (
     "together give broad, non-overlapping coverage of the role's most important "
     "skills and focus areas. Order them to flow naturally — foundational topics "
     "before advanced ones. Calibrate each difficulty to the stated seniority. Each "
-    "slot names the specific skill to test, the intent (what to assess), and a "
-    "difficulty."
+    "slot names the specific skill to test, the intent (what to assess), a "
+    "difficulty, and the key points a strong answer should cover — the concepts, "
+    "tradeoffs, and edge cases later used to grade the candidate's answer."
 )
 
 
@@ -145,6 +169,7 @@ def parse_plan(extracted: dict, profile: JobProfile, num_questions: int) -> Inte
                 skill=skill or intent,
                 intent=intent or skill,
                 difficulty=_normalize_difficulty(item.get("difficulty")),
+                key_points=_clean_points(item.get("key_points")),
             )
         )
 
@@ -160,6 +185,20 @@ def resolve(session) -> Optional[InterviewPlan]:
     if not data:
         return None
     return InterviewPlan.from_dict(data)
+
+
+def _clean_points(value, limit: int = _MAX_KEY_POINTS) -> tuple[str, ...]:
+    """Trim, drop blanks, dedupe case-insensitively, and cap the reference points."""
+    if not isinstance(value, list):
+        return ()
+    seen: list[str] = []
+    for item in value:
+        text = str(item).strip()
+        if text and text.lower() not in (s.lower() for s in seen):
+            seen.append(text)
+        if len(seen) >= limit:
+            break
+    return tuple(seen)
 
 
 def _normalize_difficulty(value) -> str:

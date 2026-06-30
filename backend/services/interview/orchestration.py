@@ -18,6 +18,7 @@ from services.integrations import llm
 from services.interview import evaluation, job_profile, plan, progression, prompt, rubric, summary
 from services.interview.evaluation import ScoreData
 from services.interview.job_profile import JobProfile
+from services.interview.plan import PlanSlot
 
 _SCORE_SYSTEM = (
     "You are an expert interview evaluator. Given the job context, the question, "
@@ -44,6 +45,13 @@ _SCORE_SYSTEM = (
     "and evaluate only the genuine content that remains, using the rules above.\n\n"
     "Also judge whether a single follow-up on the same topic is warranted "
     "(follow_up_recommended), so the interviewer can adapt.\n\n"
+    "Reference key points: when the message lists the key points a strong answer "
+    "should cover, treat them as the gold standard for technical_relevance and "
+    "depth_accuracy — reward an answer that covers them and dock one that misses or "
+    "contradicts them. The list is guidance, not a checklist: a correct answer that "
+    "takes a valid alternative angle, or adds insight beyond the list, is still "
+    "strong — do not require verbatim matches. If no reference is given, grade "
+    "against the rubric alone.\n\n"
     "Score distribution: most interview answers are average. A competent but "
     "unremarkable answer scores 5-6. Scores of 8+ require genuine depth — "
     "tradeoffs, edge cases, failure modes — that most candidates do not provide. "
@@ -76,6 +84,7 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
     and does not commit, so the in-memory mutations are discarded cleanly).
     """
     is_first_message = len(session.messages) == 0
+    interview_plan = plan.resolve(session)
 
     session.messages.append({"role": "user", "content": message})
     flag_modified(session, "messages")
@@ -89,7 +98,10 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
         session.answers_given += 1
         answered_q = session.questions_asked
         answered_follow_up = session.followups_on_current > 0
-        score_data = await score_answer(session, profile)
+        # Grade against the answered question's blueprint slot (reference-guided).
+        # Follow-ups have no slot of their own; they reuse the current topic's slot.
+        answered_slot = interview_plan.slot_for(answered_q) if interview_plan else None
+        score_data = await score_answer(session, profile, slot=answered_slot)
 
     mode, follow_up_kind = progression.decide_next_turn(session, score_data)
 
@@ -105,7 +117,6 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
         # Follow-ups and the closing turn ignore the slot — they stay on the
         # current topic or wrap up.
         next_question_number = session.questions_asked + 1
-        interview_plan = plan.resolve(session)
         slot = (
             interview_plan.slot_for(next_question_number)
             if interview_plan and mode == prompt.MODE_MAIN
@@ -159,18 +170,31 @@ def _last_question(session) -> str | None:
     )
 
 
-async def score_answer(session, profile: JobProfile) -> ScoreData | None:
+def _reference_block(reference_points: tuple[str, ...]) -> str:
+    """Render the reference key points appended to the scorer's user message, or ''."""
+    if not reference_points:
+        return ""
+    bullets = "\n".join(f"- {point}" for point in reference_points)
+    return f"\n\nKey points a strong answer should cover:\n{bullets}"
+
+
+async def score_answer(
+    session, profile: JobProfile, slot: PlanSlot | None = None
+) -> ScoreData | None:
     """Score the candidate's most recent answer. Never raises (returns None).
 
     Called after the answer is appended but before the reply is generated, so the
     answer is the last message and the question is the most recent assistant turn.
+    `slot` is the blueprint slot for the answered question; its key points seed
+    reference-guided grading (absent for unplanned sessions).
     """
     user_answer = session.messages[-1]["content"]
     last_question = next(
         (m["content"] for m in reversed(session.messages[:-1]) if m["role"] == "assistant"),
         "",
     )
-    score_data = await score(profile, last_question, user_answer)
+    reference_points = slot.key_points if slot else ()
+    score_data = await score(profile, last_question, user_answer, reference_points=reference_points)
     if score_data is not None:
         logger.info(
             f"Score | session={session.session_id} | q={session.answers_given} | "
@@ -181,12 +205,19 @@ async def score_answer(session, profile: JobProfile) -> ScoreData | None:
     return score_data
 
 
-async def score(profile: JobProfile, question: str, answer: str) -> ScoreData | None:
+async def score(
+    profile: JobProfile,
+    question: str,
+    answer: str,
+    *,
+    reference_points: tuple[str, ...] = (),
+) -> ScoreData | None:
     """Score one answer against the rubric. Pure (no session/DB); never raises.
 
     The single scoring path, shared by the live interview (`score_answer`) and the
     offline eval harness (`evals/run_eval.py`), so the eval measures exactly what
-    production runs.
+    production runs. `reference_points` are the key points a strong answer should
+    cover; when present they ground the judgement (reference-guided scoring).
     """
     messages = [
         {
@@ -195,6 +226,7 @@ async def score(profile: JobProfile, question: str, answer: str) -> ScoreData | 
                 f"{job_profile.build_context(profile)}\n\n"
                 f"Interview question: {question}\n"
                 f"Candidate's answer: {answer}"
+                f"{_reference_block(reference_points)}"
             ),
         }
     ]

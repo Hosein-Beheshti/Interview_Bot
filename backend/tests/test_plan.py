@@ -92,3 +92,46 @@ def test_resolve_reads_session_column():
 def test_resolve_none_when_unplanned():
     assert plan.resolve(SimpleNamespace(interview_plan=None)) is None
     assert plan.resolve(SimpleNamespace(interview_plan={})) is None
+
+
+def test_parse_plan_keeps_key_points():
+    extracted = {
+        "slots": [
+            {
+                "skill": "Python",
+                "intent": "probe it",
+                "difficulty": "intermediate",
+                "key_points": ["generators", "GIL", "context managers"],
+            }
+        ]
+    }
+    result = plan.parse_plan(extracted, PROFILE, num_questions=1)
+    assert result.slots[0].key_points == ("generators", "GIL", "context managers")
+
+
+def test_parse_plan_cleans_caps_and_dedupes_key_points():
+    points = ["  a  ", "A", "", "b", "c", "d", "e", "f", "g"]  # dupes/blanks + overflow
+    extracted = {"slots": [{"skill": "x", "intent": "y", "key_points": points}]}
+    result = plan.parse_plan(extracted, PROFILE, num_questions=1)
+    kp = result.slots[0].key_points
+    assert kp[0] == "a" and "A" not in kp  # trimmed + case-insensitive dedupe
+    assert "" not in kp
+    assert len(kp) <= plan._MAX_KEY_POINTS
+
+
+def test_parse_plan_missing_key_points_defaults_empty():
+    result = plan.parse_plan({"slots": [_slot("Python")]}, PROFILE, num_questions=1)
+    assert result.slots[0].key_points == ()
+
+
+def test_padded_slots_have_no_key_points():
+    result = plan.parse_plan({"slots": []}, PROFILE, num_questions=2)
+    assert all(s.key_points == () for s in result.slots)
+
+
+def test_key_points_roundtrip_through_dict():
+    extracted = {
+        "slots": [{"skill": "Go", "intent": "z", "key_points": ["goroutines", "channels"]}]
+    }
+    result = plan.parse_plan(extracted, PROFILE, num_questions=1)
+    assert plan.InterviewPlan.from_dict(result.to_dict()) == result

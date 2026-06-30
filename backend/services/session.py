@@ -101,7 +101,7 @@ async def build_plan(profile: JobProfile, num_questions: int) -> InterviewPlan |
             plan.EXTRACT_SYSTEM,
             plan.build_extraction_messages(profile, num_questions),
             plan.PlanExtraction,
-            max_tokens=900,
+            max_tokens=1500,
             operation="build_plan",
         )
         return plan.parse_plan(extracted.model_dump(), profile, num_questions)
