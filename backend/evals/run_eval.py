@@ -344,7 +344,7 @@ async def calibrate(items: list[dict], runs: int, concurrency: int, dry_run: boo
     mids = [r["band_midpoint"] for r in scored]
     # Modal answer_type per item vs. the human label.
     modal_types = []
-    for idx, item in enumerate(items):
+    for idx in range(len(items)):
         types = [p[idx].score.answer_type for p in passes if p[idx].score]
         modal_types.append(max(set(types), key=types.count) if types else "")
     expected_types = [item["expected"]["answer_type"] for item in items]

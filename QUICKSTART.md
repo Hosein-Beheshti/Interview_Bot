@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.8+ (you have this)
+- Python 3.12+
 - Node.js 18+ (download from nodejs.org if needed)
 - Your Anthropic API key in `backend/.env`
 
@@ -10,8 +10,8 @@
 
 ```bash
 cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
+pip install -e .          # installs the interview_bot package + deps
+uvicorn interview_bot.api.app:app --reload
 ```
 
 Backend runs at: **http://localhost:8000**
@@ -36,7 +36,7 @@ Open http://localhost:5173 in your browser — the chat interface is ready.
 
 ## Full Flow
 
-1. **Backend terminal:** `cd backend && uvicorn main:app --reload`
+1. **Backend terminal:** `cd backend && uvicorn interview_bot.api.app:app --reload`
 2. **Frontend terminal:** `cd frontend && npm install && npm run dev`
 3. **Browser:** Open http://localhost:5173
 4. Click **Start Interview**

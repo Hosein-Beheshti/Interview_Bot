@@ -43,35 +43,41 @@ This keeps the LLM responsible for *language* and the server responsible for *co
 
 ## Project Structure
 
+The backend is an installable package (`src/interview_bot/`) organized by a
+**pure core, imperative shell** rule — dependencies point inward, and it's
+enforced mechanically by import-linter, not by convention:
+
 ```
+backend/src/interview_bot/
+  domain/          PURE. no network, I/O, clock, or env — zero-mock testable
+    progression.py   server-authoritative interview FSM (turn decisions)
+    rubric.py        data-driven scoring rubric + weighted overall + RUBRIC_VERSION
+    evaluation.py    ScoreData + parse/validate model scores (incl. critique)
+    job_profile.py   structured job profile + prompt-ready context
+    plan.py          interview blueprint (one slot per main question)
+    summary.py       result aggregation
+  prompts/         versioned prompt templates + pure render functions
+    interviewer prompts, scoring prompt (+ PROMPT_VERSION), extraction prompts
+  llm/             the transport waist + the one earned provider abstraction
+    transport.py     record/replay seam (deterministic offline runs)
+    provider.py      LLMProvider ABC; anthropic.py / gemini.py; registry.py
+  integrations/    non-LLM vendor adapters (Voyage embeddings, Deepgram speech, CV parsing)
+  retrieval/       RAG (chunk → embed → pgvector search)
+  pipeline/        imperative shell: orchestration (run a turn) + session lifecycle
+  api/             FastAPI app, routes, request/response DTOs
+  persistence/     SQLAlchemy engine, ORM models, migrations, vector store, session CRUD
+  telemetry/       structured tracing seam (tokens, cost, latency, versions)
+  config.py        single validated settings object   logger.py   cli.py
 backend/
-  routes/          FastAPI endpoints (chat, sessions, cv, voice, health)
-  services/
-    session.py     Session lifecycle: creation, lookup, profile resolution
-    interview/     The interview domain (pure-ish business logic)
-      orchestration.py  Runs one turn: score → decide → generate
-      progression.py    Server-authoritative interview state machine
-      prompt.py         Mode-aware system prompts
-      rubric.py         Data-driven scoring rubric + structured-output schema
-      evaluation.py     Validates & parses model scores (incl. critique field)
-      job_profile.py    Structured job-profile extraction
-      summary.py        Server-side result aggregation
-    integrations/  Vendor adapters (the only code that knows the vendors)
-      llm.py            Provider-agnostic LLM facade (generate, generate_structured, parse)
-      providers/        Anthropic and Gemini backends
-      embeddings.py     Voyage embeddings
-      speech.py         Deepgram STT + TTS
-      rag.py / vector_store.py / cv_parser.py   CV ingestion & retrieval
-  models/          SQLAlchemy models & Pydantic schemas
-  tests/           Pytest unit suite
-  evals/           Offline scorer evaluation harness
-    golden_set.json  Human-reviewed test cases (24 items, tagged by difficulty)
-    run_eval.py      CI-runnable harness with in-band, accuracy, and adversarial gates
-frontend/
-  src/             React app (chat UI, voice, CV upload)
+  tests/unit + tests/contract   pure unit tests + cassette-backed offline tests
+  fixtures/ (CVs, cassettes' recordings, scenarios)   cassettes/   scripts/
+  evals/           first-class scorer eval: golden set, metrics, calibration
+frontend/src/      React app (chat UI, voice, CV upload)
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for a file-by-file explanation of how these fit together.
+See **[docs/architecture.md](docs/architecture.md)** for the full module map, the
+dependency rule, and the determinism story. (The older
+[ARCHITECTURE.md](ARCHITECTURE.md) is a narrative deep-dive kept for background.)
 
 ## Getting Started
 
@@ -93,6 +99,15 @@ docker-compose up --build
 ```
 
 Then open **http://localhost:5173**. The API runs at **http://localhost:8000** (interactive docs at `/docs`).
+
+**Backend only, without Docker:**
+
+```bash
+cd backend
+make install     # editable install + dev tooling
+make test        # offline fast tier — no keys, no network, no DB
+make dev         # run the API (needs DATABASE_URL + a provider key)
+```
 
 ## Configuration
 
@@ -127,27 +142,54 @@ All application routes are under `/api`.
 | `POST` | `/api/speak` | Text-to-speech (Deepgram) |
 | `GET` | `/health` | Health check |
 
+## Determinism & measurement
+
+A nondeterministic system (LLM calls) is made **reproducible and measurable** so
+a refactor can't silently change behavior:
+
+- **Record/replay seam.** Every model-provider call funnels through one transport
+  waist (`llm/transport.py`). `record` mode captures each request/response/latency/
+  token-count to a content-hashed cassette; `replay` serves them from disk with
+  **no network and no API keys**. The request's canonical bytes are the cassette
+  identity, so any prompt drift misses its cassette and fails loudly.
+- **Behavior freeze.** Contract tests run the full pipeline under replay and assert
+  byte-identical golden outputs, **exact assembled prompt bytes**, and FSM
+  trajectories — all offline, in seconds. An unintended prompt change fails the
+  snapshot loudly and requires an explicit update.
+- **Versioned prompts & rubric.** `PROMPT_VERSION` and `RUBRIC_VERSION` are derived
+  from their own content, so they change automatically when the prompt or rubric
+  changes. Every scoring call emits both on its trace, so a score is always
+  traceable to what produced it — results across versions are never silently compared.
+- **Telemetry by default.** Every LLM call emits provider, model, tokens in/out,
+  cost, latency, and prompt/rubric version.
+
 ## Testing
 
 ```bash
 cd backend
-pytest
+make test        # offline fast tier: ruff + mypy + import-linter + pytest under replay
+make test-fast   # just the tests (unit + contract), offline, no keys
 ```
 
-The unit suite covers scoring/parsing (incl. critique field), the progression state machine, prompt rendering, summary aggregation, and job-profile extraction.
+`make test` needs no API keys, no network, and no database. The unit suite covers
+scoring/parsing (incl. the critique field), the progression FSM, prompt rendering,
+summary aggregation, job-profile extraction, and the eval metrics; the contract
+suite freezes full-pipeline outputs, prompts, and trajectories under replay.
 
-### Scorer evaluation
-
-An offline eval harness measures scoring calibration against a human-reviewed golden set:
+### Scorer evaluation (needs API keys)
 
 ```bash
 cd backend
-python -m evals.run_eval                   # full 24-item golden set
-python -m evals.run_eval --limit 5         # smoke test (cheap)
-python -m evals.run_eval --json-out report.json
+make eval                                   # full golden set through the live scorer
+python -m evals.run_eval --limit 5          # cheap smoke test
+python -m evals.run_eval --json-out report.json          # versioned results artifact
+python -m evals.run_eval --calibrate 5 --json-out cal.json   # judge self-consistency + agreement
 ```
 
-Quality gates: ≥70% in-band overall rate, ≥75% `answer_type` classification accuracy, 0 adversarial hard-fails. The golden set covers strong/good/partial/no-answer tiers, confidently-wrong answers, prompt-injection attempts, and dimension-divergence edge cases.
+Quality gates: ≥70% in-band overall rate, ≥75% `answer_type` accuracy, 0 adversarial
+hard-fails. The results artifact records model, prompt/rubric version, and per-item
+cost/latency. See **[docs/evaluation.md](docs/evaluation.md)** for what's measured,
+the calibration metrics, and known limits.
 
 ## Deployment
 
