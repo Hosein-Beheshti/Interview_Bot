@@ -1,9 +1,14 @@
-"""System prompts for the interviewer LLM."""
+"""Interviewer turn prompts: the stable per-session prefix and the per-turn
+instruction the model must obey.
+
+Pure rendering over domain types. Paired with `interview_bot.domain.progression`
+(which decides the mode) and `interview_bot.pipeline.interview` (which assembles
+and sends the turn).
+"""
 from __future__ import annotations
 
-from interview_bot.domain import job_profile
-from interview_bot.domain.job_profile import JobProfile
 from interview_bot.domain.plan import PlanSlot
+from interview_bot.domain.profile import JobProfile, build_context
 
 # The turn modes are the FSM's output states, owned by the domain. Re-exported
 # here so prompt callers can render the instruction that matches each mode.
@@ -53,7 +58,7 @@ def build_stable_prompt(
     role = profile.role
     base = f"""You are a concise technical interviewer for a {role} position.
 
-{job_profile.build_context(profile)}
+{build_context(profile)}
 
 Rules:
 - The interview covers exactly {num_questions} distinct main technical questions, asked one at a time

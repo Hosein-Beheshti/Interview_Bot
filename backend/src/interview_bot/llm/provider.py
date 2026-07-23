@@ -2,7 +2,7 @@
 
 Every backend (Claude, Gemini, …) implements `LLMProvider`. The rest of the app
 only ever calls the three methods declared here, so swapping providers is a
-config change, never a code change. See `services/integrations/llm.py` for the
+config change, never a code change. See `interview_bot.llm` (the facade) for the
 facade the app actually imports.
 """
 from __future__ import annotations

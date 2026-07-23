@@ -10,8 +10,10 @@ from interview_bot.api.schemas import (
     SessionCreateRequest,
     SessionCreateResponse,
 )
+from interview_bot.persistence import sessions as session_store
 from interview_bot.persistence.database import get_db
-from interview_bot.pipeline import session as session_service
+from interview_bot.pipeline.plan import build_plan
+from interview_bot.pipeline.profile import build_profile
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -20,9 +22,9 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 async def create_session(
     request: SessionCreateRequest, db: Session = Depends(get_db)
 ) -> SessionCreateResponse:
-    profile = await session_service.build_profile(request.job_context)
-    interview_plan = await session_service.build_plan(profile, request.num_questions)
-    session = session_service.create(
+    profile = await build_profile(request.job_context)
+    interview_plan = await build_plan(profile, request.num_questions)
+    session = session_store.create(
         db,
         profile=profile,
         num_questions=request.num_questions,

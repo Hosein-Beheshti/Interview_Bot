@@ -6,9 +6,9 @@ scorer's control signals, so it is exercised here without any LLM or DB calls.
 from types import SimpleNamespace
 
 from interview_bot.config import settings
-from interview_bot.domain.evaluation import ScoreData
 from interview_bot.domain.progression import apply_turn, decide_next_turn
-from interview_bot.prompts import prompt
+from interview_bot.domain.scoring import ScoreData
+from interview_bot.prompts import interviewer as prompt
 
 
 def _session(questions_asked=1, followups_on_current=0, num_questions=5):

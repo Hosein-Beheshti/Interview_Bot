@@ -7,7 +7,7 @@ records/verifies the cassettes) and the contract tests import from here, so the
 tests exercise exactly the code that produced the fixtures.
 
 `run_scenario` talks to model providers only through the transport waist
-(`services.integrations.transport`), so under `transport_mode="replay"` it runs
+(`interview_bot.llm.transport`), so under `transport_mode="replay"` it runs
 fully offline with no API keys. Scenarios use distinct roles/CVs on purpose:
 identical requests share one cassette slot, so two trajectories must never
 assemble the same prompt.
@@ -21,8 +21,9 @@ from pathlib import Path
 from interview_bot.cli import _new_session
 from interview_bot.config import settings
 from interview_bot.integrations import cv_parser, embeddings
-from interview_bot.pipeline import orchestration
-from interview_bot.pipeline import session as session_service
+from interview_bot.pipeline import interview
+from interview_bot.pipeline.plan import build_plan
+from interview_bot.pipeline.profile import build_profile
 from interview_bot.retrieval import rag
 
 KICKOFF = "Hello, I'm ready to begin the interview."
@@ -204,8 +205,8 @@ async def run_scenario(scenario: Scenario) -> dict:
     is served from cassettes, so identical cassettes yield an identical dict —
     which is what the golden-output and FSM-trajectory tests assert on.
     """
-    profile = await session_service.build_profile(scenario.job_description)
-    interview_plan = await session_service.build_plan(profile, scenario.num_questions)
+    profile = await build_profile(scenario.job_description)
+    interview_plan = await build_plan(profile, scenario.num_questions)
 
     cv_path = CV_DIR / scenario.cv_file
     parsed = cv_parser.parse(cv_path.name, cv_path.read_bytes())
@@ -234,7 +235,7 @@ async def run_scenario(scenario: Scenario) -> dict:
     # Budget: each main question can add at most `max_followups_per_question`
     # extra turns, plus the kickoff and closing turns.
     for _ in range(scenario.num_questions * (1 + settings.max_followups_per_question) + 2):
-        result = await orchestration.run_turn(session, message, profile)
+        result = await interview.run_turn(session, message, profile)
         score = result.score_data
         transcript.append(
             {

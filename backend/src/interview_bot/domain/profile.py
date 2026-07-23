@@ -1,18 +1,18 @@
 """Structured job profile derived from free-text job context.
 
 A user pastes anything they have about a role — title, company, the full job
-description, a bullet list of requirements. `services/session.py` turns that into
+description, a bullet list of requirements. `interview_bot.pipeline.session` turns that into
 a `JobProfile`, which then drives both question generation and scoring.
 
-This module owns the shape of that profile: the extraction schema, parsing and
-validation of the model's output, graceful fallbacks for thin input, and the
-formatting of the profile into a prompt-ready context block. It is pure of I/O.
+This module owns the normalized profile type and its logic: parsing/validating
+the model's output, graceful fallbacks for thin input, and formatting the profile
+into a prompt-ready context block. It is pure of I/O. The extraction prompt and
+its LLM I/O model live in `interview_bot.prompts.profile`; the extraction call in
+`interview_bot.pipeline.profile`.
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-
-from pydantic import BaseModel, Field
 
 # Cap list lengths so a verbose extraction can't bloat every downstream prompt.
 _MAX_SKILLS = 12
@@ -44,44 +44,6 @@ class JobProfile:
             key_skills=tuple(data.get("key_skills") or ()),
             focus_areas=tuple(data.get("focus_areas") or ()),
         )
-
-
-class ProfileExtraction(BaseModel):
-    """The shape the model fills when extracting a profile from job context.
-
-    The LLM-I/O contract (one of three intentionally distinct profile shapes:
-    this for extraction, `JobProfile` for the domain, `JobProfileSchema` for the
-    API response). Delivered to the API as a structured-output format via
-    `messages.parse`. Normalization (dedupe, caps, blank handling, fallback role)
-    lives in `parse_profile`.
-    """
-
-    role: str = Field(
-        description="The job title being interviewed for, e.g. 'Senior Backend Engineer'."
-    )
-    company: str | None = Field(
-        default=None, description="Company name if stated, otherwise null."
-    )
-    seniority: str | None = Field(
-        default=None,
-        description="Seniority level if inferable, e.g. 'junior', 'mid', 'senior', 'staff'.",
-    )
-    key_skills: list[str] = Field(
-        default_factory=list,
-        description="Specific skills, tools, or technologies the role requires and that questions should test.",
-    )
-    focus_areas: list[str] = Field(
-        default_factory=list,
-        description="Broader competency areas to probe, e.g. 'system design', 'team leadership'.",
-    )
-
-
-EXTRACT_SYSTEM = (
-    "You extract a concise, structured interview profile from whatever job "
-    "information the user provides (title, company, description, requirements). "
-    "Infer sensible values when details are implicit, but never invent a company "
-    "name that isn't present."
-)
 
 
 def minimal(role: str) -> JobProfile:

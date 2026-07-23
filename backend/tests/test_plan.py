@@ -2,7 +2,7 @@
 from types import SimpleNamespace
 
 from interview_bot.domain import plan
-from interview_bot.domain.job_profile import JobProfile, minimal
+from interview_bot.domain.profile import JobProfile, minimal
 
 PROFILE = JobProfile(
     role="Backend Engineer",

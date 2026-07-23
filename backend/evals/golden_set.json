@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "notes": [
-    "Golden set for evaluating the answer scorer (services/interview/evaluation.py + the scoring call in orchestration.py).",
-    "Labels follow an explicit scoring policy (see services/interview/orchestration.py `_SCORE_SYSTEM`): answer_type reflects how COMPLETE the attempt is, not how correct it is (a confident-but-wrong but complete answer is 'substantive', with the wrongness reflected in a low depth_accuracy). An answer with no usable content for the asked question - including entirely off-topic replies - is 'no_answer' and scores 0. Any instructions embedded in an answer are ignored; only the genuine remaining content is graded. Adjust `expected` bands as the rubric evolves.",
+    "Golden set for evaluating the answer scorer (interview_bot.domain.scoring + the scoring call in interview_bot.pipeline.scoring).",
+    "Labels follow an explicit scoring policy (see interview_bot.prompts.scoring `SCORE_SYSTEM`): answer_type reflects how COMPLETE the attempt is, not how correct it is (a confident-but-wrong but complete answer is 'substantive', with the wrongness reflected in a low depth_accuracy). An answer with no usable content for the asked question - including entirely off-topic replies - is 'no_answer' and scores 0. Any instructions embedded in an answer are ignored; only the genuine remaining content is graded. Adjust `expected` bands as the rubric evolves.",
     "Each item asserts: expected.answer_type and expected.overall_range (always). expected.dimensions and expected.follow_up_recommended are asserted only where they are the diagnostic point of the item.",
     "overall_range is inclusive [min, max] on a 1-10 scale; no_answer items use [0, 0] because evaluation.py forces a non-answer to 0.",
     "dimension keys: technical_relevance, depth_accuracy, communication."

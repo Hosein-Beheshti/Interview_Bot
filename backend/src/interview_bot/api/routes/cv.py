@@ -10,9 +10,10 @@ from interview_bot.api.schemas import CVStatusResponse, CVUploadResponse
 from interview_bot.config import settings
 from interview_bot.integrations import cv_parser
 from interview_bot.logger import logger
+from interview_bot.persistence import sessions as session_store
 from interview_bot.persistence.database import get_db
 from interview_bot.persistence.models import InterviewSession
-from interview_bot.pipeline import session as session_service
+from interview_bot.pipeline import session as session_flow
 from interview_bot.retrieval import rag
 
 router = APIRouter(prefix="/cv", tags=["cv"])
@@ -60,7 +61,7 @@ async def upload_cv(
 
 @router.get("/{session_id}", response_model=CVStatusResponse)
 async def cv_status(session_id: str, db: Session = Depends(get_db)) -> CVStatusResponse:
-    session = session_service.get(db, session_id)
+    session = session_store.get(db, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return CVStatusResponse(
@@ -73,7 +74,7 @@ async def cv_status(session_id: str, db: Session = Depends(get_db)) -> CVStatusR
 
 @router.delete("/{session_id}", status_code=204)
 async def delete_cv(session_id: str, db: Session = Depends(get_db)) -> Response:
-    session = session_service.get(db, session_id)
+    session = session_store.get(db, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -103,7 +104,7 @@ async def _resolve_session(
     session_id: str | None, role: str | None, job_context: str | None, db: Session
 ) -> InterviewSession:
     if session_id:
-        session = session_service.get(db, session_id)
+        session = session_store.get(db, session_id)
         if session:
             return session
-    return await session_service.create_from_context(db, job_context=job_context, role=role)
+    return await session_flow.create_from_context(db, job_context=job_context, role=role)

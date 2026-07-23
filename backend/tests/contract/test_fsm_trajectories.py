@@ -19,8 +19,8 @@ from fixtures.scenarios import RECORDINGS_DIR, SCENARIOS, run_scenario
 
 from interview_bot.config import settings
 from interview_bot.domain import progression
-from interview_bot.domain.evaluation import ScoreData
-from interview_bot.prompts import prompt
+from interview_bot.domain.scoring import ScoreData
+from interview_bot.prompts import interviewer as prompt
 
 _IDS = [s.name for s in SCENARIOS]
 

@@ -1,62 +1,22 @@
-"""Interview session lifecycle: creation, lookup, and profile resolution.
+"""Interview-session setup flow.
 
-The single home for how a session is born and fetched. Routes own HTTP policy
-(e.g. 404 vs. create-new); this module owns the persistence and profile mechanics.
+Composes the async, LLM-backed steps that turn a pasted job description into a
+persisted, ready-to-run session: extract the profile, design the plan, insert the
+row. Plain persistence (fetch/insert) lives in
+`interview_bot.persistence.sessions`; the extraction calls in
+`interview_bot.pipeline.profile` / `interview_bot.pipeline.plan`.
 """
 from __future__ import annotations
 
-import uuid
-
 from sqlalchemy.orm import Session
 
-from interview_bot import llm
 from interview_bot.config import settings
-from interview_bot.domain import job_profile, plan
-from interview_bot.domain.job_profile import JobProfile, ProfileExtraction
-from interview_bot.domain.plan import InterviewPlan
-from interview_bot.logger import logger
+from interview_bot.domain.profile import minimal
+from interview_bot.persistence import sessions as store
 from interview_bot.persistence.models import InterviewSession
+from interview_bot.pipeline.plan import build_plan
+from interview_bot.pipeline.profile import build_profile
 from interview_bot.telemetry import observe_turn, set_session
-
-
-def get(db: Session, session_id: str, *, lock: bool = False) -> InterviewSession | None:
-    """Fetch a session by id. `lock=True` takes a row lock for the transaction."""
-    query = db.query(InterviewSession).filter(InterviewSession.session_id == session_id)
-    if lock:
-        query = query.with_for_update()
-    return query.first()
-
-
-def create(
-    db: Session,
-    *,
-    profile: JobProfile,
-    num_questions: int | None = None,
-    job_context: str | None = None,
-    interview_plan: InterviewPlan | None = None,
-) -> InterviewSession:
-    """Persist a new session for the given profile (num_questions: model default if None)."""
-    session = InterviewSession(
-        session_id=str(uuid.uuid4()),
-        role=profile.role,
-        messages=[],
-        job_context=job_context,
-        job_profile=profile.to_dict(),
-    )
-    if num_questions is not None:
-        session.num_questions = num_questions
-    if interview_plan is not None:
-        session.interview_plan = interview_plan.to_dict()
-
-    db.add(session)
-    db.commit()
-    db.refresh(session)
-    logger.info(
-        f"Session created | id={session.session_id} | role={profile.role} | "
-        f"skills={len(profile.key_skills)} | questions={session.num_questions} | "
-        f"planned={interview_plan is not None}"
-    )
-    return session
 
 
 async def create_from_context(
@@ -76,9 +36,9 @@ async def create_from_context(
         if job_context:
             profile = await build_profile(job_context)
         else:
-            profile = job_profile.minimal(role or settings.default_role)
+            profile = minimal(role or settings.default_role)
         interview_plan = await build_plan(profile, resolved_questions)
-        session = create(
+        session = store.create(
             db,
             profile=profile,
             num_questions=resolved_questions,
@@ -87,54 +47,3 @@ async def create_from_context(
         )
         set_session(session.session_id)
         return session
-
-
-async def build_plan(profile: JobProfile, num_questions: int) -> InterviewPlan | None:
-    """Generate the coverage blueprint, degrading to None (unplanned) on failure.
-
-    A None plan is not an error path the caller must handle specially: the
-    interviewer simply falls back to choosing main-question topics itself, exactly
-    as it did before plans existed.
-    """
-    try:
-        extracted = await llm.parse(
-            plan.EXTRACT_SYSTEM,
-            plan.build_extraction_messages(profile, num_questions),
-            plan.PlanExtraction,
-            max_tokens=1500,
-            operation="build_plan",
-        )
-        return plan.parse_plan(extracted.model_dump(), profile, num_questions)
-    except Exception as e:
-        logger.warning(
-            f"Plan generation failed, proceeding without a plan | "
-            f"error_type={type(e).__name__} | error={e}"
-        )
-        return None
-
-
-async def build_profile(job_context: str) -> JobProfile:
-    """Extract a structured profile from free text, degrading to role-only on failure."""
-    try:
-        extracted = await llm.parse(
-            job_profile.EXTRACT_SYSTEM,
-            [{"role": "user", "content": job_context}],
-            ProfileExtraction,
-            operation="extract_profile",
-        )
-        return job_profile.parse_profile(
-            extracted.model_dump(), fallback_role=settings.default_role
-        )
-    except Exception as e:
-        logger.warning(
-            f"Job profile extraction failed, using fallback | "
-            f"error_type={type(e).__name__} | error={e}"
-        )
-        return job_profile.minimal(settings.default_role)
-
-
-def resolve_profile(session: InterviewSession) -> JobProfile:
-    """Reconstruct the session's JobProfile, falling back to a role-only profile."""
-    if session.job_profile:
-        return JobProfile.from_dict(session.job_profile)
-    return job_profile.minimal(session.role)

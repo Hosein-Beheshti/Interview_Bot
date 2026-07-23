@@ -1,6 +1,6 @@
 """Offline evaluation harness for the answer scorer.
 
-Runs the production scoring path (`services.interview.orchestration.score`) over a
+Runs the production scoring path (`interview_bot.pipeline.scoring.score`) over a
 human-reviewed golden set and reports calibration metrics: how often the overall
 score lands in the expected band, mean absolute error vs. the band midpoint,
 answer-type accuracy (with a confusion matrix), and per-dimension band checks.
@@ -33,10 +33,10 @@ from pathlib import Path
 
 from evals import metrics
 from interview_bot.config import settings
-from interview_bot.domain.evaluation import ScoreData
-from interview_bot.domain.job_profile import minimal
+from interview_bot.domain.profile import minimal
 from interview_bot.domain.rubric import DEFAULT_RUBRIC, RUBRIC_VERSION
-from interview_bot.pipeline import orchestration
+from interview_bot.domain.scoring import ScoreData
+from interview_bot.pipeline import scoring
 from interview_bot.prompts.scoring import PROMPT_VERSION
 from interview_bot.telemetry import capture_generation_usage
 
@@ -183,9 +183,9 @@ async def _score_item(item: dict, semaphore: asyncio.Semaphore, dry_run: bool) -
         # results artifact carries real cost data, not estimates.
         with capture_generation_usage() as usage:
             started = time.perf_counter()
-            score = await orchestration.score(profile, item["question"], item["answer"])
+            score = await scoring.score(profile, item["question"], item["answer"])
             if score is None:
-                score = await orchestration.score(profile, item["question"], item["answer"])
+                score = await scoring.score(profile, item["question"], item["answer"])
             latency_ms = round((time.perf_counter() - started) * 1000, 1)
         return _Scored(
             score=score,

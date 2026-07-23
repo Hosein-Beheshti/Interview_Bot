@@ -5,7 +5,7 @@ The rest of the app imports `llm.generate`, `llm.generate_structured`, and
 backend `settings.llm_provider` selects (Claude, Gemini, …). Switching providers
 is a config change: set LLM_PROVIDER and the matching API key; nothing here or
 upstream changes. To add a backend, implement `LLMProvider` under
-`services/integrations/providers/` and register it there.
+`interview_bot/llm/` and register it in registry.py.
 """
 from __future__ import annotations
 

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from .evaluation import ScoreData
+from .scoring import ScoreData
 
 # Interview turn modes — the FSM's output states. The interviewer prompt renders
 # the matching instruction; the model never owns progression. Defined here (the

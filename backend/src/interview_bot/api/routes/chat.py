@@ -15,12 +15,13 @@ from interview_bot.api.schemas import (
 )
 from interview_bot.config import settings
 from interview_bot.domain import rubric
-from interview_bot.domain.evaluation import ScoreData
+from interview_bot.domain.scoring import ScoreData
 from interview_bot.logger import logger
+from interview_bot.persistence import sessions as session_store
 from interview_bot.persistence.database import get_db
-from interview_bot.pipeline import orchestration
-from interview_bot.pipeline import session as session_service
-from interview_bot.pipeline.orchestration import InterviewError
+from interview_bot.pipeline import interview
+from interview_bot.pipeline import session as session_flow
+from interview_bot.pipeline.interview import InterviewError
 from interview_bot.telemetry import observe_turn
 
 router = APIRouter()
@@ -34,7 +35,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
     if session.status == "complete":
         raise HTTPException(status_code=400, detail="Interview already completed")
 
-    profile = session_service.resolve_profile(session)
+    profile = session_store.resolve_profile(session)
     try:
         async with observe_turn(
             "interview_turn",
@@ -42,7 +43,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
             input={"message": request.message},
             metadata={"role": session.role, "has_cv": session.has_cv, "status": session.status},
         ):
-            result = await orchestration.run_turn(session, request.message, profile)
+            result = await interview.run_turn(session, request.message, profile)
     except InterviewError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
@@ -66,11 +67,11 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
 async def _resolve_session(request: ChatRequest, db: Session):
     """Existing session (locked, 404 if missing) or a lazily-created one."""
     if request.session_id:
-        session = session_service.get(db, request.session_id, lock=True)
+        session = session_store.get(db, request.session_id, lock=True)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         return session
-    return await session_service.create_from_context(
+    return await session_flow.create_from_context(
         db,
         job_context=request.job_context,
         role=request.role,

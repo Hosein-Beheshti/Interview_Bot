@@ -1,7 +1,7 @@
-"""Tests for mode-aware interviewer prompt rendering (services/interview/prompt.py)."""
-from interview_bot.domain.job_profile import minimal
+"""Tests for interviewer prompt rendering (prompts/interviewer.py)."""
 from interview_bot.domain.plan import PlanSlot
-from interview_bot.prompts import prompt
+from interview_bot.domain.profile import minimal
+from interview_bot.prompts import interviewer as prompt
 
 PROFILE = minimal("Backend Engineer")
 

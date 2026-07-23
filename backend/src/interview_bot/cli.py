@@ -1,6 +1,6 @@
 """Terminal harness for running a full interview without the web/DB/UI stack.
 
-Drives the real interview engine (`services.interview.orchestration.run_turn`)
+Drives the real interview engine (`interview_bot.pipeline.interview.run_turn`)
 against an in-memory session, so you can iterate on prompts, scoring, and the
 chosen LLM provider straight from the shell:
 
@@ -26,12 +26,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from interview_bot.config import settings
-from interview_bot.domain import job_profile
+from interview_bot.domain.profile import minimal
 from interview_bot.integrations import cv_parser
 from interview_bot.logger import logger
 from interview_bot.persistence.models import InterviewSession
-from interview_bot.pipeline import orchestration
-from interview_bot.pipeline import session as session_service
+from interview_bot.pipeline import interview
+from interview_bot.pipeline.plan import build_plan
+from interview_bot.pipeline.profile import build_profile
 from interview_bot.telemetry import observe_turn
 from interview_bot.telemetry import shutdown as observability_shutdown
 
@@ -121,8 +122,8 @@ def _print_summary(summary: dict) -> None:
 async def _build_profile(role: str | None, job_context: str | None):
     if job_context:
         print(f"{DIM}Extracting a job profile from the description…{RESET}")
-        return await session_service.build_profile(job_context)
-    return job_profile.minimal(role or settings.default_role)
+        return await build_profile(job_context)
+    return minimal(role or settings.default_role)
 
 
 async def run_interview(role, job_context, num_questions, cv) -> None:
@@ -133,7 +134,7 @@ async def run_interview(role, job_context, num_questions, cv) -> None:
     async with observe_turn("session_create", session_id=session_id, metadata={"source": "cli"}):
         profile = await _build_profile(role, job_context)
         print(f"{DIM}Designing the interview plan…{RESET}")
-        interview_plan = await session_service.build_plan(profile, num_questions)
+        interview_plan = await build_plan(profile, num_questions)
 
     session = _new_session(session_id, profile, num_questions, cv, interview_plan)
 
@@ -161,8 +162,8 @@ async def run_interview(role, job_context, num_questions, cv) -> None:
             metadata={"source": "cli", "role": profile.role, "has_cv": session.has_cv},
         ):
             try:
-                result = await orchestration.run_turn(session, message, profile)
-            except orchestration.InterviewError as e:
+                result = await interview.run_turn(session, message, profile)
+            except interview.InterviewError as e:
                 print(f"{YELLOW}Interview engine error: {e}{RESET}")
                 return
 

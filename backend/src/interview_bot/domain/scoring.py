@@ -16,7 +16,7 @@ class ScoreData:
     dimensions: dict[str, int] = field(default_factory=dict)
     strengths: list[str] = field(default_factory=list)
     improvements: list[str] = field(default_factory=list)
-    # Control signals that drive interview progression (see orchestration.py).
+    # Control signals that drive interview progression (see pipeline/interview.py).
     answer_type: str = "substantive"
     follow_up_recommended: bool = False
     # Evaluator chain-of-thought: written before scores to anchor calibration.

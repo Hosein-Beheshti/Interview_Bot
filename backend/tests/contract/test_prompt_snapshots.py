@@ -22,11 +22,13 @@ import json
 
 from fixtures.scenarios import run_scenario, scenario_by_name
 
-from interview_bot.domain import job_profile, plan, rubric
-from interview_bot.domain.job_profile import JobProfile
+from interview_bot.domain import profile, rubric
 from interview_bot.domain.plan import PlanSlot
+from interview_bot.domain.profile import JobProfile
 from interview_bot.llm import transport
-from interview_bot.prompts import prompt
+from interview_bot.prompts import interviewer as prompt
+from interview_bot.prompts import plan as plan_prompt
+from interview_bot.prompts import profile as profile_prompt
 from interview_bot.prompts import scoring as score_prompt
 
 from ._snapshot import assert_json_snapshot, assert_snapshot
@@ -105,7 +107,7 @@ def test_snapshot_full_system_prompt_assembly():
 
 
 def test_snapshot_job_context_block():
-    assert_snapshot("job_context", job_profile.build_context(_PROFILE))
+    assert_snapshot("job_context", profile.build_context(_PROFILE))
 
 
 def test_snapshot_rubric_description():
@@ -120,8 +122,8 @@ def test_snapshot_constant_system_prompts():
     constants = {
         "score_system": score_prompt.SCORE_SYSTEM,
         "score_cache_prefix": score_prompt.SCORE_CACHE_PREFIX,
-        "profile_extract_system": job_profile.EXTRACT_SYSTEM,
-        "plan_extract_system": plan.EXTRACT_SYSTEM,
+        "profile_extract_system": profile_prompt.EXTRACT_SYSTEM,
+        "plan_extract_system": plan_prompt.EXTRACT_SYSTEM,
     }
     rendered = "\n\n".join(f"### {k}\n{v}" for k, v in constants.items())
     assert_snapshot("constant_system_prompts", rendered)

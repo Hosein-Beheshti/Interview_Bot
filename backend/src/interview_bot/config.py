@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # Which LLM backend to use. Picks the provider implementation in
-    # services/integrations/providers/. Add a new provider there and select it
+    # interview_bot/llm/ (registry.py). Add a new provider there and select it
     # here (or via the LLM_PROVIDER env var) — no other code changes needed.
     llm_provider: str = "anthropic"  # "anthropic" | "gemini"
 
