@@ -26,15 +26,42 @@ import asyncio
 import json
 import statistics
 import sys
+import time
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
+from evals import metrics
+from interview_bot.config import settings
 from interview_bot.domain.evaluation import ScoreData
 from interview_bot.domain.job_profile import minimal
-from interview_bot.domain.rubric import DEFAULT_RUBRIC
+from interview_bot.domain.rubric import DEFAULT_RUBRIC, RUBRIC_VERSION
 from interview_bot.pipeline import orchestration
+from interview_bot.prompts.scoring import PROMPT_VERSION
+from interview_bot.telemetry import capture_generation_usage
 
 GOLDEN_SET = Path(__file__).parent / "golden_set.json"
+
+
+def _active_model() -> str:
+    return settings.gemini_model if settings.llm_provider == "gemini" else settings.model
+
+
+def run_meta() -> dict:
+    """Provenance stamped onto every results artifact — the versions a score is
+    only comparable within, plus the model that produced it.
+    """
+    return {
+        "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "provider": settings.llm_provider,
+        "model": _active_model(),
+        "prompt_version": PROMPT_VERSION,
+        "rubric_version": RUBRIC_VERSION,
+        # The golden bands are human-authored; this run uses no LLM-generated
+        # reference key points, so nothing synthetic acts as ground truth here.
+        "ground_truth": "human-reviewed golden bands",
+        "reference_key_points": "none (not used in eval scoring)",
+    }
 
 # Default quality gates (override on the CLI). Bands are wide and scoring is
 # subjective, so these are deliberately lenient — they catch regressions, not
@@ -57,6 +84,10 @@ class ItemResult:
     hard_fail: bool = False
     abs_error: float | None = None
     notes: list[str] = field(default_factory=list)
+    # Cost/latency provenance, captured per item (None under --dry-run).
+    latency_ms: float | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
 
     @property
     def passed(self) -> bool:
@@ -131,25 +162,48 @@ def _fake_score(item: dict) -> ScoreData:
     )
 
 
-async def _score_item(item: dict, semaphore: asyncio.Semaphore, dry_run: bool) -> ScoreData | None:
+@dataclass
+class _Scored:
+    score: ScoreData | None
+    latency_ms: float | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+
+
+async def _score_item(item: dict, semaphore: asyncio.Semaphore, dry_run: bool) -> _Scored:
     if dry_run:
-        return _fake_score(item)
+        return _Scored(score=_fake_score(item))
     async with semaphore:
         profile = minimal(item["role"])
         # `score` never raises — it returns None on any failure, including a
         # transient API error (rate limit / overload) that exhausted its retries.
         # Retry once so an infra blip on a single item doesn't red the gate; a
         # persistent parse bug or sustained outage still fails on the second miss.
-        score = await orchestration.score(profile, item["question"], item["answer"])
-        if score is None:
+        # `capture_generation_usage` mirrors the provider's token report so the
+        # results artifact carries real cost data, not estimates.
+        with capture_generation_usage() as usage:
+            started = time.perf_counter()
             score = await orchestration.score(profile, item["question"], item["answer"])
-        return score
+            if score is None:
+                score = await orchestration.score(profile, item["question"], item["answer"])
+            latency_ms = round((time.perf_counter() - started) * 1000, 1)
+        return _Scored(
+            score=score,
+            latency_ms=latency_ms,
+            input_tokens=usage.get("input_tokens"),
+            output_tokens=usage.get("output_tokens"),
+        )
 
 
 async def run(items: list[dict], concurrency: int, dry_run: bool, adversarial_max: int) -> list[ItemResult]:
     semaphore = asyncio.Semaphore(concurrency)
-    scores = await asyncio.gather(*(_score_item(i, semaphore, dry_run) for i in items))
-    return [evaluate_item(item, score, adversarial_max) for item, score in zip(items, scores, strict=False)]
+    scored = await asyncio.gather(*(_score_item(i, semaphore, dry_run) for i in items))
+    results = []
+    for item, s in zip(items, scored, strict=False):
+        r = evaluate_item(item, s.score, adversarial_max)
+        r.latency_ms, r.input_tokens, r.output_tokens = s.latency_ms, s.input_tokens, s.output_tokens
+        results.append(r)
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -226,30 +280,105 @@ def report(results: list[ItemResult], gates: dict) -> bool:
 
 
 def _write_json(results: list[ItemResult], path: Path) -> None:
-    payload = [
-        {
-            "id": r.id,
-            "tags": r.tags,
-            "passed": r.passed,
-            "hard_fail": r.hard_fail,
-            "expected": r.expected,
-            "score": (
-                {
-                    "overall": r.score.overall,
-                    "answer_type": r.score.answer_type,
-                    "dimensions": r.score.dimensions,
-                    "follow_up_recommended": r.score.follow_up_recommended,
-                }
-                if r.score
-                else None
-            ),
-            "abs_error": r.abs_error,
-            "notes": r.notes,
-        }
-        for r in results
-    ]
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    """Write a versioned, diffable results artifact: provenance + per-item rows."""
+    payload = {
+        "meta": run_meta(),
+        "items": [
+            {
+                "id": r.id,
+                "tags": r.tags,
+                "passed": r.passed,
+                "hard_fail": r.hard_fail,
+                "expected": r.expected,
+                "score": (
+                    {
+                        "overall": r.score.overall,
+                        "answer_type": r.score.answer_type,
+                        "dimensions": r.score.dimensions,
+                        "follow_up_recommended": r.score.follow_up_recommended,
+                    }
+                    if r.score
+                    else None
+                ),
+                "abs_error": r.abs_error,
+                "latency_ms": r.latency_ms,
+                "input_tokens": r.input_tokens,
+                "output_tokens": r.output_tokens,
+                "notes": r.notes,
+            }
+            for r in results
+        ],
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"  wrote JSON report -> {path}")
+
+
+# ---------------------------------------------------------------------------
+# Judge calibration: run the scorer N times over the set and measure how
+# consistent it is with itself, and how well it agrees with the human bands.
+# ---------------------------------------------------------------------------
+
+async def calibrate(items: list[dict], runs: int, concurrency: int, dry_run: bool) -> dict:
+    """Score every item `runs` times; return self-consistency + agreement stats."""
+    passes = [
+        await run(items, concurrency, dry_run, DEFAULT_ADVERSARIAL_MAX) for _ in range(runs)
+    ]
+    per_item = []
+    for idx, item in enumerate(items):
+        overalls = [p[idx].score.overall for p in passes if p[idx].score]
+        types = [p[idx].score.answer_type for p in passes if p[idx].score]
+        lo, hi = item["expected"]["overall_range"]
+        per_item.append(
+            {
+                "id": item["id"],
+                "overall_stdev": round(metrics.pstdev(overalls), 2),
+                "overall_mean": round(metrics.mean(overalls), 2),
+                "answer_type_stability": round(metrics.mode_fraction(types), 2),
+                "band_midpoint": (lo + hi) / 2,
+                "expected_answer_type": item["expected"]["answer_type"],
+            }
+        )
+
+    scored = [r for r in per_item if r["overall_mean"] is not None]
+    means = [r["overall_mean"] for r in scored]
+    mids = [r["band_midpoint"] for r in scored]
+    # Modal answer_type per item vs. the human label.
+    modal_types = []
+    for idx, item in enumerate(items):
+        types = [p[idx].score.answer_type for p in passes if p[idx].score]
+        modal_types.append(max(set(types), key=types.count) if types else "")
+    expected_types = [item["expected"]["answer_type"] for item in items]
+
+    return {
+        "meta": {**run_meta(), "runs": runs},
+        "self_consistency": {
+            "mean_overall_stdev": round(metrics.mean([r["overall_stdev"] for r in per_item]), 3),
+            "mean_answer_type_stability": round(
+                metrics.mean([r["answer_type_stability"] for r in per_item]), 3
+            ),
+        },
+        "agreement_vs_human": {
+            "spearman_overall_vs_midpoint": round(metrics.spearman(means, mids), 3),
+            "cohen_kappa_answer_type": round(metrics.cohen_kappa(modal_types, expected_types), 3),
+        },
+        "per_item": per_item,
+    }
+
+
+def _report_calibration(report: dict) -> None:
+    sc = report["self_consistency"]
+    ag = report["agreement_vs_human"]
+    print("\n" + "=" * 78)
+    print(f"JUDGE CALIBRATION  ({report['meta']['runs']} runs, "
+          f"prompt {report['meta']['prompt_version']}, rubric {report['meta']['rubric_version']})")
+    print("=" * 78)
+    print("  self-consistency (lower stdev / higher stability = more reproducible):")
+    print(f"    mean overall stdev        : {sc['mean_overall_stdev']} points")
+    print(f"    mean answer_type stability: {sc['mean_answer_type_stability']:.0%}")
+    print("  agreement vs. human bands:")
+    print(f"    Spearman (overall~midpoint): {ag['spearman_overall_vs_midpoint']}")
+    print(f"    Cohen's kappa (answer_type): {ag['cohen_kappa_answer_type']}")
+    print("=" * 78 + "\n")
 
 
 def main() -> int:
@@ -261,6 +390,11 @@ def main() -> int:
     parser.add_argument("--min-answer-type-acc", type=float, default=DEFAULT_MIN_ANSWER_TYPE_ACC)
     parser.add_argument("--adversarial-max", type=int, default=DEFAULT_ADVERSARIAL_MAX)
     parser.add_argument("--json-out", type=Path, default=None, help="Write a per-item JSON report.")
+    parser.add_argument(
+        "--calibrate", type=int, metavar="N", default=None,
+        help="Judge-calibration mode: score the set N times and report self-consistency "
+             "and agreement with the human bands (Spearman, Cohen's kappa).",
+    )
     args = parser.parse_args()
 
     data = json.loads(GOLDEN_SET.read_text(encoding="utf-8"))
@@ -268,6 +402,18 @@ def main() -> int:
 
     if args.dry_run:
         print("(dry run - using fabricated in-band scores, no API calls)")
+
+    if args.calibrate:
+        report_data = asyncio.run(
+            calibrate(items, args.calibrate, args.concurrency, args.dry_run)
+        )
+        _report_calibration(report_data)
+        if args.json_out:
+            args.json_out.write_text(
+                json.dumps(report_data, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            print(f"  wrote calibration report -> {args.json_out}")
+        return 0
 
     results = asyncio.run(
         run(items, args.concurrency, args.dry_run, args.adversarial_max)
