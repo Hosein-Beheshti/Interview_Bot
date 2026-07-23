@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
+from .normalize import clean_optional, dedupe_capped
+
 # Cap list lengths so a verbose extraction can't bloat every downstream prompt.
 _MAX_SKILLS = 12
 _MAX_FOCUS_AREAS = 8
@@ -56,10 +58,10 @@ def parse_profile(extracted: dict, fallback_role: str) -> JobProfile:
     role = (extracted.get("role") or "").strip() or fallback_role
     return JobProfile(
         role=role,
-        company=_clean_optional(extracted.get("company")),
-        seniority=_clean_optional(extracted.get("seniority")),
-        key_skills=_clean_list(extracted.get("key_skills"), _MAX_SKILLS),
-        focus_areas=_clean_list(extracted.get("focus_areas"), _MAX_FOCUS_AREAS),
+        company=clean_optional(extracted.get("company")),
+        seniority=clean_optional(extracted.get("seniority")),
+        key_skills=dedupe_capped(extracted.get("key_skills"), _MAX_SKILLS),
+        focus_areas=dedupe_capped(extracted.get("focus_areas"), _MAX_FOCUS_AREAS),
     )
 
 
@@ -76,23 +78,3 @@ def build_context(profile: JobProfile) -> str:
     if profile.focus_areas:
         lines.append(f"- Focus areas: {', '.join(profile.focus_areas)}")
     return "\n".join(lines)
-
-
-def _clean_optional(value) -> str | None:
-    if not isinstance(value, str):
-        return None
-    cleaned = value.strip()
-    return cleaned or None
-
-
-def _clean_list(value, limit: int) -> tuple[str, ...]:
-    if not isinstance(value, list):
-        return ()
-    seen: list[str] = []
-    for item in value:
-        text = str(item).strip()
-        if text and text.lower() not in (s.lower() for s in seen):
-            seen.append(text)
-        if len(seen) >= limit:
-            break
-    return tuple(seen)

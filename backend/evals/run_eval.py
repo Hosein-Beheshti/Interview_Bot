@@ -32,6 +32,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from evals import metrics
+from interview_bot import llm
 from interview_bot.config import settings
 from interview_bot.domain.profile import minimal
 from interview_bot.domain.rubric import DEFAULT_RUBRIC, RUBRIC_VERSION
@@ -43,10 +44,6 @@ from interview_bot.telemetry import capture_generation_usage
 GOLDEN_SET = Path(__file__).parent / "golden_set.json"
 
 
-def _active_model() -> str:
-    return settings.gemini_model if settings.llm_provider == "gemini" else settings.model
-
-
 def run_meta() -> dict:
     """Provenance stamped onto every results artifact — the versions a score is
     only comparable within, plus the model that produced it.
@@ -54,7 +51,7 @@ def run_meta() -> dict:
     return {
         "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "provider": settings.llm_provider,
-        "model": _active_model(),
+        "model": llm.active_model(),
         "prompt_version": PROMPT_VERSION,
         "rubric_version": RUBRIC_VERSION,
         # The golden bands are human-authored; this run uses no LLM-generated

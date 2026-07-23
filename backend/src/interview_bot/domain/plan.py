@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .normalize import dedupe_capped
 from .profile import JobProfile
 
 # Reference key points per slot are capped so a verbose extraction can't bloat the
@@ -109,7 +110,7 @@ def parse_plan(extracted: dict, profile: JobProfile, num_questions: int) -> Inte
                 skill=skill or intent,
                 intent=intent or skill,
                 difficulty=_normalize_difficulty(item.get("difficulty")),
-                key_points=_clean_points(item.get("key_points")),
+                key_points=dedupe_capped(item.get("key_points"), _MAX_KEY_POINTS),
             )
         )
 
@@ -125,20 +126,6 @@ def resolve(session) -> InterviewPlan | None:
     if not data:
         return None
     return InterviewPlan.from_dict(data)
-
-
-def _clean_points(value, limit: int = _MAX_KEY_POINTS) -> tuple[str, ...]:
-    """Trim, drop blanks, dedupe case-insensitively, and cap the reference points."""
-    if not isinstance(value, list):
-        return ()
-    seen: list[str] = []
-    for item in value:
-        text = str(item).strip()
-        if text and text.lower() not in (s.lower() for s in seen):
-            seen.append(text)
-        if len(seen) >= limit:
-            break
-    return tuple(seen)
 
 
 def _normalize_difficulty(value) -> str:

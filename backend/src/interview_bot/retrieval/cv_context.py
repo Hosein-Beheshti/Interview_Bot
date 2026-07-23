@@ -8,6 +8,7 @@ live in `rag`; this module owns only the full-text-vs-retrieval policy.
 from __future__ import annotations
 
 from interview_bot.config import settings
+from interview_bot.domain.transcript import last_assistant
 from interview_bot.logger import logger
 
 from . import rag
@@ -28,11 +29,7 @@ async def build_cv_context(session) -> str:
     # Long CV: retrieve the slice relevant to the topic in play. The last question
     # is the deliberate statement of that topic; on the opening turn there is no
     # question yet, so seed the query with the role.
-    last_question = next(
-        (m["content"] for m in reversed(session.messages) if m["role"] == "assistant"),
-        "",
-    )
-    query = last_question or session.role
+    query = last_assistant(session.messages) or session.role
     if not query:
         return ""
 

@@ -25,6 +25,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+from interview_bot import llm
 from interview_bot.config import settings
 from interview_bot.domain.profile import minimal
 from interview_bot.integrations import cv_parser
@@ -139,7 +140,7 @@ async def run_interview(role, job_context, num_questions, cv) -> None:
     session = _new_session(session_id, profile, num_questions, cv, interview_plan)
 
     print(f"\n{BOLD}Role:{RESET} {profile.role}   {BOLD}Questions:{RESET} {num_questions}")
-    print(f"{DIM}Provider: {settings.llm_provider} ({_active_model()}).  "
+    print(f"{DIM}Provider: {settings.llm_provider} ({llm.active_model()}).  "
           f"Type your answers; 'quit' to stop early.{RESET}")
 
     if interview_plan:
@@ -195,10 +196,6 @@ async def run_interview(role, job_context, num_questions, cv) -> None:
             return
         if not message:
             message = "(no answer)"
-
-
-def _active_model() -> str:
-    return settings.gemini_model if settings.llm_provider == "gemini" else settings.model
 
 
 def _prompt_inputs(args) -> tuple[str | None, str | None, int, tuple[str, str] | None]:

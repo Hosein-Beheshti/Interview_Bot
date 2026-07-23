@@ -17,6 +17,7 @@ from interview_bot.config import settings
 from interview_bot.domain import plan, progression, summary
 from interview_bot.domain.profile import JobProfile
 from interview_bot.domain.scoring import ScoreData
+from interview_bot.domain.transcript import last_assistant
 from interview_bot.logger import logger
 from interview_bot.pipeline.scoring import score_answer
 from interview_bot.prompts import interviewer
@@ -86,7 +87,7 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
             mode,
             next_question_number,
             follow_up_kind,
-            current_topic=_last_question(session),
+            current_topic=last_assistant(session.messages),
             slot=slot,
         )
         reply = await llm.generate(
@@ -125,11 +126,3 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
 
     summary_data = summary.build_summary(profile.role, session.scores) if session.is_complete else None
     return TurnResult(reply=reply, mode=mode, score_data=score_data, summary=summary_data)
-
-
-def _last_question(session) -> str | None:
-    """The most recent question the interviewer asked (for follow-up anchoring)."""
-    return next(
-        (m["content"] for m in reversed(session.messages) if m["role"] == "assistant"),
-        None,
-    )

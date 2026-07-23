@@ -18,7 +18,7 @@ from . import transport
 from .registry import get_provider
 
 
-def _active_model() -> str:
+def active_model() -> str:
     """The model name the configured provider will actually call."""
     return settings.gemini_model if settings.llm_provider == "gemini" else settings.model
 
@@ -52,7 +52,7 @@ async def generate(
             {
                 "kind": "llm.generate",
                 "provider": settings.llm_provider,
-                "model": _active_model(),
+                "model": active_model(),
                 "system": system,
                 "cache_prefix": cache_prefix,
                 "messages": messages,
@@ -97,7 +97,7 @@ async def generate_structured(
             {
                 "kind": "llm.generate_structured",
                 "provider": settings.llm_provider,
-                "model": _active_model(),
+                "model": active_model(),
                 "system": system,
                 "cache_prefix": cache_prefix,
                 "messages": messages,
@@ -141,7 +141,7 @@ async def parse(
             {
                 "kind": "llm.parse",
                 "provider": settings.llm_provider,
-                "model": _active_model(),
+                "model": active_model(),
                 "system": system,
                 "messages": messages,
                 "output_model": output_model.__name__,

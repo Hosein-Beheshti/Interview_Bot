@@ -96,16 +96,6 @@ def test_snapshot_turn_instructions():
     assert_snapshot("turn_instructions", rendered)
 
 
-def test_snapshot_full_system_prompt_assembly():
-    assert_snapshot(
-        "full_system_prompt",
-        prompt.get_system_prompt(
-            _PROFILE, num_questions=5, cv_context=_CV_CONTEXT, mode=prompt.MODE_MAIN,
-            question_number=1,
-        ),
-    )
-
-
 def test_snapshot_job_context_block():
     assert_snapshot("job_context", profile.build_context(_PROFILE))
 

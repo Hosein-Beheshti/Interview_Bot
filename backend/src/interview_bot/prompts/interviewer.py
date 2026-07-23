@@ -26,26 +26,13 @@ __all__ = [
     "MODE_CLOSING",
     "FOLLOW_UP_DEEPEN",
     "FOLLOW_UP_SIMPLIFY",
-    "get_system_prompt",
     "build_stable_prompt",
     "turn_instruction",
 ]
 
-
-def get_system_prompt(
-    profile: JobProfile,
-    num_questions: int = 5,
-    cv_context: str = "",
-    mode: str = MODE_MAIN,
-    question_number: int = 1,
-    follow_up_kind: str | None = None,
-) -> str:
-    """Full system prompt as one string: the turn-invariant guidance followed by
-    this turn's instruction. `build_stable_prompt` and `turn_instruction` expose
-    the two parts separately so the transport layer can cache the stable prefix.
-    """
-    stable = build_stable_prompt(profile, num_questions=num_questions, cv_context=cv_context)
-    return f"{stable}\n\n{turn_instruction(mode, question_number, follow_up_kind)}"
+# Production never assembles the whole system prompt as one string: it sends the
+# stable prefix (cacheable) and the turn instruction separately. So this module
+# exposes only those two halves.
 
 
 def build_stable_prompt(

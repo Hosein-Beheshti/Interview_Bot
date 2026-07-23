@@ -12,6 +12,7 @@ from interview_bot.domain import rubric
 from interview_bot.domain.plan import PlanSlot
 from interview_bot.domain.profile import JobProfile, build_context
 from interview_bot.domain.scoring import ScoreData, parse_score
+from interview_bot.domain.transcript import last_assistant
 from interview_bot.logger import logger
 from interview_bot.prompts import scoring as scorer_prompt
 
@@ -69,10 +70,7 @@ async def score_answer(
     reference-guided grading (absent for unplanned sessions).
     """
     user_answer = session.messages[-1]["content"]
-    last_question = next(
-        (m["content"] for m in reversed(session.messages[:-1]) if m["role"] == "assistant"),
-        "",
-    )
+    last_question = last_assistant(session.messages[:-1]) or ""
     reference_points = slot.key_points if slot else ()
     score_data = await score(profile, last_question, user_answer, reference_points=reference_points)
     if score_data is not None:

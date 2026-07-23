@@ -1,19 +1,10 @@
 """Tests for interviewer prompt rendering (prompts/interviewer.py)."""
 from interview_bot.domain.plan import PlanSlot
-from interview_bot.domain.profile import minimal
 from interview_bot.prompts import interviewer as prompt
-
-PROFILE = minimal("Backend Engineer")
 
 
 def _build(mode, question_number=1, follow_up_kind=None):
-    return prompt.get_system_prompt(
-        PROFILE,
-        num_questions=5,
-        mode=mode,
-        question_number=question_number,
-        follow_up_kind=follow_up_kind,
-    )
+    return prompt.turn_instruction(mode, question_number, follow_up_kind)
 
 
 def test_first_main_question_introduces_and_labels():
