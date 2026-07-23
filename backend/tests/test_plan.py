@@ -1,9 +1,8 @@
 """Tests for the interview blueprint domain logic (services/interview/plan.py)."""
 from types import SimpleNamespace
 
-from services.interview import plan
-from services.interview.job_profile import JobProfile, minimal
-
+from interview_bot.domain import plan
+from interview_bot.domain.job_profile import JobProfile, minimal
 
 PROFILE = JobProfile(
     role="Backend Engineer",

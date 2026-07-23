@@ -25,9 +25,10 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from config import settings  # noqa: E402
 from fixtures.scenarios import RECORDINGS_DIR, SCENARIOS, run_scenario  # noqa: E402
-from services.observability import shutdown as observability_shutdown  # noqa: E402
+
+from interview_bot.config import settings  # noqa: E402
+from interview_bot.telemetry import shutdown as observability_shutdown  # noqa: E402
 
 
 async def main() -> None:
@@ -43,7 +44,7 @@ async def main() -> None:
         # A record run replaces the whole fixture set: stale cassettes from an
         # earlier or aborted run would otherwise linger as orphans (each run
         # samples different interviewer turns, so hashes rarely collide).
-        from services.integrations.transport import cassette_dir
+        from interview_bot.llm.transport import cassette_dir
 
         for stale in cassette_dir().glob("*.json"):
             stale.unlink()

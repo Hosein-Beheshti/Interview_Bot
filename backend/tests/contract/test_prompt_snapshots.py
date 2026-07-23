@@ -20,12 +20,14 @@ from __future__ import annotations
 import asyncio
 import json
 
-from config import settings
-from fixtures.scenarios import scenario_by_name, run_scenario
-from services.integrations import transport
-from services.interview import job_profile, orchestration, plan, prompt, rubric
-from services.interview.job_profile import JobProfile
-from services.interview.plan import PlanSlot
+from fixtures.scenarios import run_scenario, scenario_by_name
+
+from interview_bot.domain import job_profile, plan, rubric
+from interview_bot.domain.job_profile import JobProfile
+from interview_bot.domain.plan import PlanSlot
+from interview_bot.llm import transport
+from interview_bot.pipeline import orchestration
+from interview_bot.prompts import prompt
 
 from ._snapshot import assert_json_snapshot, assert_snapshot
 

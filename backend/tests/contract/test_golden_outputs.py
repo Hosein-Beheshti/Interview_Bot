@@ -12,7 +12,6 @@ import asyncio
 import json
 
 import pytest
-
 from fixtures.scenarios import RECORDINGS_DIR, SCENARIOS, run_scenario
 
 _IDS = [s.name for s in SCENARIOS]

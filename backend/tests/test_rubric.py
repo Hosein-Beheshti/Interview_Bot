@@ -1,4 +1,4 @@
-from services.interview import rubric
+from interview_bot.domain import rubric
 
 
 def test_score_format_requires_all_dimensions():

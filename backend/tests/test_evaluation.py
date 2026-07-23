@@ -1,5 +1,5 @@
-from services.interview.evaluation import parse_score
-from services.interview.rubric import DEFAULT_RUBRIC
+from interview_bot.domain.evaluation import parse_score
+from interview_bot.domain.rubric import DEFAULT_RUBRIC
 
 
 def _full_dimensions(value: int) -> dict:

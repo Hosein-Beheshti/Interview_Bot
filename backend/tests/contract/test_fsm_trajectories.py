@@ -15,11 +15,12 @@ import json
 from types import SimpleNamespace
 
 import pytest
-
-from config import settings
 from fixtures.scenarios import RECORDINGS_DIR, SCENARIOS, run_scenario
-from services.interview import progression, prompt
-from services.interview.evaluation import ScoreData
+
+from interview_bot.config import settings
+from interview_bot.domain import progression
+from interview_bot.domain.evaluation import ScoreData
+from interview_bot.prompts import prompt
 
 _IDS = [s.name for s in SCENARIOS]
 

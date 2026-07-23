@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import pytest
 
-from config import settings
-from services.integrations.providers import get_provider
-from services.observability import tracer
+from interview_bot.config import settings
+from interview_bot.llm.registry import get_provider
+from interview_bot.telemetry import tracer
 
 
 @pytest.fixture(autouse=True)

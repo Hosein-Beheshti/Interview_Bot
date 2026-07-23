@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "interview-bot"
+version = "1.0.0"
+description = "AI interview / candidate-evaluation agent: CV ingestion, rubric scoring, FSM interview loop."
+requires-python = ">=3.12"
+dynamic = ["dependencies"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.pytest.ini_options]
+# `src` on the path lets tests import the installed package; the repo-root dirs
+# (tests, fixtures, scripts, evals) are dev-only and live outside the package.
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# E501: long prompt strings are fine. B008: FastAPI's Depends()/File() in
+# argument defaults is the framework's intended idiom, not a bug.
+ignore = ["E501", "B008"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+files = ["src"]

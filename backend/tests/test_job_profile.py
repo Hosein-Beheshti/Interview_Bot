@@ -1,4 +1,4 @@
-from services.interview import job_profile as jp
+from interview_bot.domain import job_profile as jp
 
 
 def test_parse_profile_full():

@@ -7,4 +7,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Install the package itself (deps already installed above) so `interview_bot`
+# is importable regardless of working directory.
+RUN pip install --no-cache-dir -e . --no-deps
+
+CMD ["uvicorn", "interview_bot.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -29,10 +29,10 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from services.interview import orchestration
-from services.interview.evaluation import ScoreData
-from services.interview.job_profile import minimal
-from services.interview.rubric import DEFAULT_RUBRIC
+from interview_bot.domain.evaluation import ScoreData
+from interview_bot.domain.job_profile import minimal
+from interview_bot.domain.rubric import DEFAULT_RUBRIC
+from interview_bot.pipeline import orchestration
 
 GOLDEN_SET = Path(__file__).parent / "golden_set.json"
 
@@ -149,7 +149,7 @@ async def _score_item(item: dict, semaphore: asyncio.Semaphore, dry_run: bool) -
 async def run(items: list[dict], concurrency: int, dry_run: bool, adversarial_max: int) -> list[ItemResult]:
     semaphore = asyncio.Semaphore(concurrency)
     scores = await asyncio.gather(*(_score_item(i, semaphore, dry_run) for i in items))
-    return [evaluate_item(item, score, adversarial_max) for item, score in zip(items, scores)]
+    return [evaluate_item(item, score, adversarial_max) for item, score in zip(items, scores, strict=False)]
 
 
 # ---------------------------------------------------------------------------

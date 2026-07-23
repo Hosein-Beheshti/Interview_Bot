@@ -18,11 +18,12 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
-from config import settings
-from interview_cli import _new_session
-from services import session as session_service
-from services.integrations import cv_parser, embeddings, rag
-from services.interview import orchestration
+from interview_bot.cli import _new_session
+from interview_bot.config import settings
+from interview_bot.integrations import cv_parser, embeddings
+from interview_bot.pipeline import orchestration
+from interview_bot.pipeline import session as session_service
+from interview_bot.retrieval import rag
 
 KICKOFF = "Hello, I'm ready to begin the interview."
 
