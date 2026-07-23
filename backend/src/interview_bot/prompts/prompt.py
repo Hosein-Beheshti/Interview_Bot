@@ -5,15 +5,26 @@ from interview_bot.domain import job_profile
 from interview_bot.domain.job_profile import JobProfile
 from interview_bot.domain.plan import PlanSlot
 
-# Interview turn modes. The server decides the mode and the prompt renders the
-# matching instruction — the model never owns progression.
-MODE_MAIN = "main_question"
-MODE_FOLLOW_UP = "follow_up"
-MODE_CLOSING = "closing"
+# The turn modes are the FSM's output states, owned by the domain. Re-exported
+# here so prompt callers can render the instruction that matches each mode.
+from interview_bot.domain.progression import (
+    FOLLOW_UP_DEEPEN,
+    FOLLOW_UP_SIMPLIFY,
+    MODE_CLOSING,
+    MODE_FOLLOW_UP,
+    MODE_MAIN,
+)
 
-# Follow-up flavours.
-FOLLOW_UP_DEEPEN = "deepen"
-FOLLOW_UP_SIMPLIFY = "simplify"
+__all__ = [
+    "MODE_MAIN",
+    "MODE_FOLLOW_UP",
+    "MODE_CLOSING",
+    "FOLLOW_UP_DEEPEN",
+    "FOLLOW_UP_SIMPLIFY",
+    "get_system_prompt",
+    "build_stable_prompt",
+    "turn_instruction",
+]
 
 
 def get_system_prompt(

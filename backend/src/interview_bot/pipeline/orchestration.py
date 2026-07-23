@@ -104,7 +104,9 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
         answered_slot = interview_plan.slot_for(answered_q) if interview_plan else None
         score_data = await score_answer(session, profile, slot=answered_slot)
 
-    mode, follow_up_kind = progression.decide_next_turn(session, score_data)
+    mode, follow_up_kind = progression.decide_next_turn(
+        session, score_data, settings.max_followups_per_question
+    )
 
     try:
         cv_context = await build_cv_context(session)
@@ -144,6 +146,11 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
         session.status = "active"
 
     progression.apply_turn(session, mode)
+    if session.is_complete:
+        logger.info(
+            f"Interview complete | session={session.session_id} | "
+            f"questions={session.questions_asked} | answers={session.answers_given}"
+        )
 
     # Persist the score only now that the turn has fully succeeded, so a failed
     # generation followed by a retry cannot double-record an answer.

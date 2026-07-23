@@ -32,25 +32,25 @@ def _score(answer_type="substantive", follow_up_recommended=False):
 
 
 def test_first_message_opens_with_main_question():
-    mode, kind = decide_next_turn(_session(questions_asked=0), None)
+    mode, kind = decide_next_turn(_session(questions_asked=0), None, settings.max_followups_per_question)
     assert mode == prompt.MODE_MAIN
     assert kind is None
 
 
 def test_no_answer_triggers_simplify_follow_up():
-    mode, kind = decide_next_turn(_session(), _score(answer_type="no_answer"))
+    mode, kind = decide_next_turn(_session(), _score(answer_type="no_answer"), settings.max_followups_per_question)
     assert mode == prompt.MODE_FOLLOW_UP
     assert kind == prompt.FOLLOW_UP_SIMPLIFY
 
 
 def test_recommended_follow_up_deepens():
-    mode, kind = decide_next_turn(_session(), _score(follow_up_recommended=True))
+    mode, kind = decide_next_turn(_session(), _score(follow_up_recommended=True), settings.max_followups_per_question)
     assert mode == prompt.MODE_FOLLOW_UP
     assert kind == prompt.FOLLOW_UP_DEEPEN
 
 
 def test_substantive_answer_advances_to_next_main():
-    mode, kind = decide_next_turn(_session(questions_asked=2), _score())
+    mode, kind = decide_next_turn(_session(questions_asked=2), _score(), settings.max_followups_per_question)
     assert mode == prompt.MODE_MAIN
     assert kind is None
 
@@ -59,21 +59,21 @@ def test_follow_up_budget_exhausted_moves_on():
     # Already used the per-question follow-up budget: a weak answer can no longer
     # trigger another follow-up; progression moves to the next main question.
     busy = _session(questions_asked=2, followups_on_current=settings.max_followups_per_question)
-    mode, kind = decide_next_turn(busy, _score(answer_type="no_answer"))
+    mode, kind = decide_next_turn(busy, _score(answer_type="no_answer"), settings.max_followups_per_question)
     assert mode == prompt.MODE_MAIN
     assert kind is None
 
 
 def test_last_main_question_answered_closes():
     last = _session(questions_asked=5, num_questions=5)
-    mode, kind = decide_next_turn(last, _score())
+    mode, kind = decide_next_turn(last, _score(), settings.max_followups_per_question)
     assert mode == prompt.MODE_CLOSING
     assert kind is None
 
 
 def test_follow_up_allowed_even_on_last_question():
     last = _session(questions_asked=5, followups_on_current=0, num_questions=5)
-    mode, kind = decide_next_turn(last, _score(follow_up_recommended=True))
+    mode, kind = decide_next_turn(last, _score(follow_up_recommended=True), settings.max_followups_per_question)
     assert mode == prompt.MODE_FOLLOW_UP
     assert kind == prompt.FOLLOW_UP_DEEPEN
 
@@ -106,7 +106,7 @@ def test_full_interview_asks_exactly_num_questions_main_questions():
     main_count = 0
     closed = False
     for _ in range(20):  # generous upper bound; should terminate well before
-        mode, _kind = decide_next_turn(s, score)
+        mode, _kind = decide_next_turn(s, score, settings.max_followups_per_question)
         apply_turn(s, mode)
         if mode == prompt.MODE_MAIN:
             main_count += 1

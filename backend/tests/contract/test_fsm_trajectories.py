@@ -81,7 +81,7 @@ def _score(answer_type: str, follow_up: bool) -> ScoreData:
 
 
 def test_opening_turn_is_main_question():
-    assert progression.decide_next_turn(_state(questions_asked=0), None) == (
+    assert progression.decide_next_turn(_state(questions_asked=0), None, settings.max_followups_per_question) == (
         prompt.MODE_MAIN,
         None,
     )
@@ -89,19 +89,21 @@ def test_opening_turn_is_main_question():
 
 def test_no_answer_downshifts_to_simplify():
     assert progression.decide_next_turn(
-        _state(followups_on_current=0), _score("no_answer", False)
+        _state(followups_on_current=0), _score("no_answer", False),
+        settings.max_followups_per_question,
     ) == (prompt.MODE_FOLLOW_UP, prompt.FOLLOW_UP_SIMPLIFY)
 
 
 def test_promising_answer_probes_deeper():
     assert progression.decide_next_turn(
-        _state(followups_on_current=0), _score("partial", True)
+        _state(followups_on_current=0), _score("partial", True),
+        settings.max_followups_per_question,
     ) == (prompt.MODE_FOLLOW_UP, prompt.FOLLOW_UP_DEEPEN)
 
 
 def test_followup_budget_exhausted_moves_to_next_main():
     state = _state(followups_on_current=settings.max_followups_per_question, questions_asked=1)
-    assert progression.decide_next_turn(state, _score("no_answer", True)) == (
+    assert progression.decide_next_turn(state, _score("no_answer", True), settings.max_followups_per_question) == (
         prompt.MODE_MAIN,
         None,
     )
@@ -113,7 +115,7 @@ def test_last_question_answered_moves_to_closing():
         questions_asked=3,
         num_questions=3,
     )
-    assert progression.decide_next_turn(state, _score("substantive", False)) == (
+    assert progression.decide_next_turn(state, _score("substantive", False), settings.max_followups_per_question) == (
         prompt.MODE_CLOSING,
         None,
     )
