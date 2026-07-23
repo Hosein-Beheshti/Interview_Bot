@@ -26,8 +26,8 @@ from interview_bot.domain import job_profile, plan, rubric
 from interview_bot.domain.job_profile import JobProfile
 from interview_bot.domain.plan import PlanSlot
 from interview_bot.llm import transport
-from interview_bot.pipeline import orchestration
 from interview_bot.prompts import prompt
+from interview_bot.prompts import scoring as score_prompt
 
 from ._snapshot import assert_json_snapshot, assert_snapshot
 
@@ -118,8 +118,8 @@ def test_snapshot_score_output_format():
 
 def test_snapshot_constant_system_prompts():
     constants = {
-        "score_system": orchestration._SCORE_SYSTEM,
-        "score_cache_prefix": orchestration._SCORE_CACHE_PREFIX,
+        "score_system": score_prompt.SCORE_SYSTEM,
+        "score_cache_prefix": score_prompt.SCORE_CACHE_PREFIX,
         "profile_extract_system": job_profile.EXTRACT_SYSTEM,
         "plan_extract_system": plan.EXTRACT_SYSTEM,
     }

@@ -7,6 +7,7 @@ a dimension is a one-line change here — no other file needs to be touched.
 """
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 
 # Score bounds for every dimension. Centralized so the schema, validation, and
@@ -49,6 +50,23 @@ DEFAULT_RUBRIC: tuple[Dimension, ...] = (
         description="Clarity, structure, and conciseness of the explanation.",
     ),
 )
+
+
+def _rubric_version(rubric: tuple[Dimension, ...]) -> str:
+    """Short content hash of the rubric definition (keys, labels, text, weights).
+
+    Changes automatically whenever a dimension is added, removed, reworded, or
+    reweighted — so a scoring result can always be traced to the exact rubric
+    that produced it, and results across rubric versions are never silently
+    compared. See `interview_bot.prompts.scoring.PROMPT_VERSION` for the prompt.
+    """
+    material = "|".join(
+        f"{d.key}:{d.label}:{d.description}:{d.weight}" for d in rubric
+    ) + f"|{MIN_SCORE}-{MAX_SCORE}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:12]
+
+
+RUBRIC_VERSION = _rubric_version(DEFAULT_RUBRIC)
 
 
 def build_score_format(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> dict:

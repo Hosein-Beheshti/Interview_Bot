@@ -76,18 +76,21 @@ async def generate_structured(
     temperature: float = 0.0,
     cache_prefix: str | None = None,
     operation: str = "llm.generate_structured",
+    trace_metadata: dict | None = None,
 ) -> dict:
     """Generate a response constrained to a JSON-schema structured-output format.
 
     Defaults to `temperature=0` because callers (e.g. answer scoring) want a
     reproducible judgement, not a creative one: the same answer should score the
     same way across runs. `operation` is the trace label (e.g. 'score_answer').
+    `trace_metadata` is extra key/values recorded on the trace only (e.g. the
+    prompt and rubric versions) — it never enters the request bytes.
     """
     async with observe_generation(
         operation,
         provider=settings.llm_provider,
         input={"system": system, "cache_prefix": cache_prefix, "messages": messages},
-        metadata={"temperature": temperature, "max_tokens": max_tokens},
+        metadata={"temperature": temperature, "max_tokens": max_tokens, **(trace_metadata or {})},
     ) as gen:
         result = await transport.call(
             "llm.generate_structured",
