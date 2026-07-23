@@ -1,0 +1,17 @@
+### main_q1
+Begin: introduce yourself in one sentence, then ask Question 1, labelled exactly "Question 1:".
+
+### main_q3
+Ask the next main question now, on a NEW topic, labelled exactly "Question 3:".
+
+### main_with_slot
+Ask the next main question now, on a NEW topic, labelled exactly "Question 2:". Focus this question on idempotency in payment webhooks — probe how they prevent duplicate charges under retries. Pitch it at a advanced level.
+
+### follow_up_deepen
+The candidate's last answer was on the right track but worth probing further. Ask ONE concise follow-up that goes deeper on the SAME topic, starting naturally (e.g. "Following up on that —"). The topic you must stay on is your previous question: "Question 1: How do you design an idempotency scheme?". This is a FOLLOW-UP, NOT a new main question. Do NOT introduce a new topic, technology, project, or company. Do NOT write a numbered question and do NOT start with the word "Question" — start naturally.
+
+### follow_up_simplify
+The candidate could not answer the current question. Briefly and supportively acknowledge that, then ask ONE simpler question on the SAME topic to find the edge of their knowledge. Do not reveal the answer. The topic you must stay on is your previous question: "Question 1: How do you design an idempotency scheme?". This is a FOLLOW-UP, NOT a new main question. Do NOT introduce a new topic, technology, project, or company. Do NOT write a numbered question and do NOT start with the word "Question" — start naturally.
+
+### closing
+The interview is over. Give brief, balanced overall feedback in 2-3 sentences, then close warmly. Do not ask another question.

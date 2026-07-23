@@ -1,0 +1,6 @@
+Job context:
+- Company: Acme Payments
+- Target role: Senior Backend Engineer
+- Seniority: senior
+- Key skills to assess: Python, PostgreSQL, Kafka, idempotency
+- Focus areas: distributed systems, observability
