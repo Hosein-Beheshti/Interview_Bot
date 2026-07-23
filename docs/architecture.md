@@ -23,29 +23,41 @@ Arrows: `api → pipeline → {domain, prompts, llm, retrieval, persistence}`;
 
 ## Module map
 
+Each concept has a consistent filename across the layers it touches, so its code
+is findable by name: `scoring`, `profile`, `plan`, `interview`, `cv`.
+
 | Module | Responsibility | Depends on |
 |---|---|---|
 | `domain/progression` | Interview FSM: `decide_next_turn`, `apply_turn`. `max_followups` passed in. | (pure) |
 | `domain/rubric` | Rubric definition, score schema, weighted overall, `RUBRIC_VERSION` | (pure) |
-| `domain/evaluation` | `ScoreData` + `parse_score` (validate model output) | rubric |
-| `domain/job_profile` | `JobProfile`, normalization, prompt-ready context | (pure) |
-| `domain/plan` | `InterviewPlan`/`PlanSlot`, normalization | job_profile |
+| `domain/scoring` | `ScoreData` + `parse_score` (validate model output) | rubric |
+| `domain/profile` | `JobProfile`, normalization, prompt-ready context | (pure) |
+| `domain/plan` | `InterviewPlan`/`PlanSlot`, normalization | profile |
 | `domain/summary` | Result aggregation | (pure) |
-| `prompts/prompt` | Interviewer prompt rendering; re-exports FSM modes | domain |
+| `prompts/interviewer` | Interviewer prompt rendering; re-exports FSM modes | domain |
 | `prompts/scoring` | Scorer system prompt, cache prefix, `PROMPT_VERSION` | domain.rubric |
+| `prompts/profile`, `prompts/plan` | Extraction system prompts + LLM I/O models | domain |
 | `llm/__init__` | Facade: `generate` / `generate_structured` / `parse` | transport, registry, telemetry |
 | `llm/transport` | **Record/replay waist** — every provider call funnels here | config, telemetry |
 | `llm/provider` + `anthropic`/`gemini`/`registry` | `LLMProvider` ABC + 2 adapters + factory | SDKs, config |
 | `integrations/{embeddings,speech,cv_parser}` | Voyage / Deepgram / CV text extraction | transport, config |
 | `retrieval/rag` | Chunk → embed → pgvector search | integrations, persistence |
-| `pipeline/orchestration` | Run one turn: score → decide → generate | llm, domain, prompts |
-| `pipeline/session` | Session lifecycle (profile/plan extraction, creation) | llm, domain, persistence |
+| `retrieval/cv_context` | Full-text-vs-retrieval policy for the turn | rag, config |
+| `pipeline/interview` | Run one turn: score → decide → generate | llm, domain, prompts, pipeline.scoring, retrieval |
+| `pipeline/scoring` | `score` / `score_answer`: assemble scorer prompt, call, parse | llm, domain, prompts |
+| `pipeline/profile`, `pipeline/plan` | Extraction calls (job profile, blueprint) | llm, domain, prompts |
+| `pipeline/session` | Session setup flow (compose extraction + persist) | pipeline.{profile,plan}, persistence |
 | `api/app` + `routes/*` + `schemas` | FastAPI app, endpoints, DTOs | pipeline, persistence |
-| `persistence/*` | Engine, ORM models (typed `Mapped`), migrations, vector store, CRUD | config |
+| `persistence/*` | Engine, ORM models (typed `Mapped`), migrations, vector store, `sessions` CRUD | config |
 | `telemetry/*` | Tracing seam (Noop + Langfuse backends) | config |
 | `config` | Single validated settings object; only home of env | — |
 
 No import cycles. `os.getenv` appears only in `config.py`.
+
+> **Prompt bytes note:** a Pydantic extraction model's *docstring* is emitted as
+> its JSON-schema `description` and is therefore part of the assembled `llm.parse`
+> request — editing it changes the frozen prompt bytes. The extraction models in
+> `prompts/{profile,plan}.py` carry a comment saying so.
 
 ## The determinism story
 

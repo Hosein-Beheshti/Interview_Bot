@@ -52,20 +52,22 @@ backend/src/interview_bot/
   domain/          PURE. no network, I/O, clock, or env — zero-mock testable
     progression.py   server-authoritative interview FSM (turn decisions)
     rubric.py        data-driven scoring rubric + weighted overall + RUBRIC_VERSION
-    evaluation.py    ScoreData + parse/validate model scores (incl. critique)
-    job_profile.py   structured job profile + prompt-ready context
+    scoring.py       ScoreData + parse/validate model scores (incl. critique)
+    profile.py       structured job profile + prompt-ready context
     plan.py          interview blueprint (one slot per main question)
     summary.py       result aggregation
-  prompts/         versioned prompt templates + pure render functions
-    interviewer prompts, scoring prompt (+ PROMPT_VERSION), extraction prompts
+  prompts/         versioned prompt text + render fns + LLM I/O models, per concept
+    interviewer.py   turn prompts   scoring.py  scorer prompt (+ PROMPT_VERSION)
+    profile.py / plan.py   extraction prompts + Pydantic contracts
   llm/             the transport waist + the one earned provider abstraction
     transport.py     record/replay seam (deterministic offline runs)
     provider.py      LLMProvider ABC; anthropic.py / gemini.py; registry.py
   integrations/    non-LLM vendor adapters (Voyage embeddings, Deepgram speech, CV parsing)
-  retrieval/       RAG (chunk → embed → pgvector search)
-  pipeline/        imperative shell: orchestration (run a turn) + session lifecycle
+  retrieval/       rag.py (chunk → embed → pgvector search) + cv_context.py (turn policy)
+  pipeline/        imperative shell, per concept: interview (run a turn), scoring,
+                   profile, plan, session (setup flow)
   api/             FastAPI app, routes, request/response DTOs
-  persistence/     SQLAlchemy engine, ORM models, migrations, vector store, session CRUD
+  persistence/     SQLAlchemy engine, ORM models, migrations, vector store, sessions CRUD
   telemetry/       structured tracing seam (tokens, cost, latency, versions)
   config.py        single validated settings object   logger.py   cli.py
 backend/
