@@ -1,4 +1,9 @@
+"""HTTP request/response DTOs — the API wire contract.
 
+Deliberately separate from the domain types (`domain.profile.JobProfile`, …) and
+the LLM extraction models (`prompts.*`): each boundary owns its own shape so the
+wire format can evolve independently of the internals.
+"""
 from pydantic import BaseModel, Field
 
 
