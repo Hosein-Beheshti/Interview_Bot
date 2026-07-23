@@ -38,3 +38,46 @@ ignore = ["E501", "B008"]
 python_version = "3.12"
 ignore_missing_imports = true
 files = ["src"]
+
+# The dependency rule, enforced mechanically (run: lint-imports).
+[tool.importlinter]
+root_package = "interview_bot"
+
+[[tool.importlinter.contracts]]
+name = "domain is pure — imports no outer layer, config, or SDK"
+type = "forbidden"
+source_modules = ["interview_bot.domain"]
+forbidden_modules = [
+    "interview_bot.config",
+    "interview_bot.prompts",
+    "interview_bot.llm",
+    "interview_bot.pipeline",
+    "interview_bot.api",
+    "interview_bot.persistence",
+    "interview_bot.telemetry",
+    "interview_bot.integrations",
+    "interview_bot.retrieval",
+]
+
+[[tool.importlinter.contracts]]
+name = "prompts depend only on the domain"
+type = "forbidden"
+source_modules = ["interview_bot.prompts"]
+forbidden_modules = [
+    "interview_bot.llm",
+    "interview_bot.pipeline",
+    "interview_bot.api",
+    "interview_bot.persistence",
+    "interview_bot.integrations",
+    "interview_bot.retrieval",
+]
+
+[[tool.importlinter.contracts]]
+name = "the LLM waist stays provider-agnostic upward (no pipeline/api/domain)"
+type = "forbidden"
+source_modules = ["interview_bot.llm"]
+forbidden_modules = [
+    "interview_bot.pipeline",
+    "interview_bot.api",
+    "interview_bot.retrieval",
+]

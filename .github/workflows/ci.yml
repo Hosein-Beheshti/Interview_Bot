@@ -1,0 +1,62 @@
+name: backend-ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"  # nightly, for the eval job
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  fast-tier:
+    # Ruff + mypy + import-linter + unit/contract tests under REPLAY.
+    # Fully offline: no API keys, no network, no database.
+    runs-on: ubuntu-latest
+    env:
+      TRANSPORT_MODE: replay
+      LANGFUSE_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -e . -r requirements-dev.txt
+      - name: Lint (ruff)
+        run: ruff check src tests fixtures scripts evals
+      - name: Type-check (mypy)
+        run: mypy src
+      - name: Dependency rule (import-linter)
+        run: lint-imports
+      - name: Tests (unit + contract, offline)
+        run: pytest -q
+
+  eval:
+    # Golden-set scorer eval. Needs provider keys, so it only runs on a manual
+    # dispatch or the nightly schedule — never gates a push.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    env:
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'anthropic' }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -e . -r requirements-dev.txt
+      - name: Run golden-set eval
+        run: python -m evals.run_eval --json-out eval-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-report
+          path: backend/eval-report.json
