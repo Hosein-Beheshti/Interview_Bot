@@ -1,0 +1,107 @@
+{
+  "cassette_version": 1,
+  "kind": "llm.parse",
+  "request_hash": "5e9ed9984ce63e27bbac32c3c6a69a2ec6670b2f49d30e612cc4024c063b8190",
+  "request": {
+    "kind": "llm.parse",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "system": "You design a structured interview blueprint. Given a job profile and a target number of main questions, produce exactly that many question slots that together give broad, non-overlapping coverage of the role's most important skills and focus areas. Order them to flow naturally — foundational topics before advanced ones. Calibrate each difficulty to the stated seniority. Each slot names the specific skill to test, the intent (what to assess), a difficulty, and the key points a strong answer should cover — the concepts, tradeoffs, and edge cases later used to grade the candidate's answer.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Job context:\n- Company: Meridian Commerce\n- Target role: Data Engineer, Streaming Platform\n- Seniority: mid\n- Key skills to assess: Kafka, Flink, Iceberg, AWS S3, SQL, Python, stream processing, data contracts, exactly-once semantics, lakehouse\n- Focus areas: event pipeline architecture, data quality and contracts, stream processing at scale, cost optimization, table format design\n\nDesign exactly 2 interview question slots for this role."
+      }
+    ],
+    "output_model": "PlanExtraction",
+    "output_schema": {
+      "$defs": {
+        "PlanSlotExtraction": {
+          "properties": {
+            "skill": {
+              "description": "The specific skill or topic this question tests, e.g. 'Kubernetes networking'.",
+              "title": "Skill",
+              "type": "string"
+            },
+            "intent": {
+              "description": "What the question should assess about that skill — the angle to probe.",
+              "title": "Intent",
+              "type": "string"
+            },
+            "difficulty": {
+              "description": "One of: foundational, intermediate, advanced — calibrated to the role's seniority.",
+              "title": "Difficulty",
+              "type": "string"
+            },
+            "key_points": {
+              "description": "3-5 specific things a strong answer should cover: the core concepts, tradeoffs, edge cases, or facts that distinguish real depth from a surface-level reply. Each a short phrase. Used later to grade answers, so be concrete and answer-focused, not a restatement of the question.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Key Points",
+              "type": "array"
+            }
+          },
+          "required": [
+            "skill",
+            "intent",
+            "difficulty"
+          ],
+          "title": "PlanSlotExtraction",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "slots": {
+          "description": "One slot per main question, ordered, giving non-overlapping coverage of the role.",
+          "items": {
+            "$ref": "#/$defs/PlanSlotExtraction"
+          },
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "title": "PlanExtraction",
+      "type": "object"
+    },
+    "max_tokens": 1500
+  },
+  "response": {
+    "slots": [
+      {
+        "skill": "Kafka and stream processing fundamentals",
+        "intent": "Assess understanding of event pipeline architecture, partition strategy, and consumer group semantics in a production streaming system",
+        "difficulty": "intermediate",
+        "key_points": [
+          "partition key selection and its impact on ordering guarantees and scalability",
+          "consumer group coordination and offset management trade-offs",
+          "rebalancing scenarios and their effect on pipeline latency",
+          "exactly-once vs at-least-once semantics and when each applies"
+        ]
+      },
+      {
+        "skill": "Lakehouse architecture with Iceberg and cost optimization",
+        "intent": "Evaluate ability to design scalable, cost-efficient data pipelines using modern table formats, including schema evolution, compaction strategy, and S3 storage optimization",
+        "difficulty": "intermediate",
+        "key_points": [
+          "Iceberg advantages over Parquet for streaming inserts and schema changes",
+          "compaction and small-file problem trade-offs with query performance",
+          "data contract enforcement and versioning in a lakehouse",
+          "S3 cost optimization through partitioning, file sizing, and tiered storage strategies"
+        ]
+      }
+    ]
+  },
+  "latency_ms": 3600.0,
+  "usage": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "input_tokens": 790,
+    "output_tokens": 244,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "request_id": "req_011CdKNPnm8nEscyv9MhRc9J",
+    "stop_reason": "end_turn"
+  },
+  "recorded_at": "2026-07-23T17:17:47Z"
+}

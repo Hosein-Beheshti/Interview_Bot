@@ -6,10 +6,15 @@ async client is reused across calls.
 """
 from __future__ import annotations
 
+import base64
+import hashlib
+
 import httpx
 
 from config import settings
 from services.observability import observe_span
+
+from . import transport
 
 # Vendor-specific selections — the only Deepgram-isms in the app. Swapping
 # providers means changing these and the request shapes below; nothing outside
@@ -40,11 +45,7 @@ def _auth_headers(content_type: str) -> dict[str, str]:
 
 async def transcribe(audio: bytes, content_type: str = "audio/webm") -> str:
     """Transcribe audio bytes to text (speech-to-text)."""
-    async with observe_span(
-        "deepgram.stt",
-        input={"bytes": len(audio), "content_type": content_type},
-        metadata={"model": _STT_MODEL},
-    ):
+    async def _live() -> str:
         response = await _get_client().post(
             _STT_URL,
             params={"model": _STT_MODEL, "smart_format": "true"},
@@ -53,16 +54,30 @@ async def transcribe(audio: bytes, content_type: str = "audio/webm") -> str:
         )
         response.raise_for_status()
         data = response.json()
-    return data["results"]["channels"][0]["alternatives"][0]["transcript"]
+        return data["results"]["channels"][0]["alternatives"][0]["transcript"]
+
+    async with observe_span(
+        "deepgram.stt",
+        input={"bytes": len(audio), "content_type": content_type},
+        metadata={"model": _STT_MODEL},
+    ):
+        # Audio is identified by hash, not embedded, so cassettes stay small.
+        return await transport.call(
+            "speech.transcribe",
+            {
+                "kind": "speech.transcribe",
+                "provider": "deepgram",
+                "model": _STT_MODEL,
+                "content_type": content_type,
+                "audio_sha256": hashlib.sha256(audio).hexdigest(),
+            },
+            _live,
+        )
 
 
 async def synthesize(text: str) -> bytes:
     """Synthesize text to speech audio (text-to-speech)."""
-    async with observe_span(
-        "deepgram.tts",
-        input={"chars": len(text)},
-        metadata={"voice": _TTS_VOICE},
-    ):
+    async def _live() -> bytes:
         response = await _get_client().post(
             _TTS_URL,
             params={"model": _TTS_VOICE},
@@ -70,4 +85,22 @@ async def synthesize(text: str) -> bytes:
             json={"text": text},
         )
         response.raise_for_status()
-    return response.content
+        return response.content
+
+    async with observe_span(
+        "deepgram.tts",
+        input={"chars": len(text)},
+        metadata={"voice": _TTS_VOICE},
+    ):
+        return await transport.call(
+            "speech.synthesize",
+            {
+                "kind": "speech.synthesize",
+                "provider": "deepgram",
+                "voice": _TTS_VOICE,
+                "text": text,
+            },
+            _live,
+            encode=lambda audio: base64.b64encode(audio).decode("ascii"),
+            decode=base64.b64decode,
+        )

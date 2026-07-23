@@ -14,7 +14,13 @@ from pydantic import BaseModel
 from config import settings
 from services.observability import observe_generation
 
+from . import transport
 from .providers import get_provider
+
+
+def _active_model() -> str:
+    """The model name the configured provider will actually call."""
+    return settings.gemini_model if settings.llm_provider == "gemini" else settings.model
 
 
 async def generate(
@@ -41,8 +47,21 @@ async def generate(
         input={"system": system, "cache_prefix": cache_prefix, "messages": messages},
         metadata={"temperature": temperature},
     ) as gen:
-        reply = await get_provider().generate(
-            messages, system, cache_prefix=cache_prefix, temperature=temperature
+        reply = await transport.call(
+            "llm.generate",
+            {
+                "kind": "llm.generate",
+                "provider": settings.llm_provider,
+                "model": _active_model(),
+                "system": system,
+                "cache_prefix": cache_prefix,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": settings.max_tokens,
+            },
+            lambda: get_provider().generate(
+                messages, system, cache_prefix=cache_prefix, temperature=temperature
+            ),
         )
         gen.set_output(reply)
         return reply
@@ -70,13 +89,27 @@ async def generate_structured(
         input={"system": system, "cache_prefix": cache_prefix, "messages": messages},
         metadata={"temperature": temperature, "max_tokens": max_tokens},
     ) as gen:
-        result = await get_provider().generate_structured(
-            system,
-            messages,
-            schema,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            cache_prefix=cache_prefix,
+        result = await transport.call(
+            "llm.generate_structured",
+            {
+                "kind": "llm.generate_structured",
+                "provider": settings.llm_provider,
+                "model": _active_model(),
+                "system": system,
+                "cache_prefix": cache_prefix,
+                "messages": messages,
+                "schema": schema,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            },
+            lambda: get_provider().generate_structured(
+                system,
+                messages,
+                schema,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                cache_prefix=cache_prefix,
+            ),
         )
         gen.set_output(result)
         return result
@@ -100,8 +133,23 @@ async def parse(
         input={"system": system, "messages": messages},
         metadata={"max_tokens": max_tokens, "output_model": output_model.__name__},
     ) as gen:
-        parsed = await get_provider().parse(
-            system, messages, output_model, max_tokens=max_tokens
+        parsed = await transport.call(
+            "llm.parse",
+            {
+                "kind": "llm.parse",
+                "provider": settings.llm_provider,
+                "model": _active_model(),
+                "system": system,
+                "messages": messages,
+                "output_model": output_model.__name__,
+                "output_schema": output_model.model_json_schema(),
+                "max_tokens": max_tokens,
+            },
+            lambda: get_provider().parse(
+                system, messages, output_model, max_tokens=max_tokens
+            ),
+            encode=lambda model: model.model_dump(mode="json"),
+            decode=output_model.model_validate,
         )
         gen.set_output(parsed.model_dump() if isinstance(parsed, BaseModel) else parsed)
         return parsed

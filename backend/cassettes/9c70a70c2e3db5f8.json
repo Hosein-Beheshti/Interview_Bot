@@ -1,0 +1,112 @@
+{
+  "cassette_version": 1,
+  "kind": "llm.parse",
+  "request_hash": "9c70a70c2e3db5f8fe5061938fc2d3f4002c02a57ed1a584c7afc372afe67de9",
+  "request": {
+    "kind": "llm.parse",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "system": "You extract a concise, structured interview profile from whatever job information the user provides (title, company, description, requirements). Infer sensible values when details are implicit, but never invent a company name that isn't present.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Data Engineer, Streaming Platform — Meridian Commerce (Bengaluru).\nOwn the event pipelines that feed analytics and ML: Kafka, Flink, Iceberg on S3, ~1B events/day. You will drive data contracts with producer teams and keep exactly-once guarantees honest. Requirements: 3+ years data engineering, strong SQL and Python, stream processing experience, lakehouse table formats. Nice to have: dbt, cost optimization on AWS."
+      }
+    ],
+    "output_model": "ProfileExtraction",
+    "output_schema": {
+      "description": "The shape the model fills when extracting a profile from job context.\n\nThe LLM-I/O contract (one of three intentionally distinct profile shapes:\nthis for extraction, `JobProfile` for the domain, `JobProfileSchema` for the\nAPI response). Delivered to the API as a structured-output format via\n`messages.parse`. Normalization (dedupe, caps, blank handling, fallback role)\nlives in `parse_profile`.",
+      "properties": {
+        "role": {
+          "description": "The job title being interviewed for, e.g. 'Senior Backend Engineer'.",
+          "title": "Role",
+          "type": "string"
+        },
+        "company": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Company name if stated, otherwise null.",
+          "title": "Company"
+        },
+        "seniority": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seniority level if inferable, e.g. 'junior', 'mid', 'senior', 'staff'.",
+          "title": "Seniority"
+        },
+        "key_skills": {
+          "description": "Specific skills, tools, or technologies the role requires and that questions should test.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Key Skills",
+          "type": "array"
+        },
+        "focus_areas": {
+          "description": "Broader competency areas to probe, e.g. 'system design', 'team leadership'.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Focus Areas",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "ProfileExtraction",
+      "type": "object"
+    },
+    "max_tokens": 500
+  },
+  "response": {
+    "role": "Data Engineer, Streaming Platform",
+    "company": "Meridian Commerce",
+    "seniority": "mid",
+    "key_skills": [
+      "Kafka",
+      "Flink",
+      "Iceberg",
+      "AWS S3",
+      "SQL",
+      "Python",
+      "stream processing",
+      "data contracts",
+      "exactly-once semantics",
+      "lakehouse"
+    ],
+    "focus_areas": [
+      "event pipeline architecture",
+      "data quality and contracts",
+      "stream processing at scale",
+      "cost optimization",
+      "table format design"
+    ]
+  },
+  "latency_ms": 1598.9,
+  "usage": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "input_tokens": 778,
+    "output_tokens": 112,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "request_id": "req_011CdKNPfvd1akadJVTWDWao",
+    "stop_reason": "end_turn"
+  },
+  "recorded_at": "2026-07-23T17:17:44Z"
+}

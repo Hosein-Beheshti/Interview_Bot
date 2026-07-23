@@ -19,6 +19,7 @@ Design contract:
     implement `TracingBackend` and select it in `tracer.py` to use something else.
 """
 from .tracer import (
+    capture_generation_usage,
     observe_generation,
     observe_span,
     observe_turn,
@@ -31,6 +32,7 @@ __all__ = [
     "observe_turn",
     "observe_generation",
     "observe_span",
+    "capture_generation_usage",
     "record_generation_usage",
     "set_session",
     "shutdown",

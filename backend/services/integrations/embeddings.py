@@ -12,6 +12,8 @@ from typing import Literal
 from config import settings
 from services.observability import observe_span
 
+from . import transport
+
 InputType = Literal["document", "query"]
 
 # Created lazily so importing this module (and anything that transitively imports
@@ -35,15 +37,28 @@ async def embed(texts: list[str], input_type: InputType) -> list[list[float]]:
     """Embed `texts` for either storage ('document') or search ('query')."""
     if not texts:
         return []
-    async with observe_span(
-        "voyage.embed",
-        input={"count": len(texts), "input_type": input_type},
-        metadata={"model": settings.embedding_model},
-    ):
+    async def _live() -> list[list[float]]:
         result = await asyncio.to_thread(
             _get_client().embed,
             texts=texts,
             model=settings.embedding_model,
             input_type=input_type,
         )
-    return result.embeddings
+        return result.embeddings
+
+    async with observe_span(
+        "voyage.embed",
+        input={"count": len(texts), "input_type": input_type},
+        metadata={"model": settings.embedding_model},
+    ):
+        return await transport.call(
+            "embeddings.embed",
+            {
+                "kind": "embeddings.embed",
+                "provider": "voyage",
+                "model": settings.embedding_model,
+                "input_type": input_type,
+                "texts": texts,
+            },
+            _live,
+        )

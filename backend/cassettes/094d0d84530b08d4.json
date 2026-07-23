@@ -1,0 +1,112 @@
+{
+  "cassette_version": 1,
+  "kind": "llm.parse",
+  "request_hash": "094d0d84530b08d4a93c9cb49ad2f8c9fb9a9eb9737bd04caacb98275e0a4c6c",
+  "request": {
+    "kind": "llm.parse",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "system": "You extract a concise, structured interview profile from whatever job information the user provides (title, company, description, requirements). Infer sensible values when details are implicit, but never invent a company name that isn't present.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Backend Engineer, Payments — Ledgerpoint (Manchester/hybrid).\nYou will build and operate the services that move money: invoicing, payment webhooks, reconciliation. Correctness under concurrency matters more here than raw throughput. Requirements: 4+ years backend experience with Python or Go, PostgreSQL, event-driven architectures (Kafka or similar), idempotency and exactly-once patterns, observability. Nice to have: strangler-fig migrations, property-based testing."
+      }
+    ],
+    "output_model": "ProfileExtraction",
+    "output_schema": {
+      "description": "The shape the model fills when extracting a profile from job context.\n\nThe LLM-I/O contract (one of three intentionally distinct profile shapes:\nthis for extraction, `JobProfile` for the domain, `JobProfileSchema` for the\nAPI response). Delivered to the API as a structured-output format via\n`messages.parse`. Normalization (dedupe, caps, blank handling, fallback role)\nlives in `parse_profile`.",
+      "properties": {
+        "role": {
+          "description": "The job title being interviewed for, e.g. 'Senior Backend Engineer'.",
+          "title": "Role",
+          "type": "string"
+        },
+        "company": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Company name if stated, otherwise null.",
+          "title": "Company"
+        },
+        "seniority": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seniority level if inferable, e.g. 'junior', 'mid', 'senior', 'staff'.",
+          "title": "Seniority"
+        },
+        "key_skills": {
+          "description": "Specific skills, tools, or technologies the role requires and that questions should test.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Key Skills",
+          "type": "array"
+        },
+        "focus_areas": {
+          "description": "Broader competency areas to probe, e.g. 'system design', 'team leadership'.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Focus Areas",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "ProfileExtraction",
+      "type": "object"
+    },
+    "max_tokens": 500
+  },
+  "response": {
+    "role": "Backend Engineer, Payments",
+    "company": "Ledgerpoint",
+    "seniority": "mid",
+    "key_skills": [
+      "Python",
+      "Go",
+      "PostgreSQL",
+      "Kafka",
+      "event-driven architecture",
+      "idempotency",
+      "exactly-once processing",
+      "observability",
+      "strangler-fig migrations",
+      "property-based testing"
+    ],
+    "focus_areas": [
+      "payment systems",
+      "concurrency and correctness",
+      "invoicing and reconciliation",
+      "webhook handling",
+      "distributed systems reliability"
+    ]
+  },
+  "latency_ms": 1594.6,
+  "usage": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "input_tokens": 782,
+    "output_tokens": 98,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "request_id": "req_011CdKNHQFsknw2aiMsvdzos",
+    "stop_reason": "end_turn"
+  },
+  "recorded_at": "2026-07-23T17:16:19Z"
+}

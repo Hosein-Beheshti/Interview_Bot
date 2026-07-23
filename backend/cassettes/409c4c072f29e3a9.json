@@ -1,0 +1,118 @@
+{
+  "cassette_version": 1,
+  "kind": "llm.parse",
+  "request_hash": "409c4c072f29e3a9683708d16f2442329e0b7efcf4a91739ba838472c1b469c8",
+  "request": {
+    "kind": "llm.parse",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "system": "You design a structured interview blueprint. Given a job profile and a target number of main questions, produce exactly that many question slots that together give broad, non-overlapping coverage of the role's most important skills and focus areas. Order them to flow naturally — foundational topics before advanced ones. Calibrate each difficulty to the stated seniority. Each slot names the specific skill to test, the intent (what to assess), a difficulty, and the key points a strong answer should cover — the concepts, tradeoffs, and edge cases later used to grade the candidate's answer.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Job context:\n- Company: Streamside Media\n- Target role: Senior Machine Learning Engineer\n- Seniority: senior\n- Key skills to assess: Python, learning-to-rank, recommender systems, A/B testing, model serving, feature pipelines, model training, offline evaluation, online evaluation, model monitoring, model deployment, low-latency inference\n- Focus areas: machine learning systems design, production ML, ranking algorithms, recommendations, feature engineering, model evaluation, deployment and monitoring, scale\n\nDesign exactly 3 interview question slots for this role."
+      }
+    ],
+    "output_model": "PlanExtraction",
+    "output_schema": {
+      "$defs": {
+        "PlanSlotExtraction": {
+          "properties": {
+            "skill": {
+              "description": "The specific skill or topic this question tests, e.g. 'Kubernetes networking'.",
+              "title": "Skill",
+              "type": "string"
+            },
+            "intent": {
+              "description": "What the question should assess about that skill — the angle to probe.",
+              "title": "Intent",
+              "type": "string"
+            },
+            "difficulty": {
+              "description": "One of: foundational, intermediate, advanced — calibrated to the role's seniority.",
+              "title": "Difficulty",
+              "type": "string"
+            },
+            "key_points": {
+              "description": "3-5 specific things a strong answer should cover: the core concepts, tradeoffs, edge cases, or facts that distinguish real depth from a surface-level reply. Each a short phrase. Used later to grade answers, so be concrete and answer-focused, not a restatement of the question.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Key Points",
+              "type": "array"
+            }
+          },
+          "required": [
+            "skill",
+            "intent",
+            "difficulty"
+          ],
+          "title": "PlanSlotExtraction",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "slots": {
+          "description": "One slot per main question, ordered, giving non-overlapping coverage of the role.",
+          "items": {
+            "$ref": "#/$defs/PlanSlotExtraction"
+          },
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "title": "PlanExtraction",
+      "type": "object"
+    },
+    "max_tokens": 1500
+  },
+  "response": {
+    "slots": [
+      {
+        "skill": "Machine Learning Systems Design & Feature Pipelines",
+        "intent": "Assess ability to architect end-to-end ML systems that handle feature engineering, data freshness, and scalability constraints in production environments.",
+        "difficulty": "advanced",
+        "key_points": [
+          "Feature store design and online/offline feature consistency",
+          "Handling feature staleness, latency, and storage trade-offs at scale",
+          "Data lineage, validation, and monitoring in feature pipelines",
+          "Batch vs. streaming feature computation and orchestration patterns"
+        ]
+      },
+      {
+        "skill": "Learning-to-Rank & Recommender System Architecture",
+        "intent": "Evaluate deep understanding of ranking algorithms, candidate generation, re-ranking stages, and how to balance relevance, diversity, and business metrics in recommendations.",
+        "difficulty": "advanced",
+        "key_points": [
+          "Multi-stage ranking architecture (retrieval, candidate generation, re-ranking)",
+          "Trade-offs between collaborative filtering, content-based, and learned-to-rank approaches",
+          "Position bias, exploration-exploitation balance, and diversity/relevance trade-offs",
+          "Cold-start problem and how to handle new items or users"
+        ]
+      },
+      {
+        "skill": "Model Deployment, Serving, and Online Evaluation",
+        "intent": "Assess experience deploying models to production, managing inference latency under load, running online experiments, and monitoring model drift or performance degradation in live systems.",
+        "difficulty": "advanced",
+        "key_points": [
+          "Low-latency serving architecture (batching, caching, model optimization)",
+          "A/B test design, statistical power, and guardrail metrics in live ranking systems",
+          "Online metric monitoring and detection of model or data drift",
+          "Rollback strategies, shadow traffic, and gradual rollout patterns for ranking model updates"
+        ]
+      }
+    ]
+  },
+  "latency_ms": 5068.1,
+  "usage": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "input_tokens": 803,
+    "output_tokens": 389,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "request_id": "req_011CdKN9RsPGZ8WR5PPBQXj7",
+    "stop_reason": "end_turn"
+  },
+  "recorded_at": "2026-07-23T17:14:34Z"
+}

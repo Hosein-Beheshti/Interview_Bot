@@ -8,6 +8,7 @@ tracing failure can never propagate into the request path.
 from __future__ import annotations
 
 import contextlib
+import contextvars
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -131,6 +132,31 @@ async def observe_span(name: str, *, input: Any = None, metadata: dict | None = 
         yield handle
 
 
+# Contextvar sink for `capture_generation_usage`: while set, every
+# `record_generation_usage` payload is mirrored into it. Used by the transport
+# waist to persist token counts into cassettes without the providers knowing
+# anything about recording.
+_usage_sink: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "usage_sink", default=None
+)
+
+
+@contextlib.contextmanager
+def capture_generation_usage():
+    """Collect `record_generation_usage` payloads into the yielded dict.
+
+    Purely additive: the payload still flows to the tracing backend exactly as
+    before. None-valued fields are dropped so the capture reflects what the
+    provider actually reported.
+    """
+    sink: dict[str, Any] = {}
+    token = _usage_sink.set(sink)
+    try:
+        yield sink
+    finally:
+        _usage_sink.reset(token)
+
+
 def record_generation_usage(**attrs: Any) -> None:
     """Attach model/token/cost metadata to the currently-active generation.
 
@@ -139,6 +165,9 @@ def record_generation_usage(**attrs: Any) -> None:
     `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `request_id`,
     `stop_reason`, `provider`.
     """
+    sink = _usage_sink.get()
+    if sink is not None:
+        sink.update({k: v for k, v in attrs.items() if v is not None})
     try:
         _backend.update_current_generation(**attrs)
     except Exception as e:

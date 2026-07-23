@@ -1,0 +1,218 @@
+{
+  "cv_file": "data_engineer.txt",
+  "num_questions": 2,
+  "plan": {
+    "slots": [
+      {
+        "difficulty": "intermediate",
+        "intent": "Assess understanding of event pipeline architecture, partition strategy, and consumer group semantics in a production streaming system",
+        "key_points": [
+          "partition key selection and its impact on ordering guarantees and scalability",
+          "consumer group coordination and offset management trade-offs",
+          "rebalancing scenarios and their effect on pipeline latency",
+          "exactly-once vs at-least-once semantics and when each applies"
+        ],
+        "skill": "Kafka and stream processing fundamentals"
+      },
+      {
+        "difficulty": "intermediate",
+        "intent": "Evaluate ability to design scalable, cost-efficient data pipelines using modern table formats, including schema evolution, compaction strategy, and S3 storage optimization",
+        "key_points": [
+          "Iceberg advantages over Parquet for streaming inserts and schema changes",
+          "compaction and small-file problem trade-offs with query performance",
+          "data contract enforcement and versioning in a lakehouse",
+          "S3 cost optimization through partitioning, file sizing, and tiered storage strategies"
+        ],
+        "skill": "Lakehouse architecture with Iceberg and cost optimization"
+      }
+    ]
+  },
+  "profile": {
+    "company": "Meridian Commerce",
+    "focus_areas": [
+      "event pipeline architecture",
+      "data quality and contracts",
+      "stream processing at scale",
+      "cost optimization",
+      "table format design"
+    ],
+    "key_skills": [
+      "Kafka",
+      "Flink",
+      "Iceberg",
+      "AWS S3",
+      "SQL",
+      "Python",
+      "stream processing",
+      "data contracts",
+      "exactly-once semantics",
+      "lakehouse"
+    ],
+    "role": "Data Engineer, Streaming Platform",
+    "seniority": "mid"
+  },
+  "scenario": "data-streaming",
+  "scores": [
+    {
+      "follow_up": false,
+      "improvements": [
+        "Address the actual question: explain partition key selection (e.g., order_id, customer_id) and justify partition count for 1.2B events",
+        "Discuss consumer group rebalancing impact on latency and how partition count affects parallelism ceiling",
+        "Explain ordering guarantees trade-off: same partition key ensures order but limits parallelism; multiple partitions require idempotency downstream"
+      ],
+      "q": 1,
+      "score": 5,
+      "strengths": [
+        "Correctly identifies two-phase-commit pattern and Iceberg as transaction boundary",
+        "Demonstrates awareness of idempotency as defensive measure",
+        "Shows understanding that exactly-once requires both state and sink coordination"
+      ]
+    },
+    {
+      "follow_up": true,
+      "improvements": [
+        "Directly address the question: what mechanism (deduplication state, Iceberg merge-on-read, idempotent writes) actually prevents duplicate processing?",
+        "Explain exactly-once vs at-least-once semantics and when each is appropriate in Flink",
+        "Provide a concrete example of a real bug caught by idempotency safeguards, or explain the trade-offs in choosing one approach over another"
+      ],
+      "q": 1,
+      "score": 2,
+      "strengths": [
+        "Acknowledges schema importance, which is foundational to data contracts",
+        "Mentions a concrete tool (Protobuf) rather than pure hand-waving"
+      ]
+    },
+    {
+      "follow_up": false,
+      "improvements": [
+        "Must directly answer the question asked: how does Iceberg prevent duplicates on sink failure with a dedup key?",
+        "Explain Iceberg's transaction guarantees, upsert semantics, and whether uniqueness constraints are enforced or advisory",
+        "Address the specific failure mode: partial commit and recovery strategy"
+      ],
+      "q": 2,
+      "score": 0,
+      "strengths": []
+    },
+    {
+      "follow_up": true,
+      "improvements": [
+        "Must directly address the question: explain Iceberg's atomic commit protocol, metadata versioning, and how the metadata layer prevents partial writes",
+        "Clarify the role of write-ahead logs or transaction logs in Iceberg's crash-safety guarantee",
+        "Distinguish between operational cost optimization (valid but off-topic here) and the technical mechanism that prevents data corruption on failure"
+      ],
+      "q": 2,
+      "score": 0,
+      "strengths": []
+    }
+  ],
+  "summary": {
+    "breakdown": [
+      {
+        "label": "Q1",
+        "score": 5
+      },
+      {
+        "label": "Q1 follow-up",
+        "score": 2
+      },
+      {
+        "label": "Q2",
+        "score": 0
+      },
+      {
+        "label": "Q2 follow-up",
+        "score": 0
+      }
+    ],
+    "copy_text": "AI Interview Results — Data Engineer, Streaming Platform\nOverall Score: 1.8/10\n\nQ1: 5/10\n  + Correctly identifies two-phase-commit pattern and Iceberg as transaction boundary, Demonstrates awareness of idempotency as defensive measure, Shows understanding that exactly-once requires both state and sink coordination\n  › Address the actual question: explain partition key selection (e.g., order_id, customer_id) and justify partition count for 1.2B events, Discuss consumer group rebalancing impact on latency and how partition count affects parallelism ceiling, Explain ordering guarantees trade-off: same partition key ensures order but limits parallelism; multiple partitions require idempotency downstream\nQ1 follow-up: 2/10\n  + Acknowledges schema importance, which is foundational to data contracts, Mentions a concrete tool (Protobuf) rather than pure hand-waving\n  › Directly address the question: what mechanism (deduplication state, Iceberg merge-on-read, idempotent writes) actually prevents duplicate processing?, Explain exactly-once vs at-least-once semantics and when each is appropriate in Flink, Provide a concrete example of a real bug caught by idempotency safeguards, or explain the trade-offs in choosing one approach over another\nQ2: 0/10\n  › Must directly answer the question asked: how does Iceberg prevent duplicates on sink failure with a dedup key?, Explain Iceberg's transaction guarantees, upsert semantics, and whether uniqueness constraints are enforced or advisory, Address the specific failure mode: partial commit and recovery strategy\nQ2 follow-up: 0/10\n  › Must directly address the question: explain Iceberg's atomic commit protocol, metadata versioning, and how the metadata layer prevents partial writes, Clarify the role of write-ahead logs or transaction logs in Iceberg's crash-safety guarantee, Distinguish between operational cost optimization (valid but off-topic here) and the technical mechanism that prevents data corruption on failure",
+    "improvements": [
+      "Address the actual question: explain partition key selection (e.g., order_id, customer_id) and justify partition count for 1.2B events",
+      "Discuss consumer group rebalancing impact on latency and how partition count affects parallelism ceiling",
+      "Explain ordering guarantees trade-off: same partition key ensures order but limits parallelism; multiple partitions require idempotency downstream",
+      "Directly address the question: what mechanism (deduplication state, Iceberg merge-on-read, idempotent writes) actually prevents duplicate processing?"
+    ],
+    "overall": 1.8,
+    "role": "Data Engineer, Streaming Platform",
+    "strengths": [
+      "Correctly identifies two-phase-commit pattern and Iceberg as transaction boundary",
+      "Demonstrates awareness of idempotency as defensive measure",
+      "Shows understanding that exactly-once requires both state and sink coordination",
+      "Acknowledges schema importance, which is foundational to data contracts"
+    ]
+  },
+  "trajectory": [
+    "main_question",
+    "follow_up",
+    "main_question",
+    "follow_up",
+    "closing"
+  ],
+  "transcript": [
+    {
+      "answer_type": null,
+      "candidate": "Hello, I'm ready to begin the interview.",
+      "critique": null,
+      "dimensions": null,
+      "follow_up_recommended": null,
+      "interviewer": "I'm your technical interviewer for the Data Engineer, Streaming Platform role at Meridian Commerce. Let's dive in.\n\nQuestion 1: You own the order-events pipeline handling 1.2B events daily. Walk me through how you've partitioned that Kafka topic and why. What trade-offs did you consider between partition count, consumer parallelism, and ordering guarantees for downstream Flink jobs?",
+      "mode": "main_question",
+      "score": null
+    },
+    {
+      "answer_type": "partial",
+      "candidate": "Exactly-once in Flink is really exactly-once state plus transactional sinks: checkpointing gives you consistent state recovery, and the two-phase-commit sink ties the output commit to the checkpoint. The gotcha is that everything downstream must either participate in the transaction or tolerate duplicates — we made the Iceberg commit the transaction boundary and kept consumers idempotent as a belt-and-braces measure.",
+      "critique": "The candidate pivots to exactly-once semantics and transactional sinks but never addresses the core question: partition key selection, partition count rationale, consumer parallelism trade-offs, or ordering guarantees. Missing critical details on how partitioning impacts downstream Flink job parallelism and latency during rebalancing.",
+      "dimensions": {
+        "communication": 6,
+        "depth_accuracy": 5,
+        "technical_relevance": 3
+      },
+      "follow_up_recommended": true,
+      "interviewer": "Following up on that — you mentioned keeping consumers idempotent as a safety net. In practice, how do you enforce or verify idempotency across your Flink jobs? Are you relying on Iceberg's merge-on-read semantics, deduplication keys in your state, or something else? And have you actually hit a scenario where that safety net caught a real bug?",
+      "mode": "follow_up",
+      "score": 5
+    },
+    {
+      "answer_type": "partial",
+      "candidate": "Mostly it's about schemas, I think. We used Protobuf.",
+      "critique": "The answer is severely incomplete. It mentions Protobuf schemas but entirely avoids the core question: how idempotency is enforced in Flink jobs (deduplication keys, state management, Iceberg semantics). It also misses exactly-once semantics, offset management, and rebalancing—all critical for mid-level streaming engineers. This is a bare assertion without technical depth.",
+      "dimensions": {
+        "communication": 3,
+        "depth_accuracy": 2,
+        "technical_relevance": 2
+      },
+      "follow_up_recommended": true,
+      "interviewer": "Fair point on schemas being foundational. But I'm asking more operationally — when a Flink job writes to Iceberg with a dedup key, how do you actually prevent duplicate rows from landing in the table if the sink fails partway through a commit? Is Iceberg's uniqueness constraint handling that, or are you relying on upsert logic in your downstream consumers?",
+      "mode": "main_question",
+      "score": 2
+    },
+    {
+      "answer_type": "no_answer",
+      "candidate": "To add detail: the contracts were Protobuf schemas checked in CI for backward compatibility, so a producer physically could not merge a breaking change without the analytics team's sign-off. Incidents went from monthly to zero in two quarters.",
+      "critique": "The candidate completely pivots to data contracts and Protobuf CI enforcement, ignoring the core technical question about duplicate prevention during Iceberg sink failures. They don't address exactly-once semantics, Iceberg's transaction model, upsert vs. append semantics, or how dedup keys interact with partial commits—the operational heart of the question.",
+      "dimensions": {
+        "communication": 0,
+        "depth_accuracy": 0,
+        "technical_relevance": 0
+      },
+      "follow_up_recommended": true,
+      "interviewer": "I appreciate the detail on schema governance — that's clearly been powerful for you. Let me narrow the question: when your Flink sink writes a batch of order events to Iceberg and crashes mid-commit, how does Iceberg itself guarantee that no partial or duplicate writes persist in the table? What mechanism stops that from happening?",
+      "mode": "follow_up",
+      "score": 0
+    },
+    {
+      "answer_type": "no_answer",
+      "candidate": "For cost we moved the batch layer to spot instances on EKS and scheduled Iceberg compaction and snapshot expiry; storage-level maintenance mattered as much as compute pricing.",
+      "critique": "The candidate completely misses the technical question about Iceberg's crash-safety mechanism (atomic commits, metadata layer, write-ahead logs). Instead, they pivot to cost optimization and infrastructure choices—relevant to the role but not what was asked. This suggests either misunderstanding the question or deflecting from unfamiliar territory.",
+      "dimensions": {
+        "communication": 0,
+        "depth_accuracy": 0,
+        "technical_relevance": 0
+      },
+      "follow_up_recommended": true,
+      "interviewer": "I hear you on maintenance being critical for cost. But I need you to stay with the idempotency question — it's core to exactly-once guarantees. When your two-phase-commit sink to Iceberg fails partway through, what prevents duplicate rows? Is it Iceberg's atomic writes, dedup logic in your Flink state, or upsert semantics downstream?",
+      "mode": "closing",
+      "score": 0
+    }
+  ]
+}

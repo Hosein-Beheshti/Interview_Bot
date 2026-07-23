@@ -1,0 +1,49 @@
+Maya Lindqvist
+Stockholm, Sweden | maya.lindqvist@example.com
+
+Summary
+
+Machine learning engineer with 6 years of experience taking models from
+notebook to production. Built and operated recommendation and ranking systems
+serving 40M requests/day. Comfortable owning the full lifecycle: data
+pipelines, training infrastructure, evaluation, deployment, and monitoring.
+
+Experience
+
+Senior ML Engineer — Nordstream Labs (2022–present)
+- Led the redesign of the product-ranking model: replaced a gradient-boosted
+  tree ensemble with a two-tower neural retrieval + LightGBM re-ranking stack,
+  improving NDCG@10 by 11% in online A/B tests.
+- Built the offline evaluation harness (counterfactual replay over logged
+  impressions) that became the team's gate for every model release.
+- Reduced p99 inference latency from 240ms to 90ms by quantizing the retrieval
+  tower to int8 and moving feature hydration to a Redis-backed feature store.
+- Mentored two junior engineers; ran the team's weekly paper-reading group.
+
+ML Engineer — Helsingborg Analytics (2019–2022)
+- Shipped a churn-prediction service (XGBoost, later a calibrated logistic
+  ensemble) used by 30 enterprise customers; owned SLAs and on-call.
+- Designed the training pipeline on Airflow + Spark: incremental feature
+  computation, point-in-time-correct joins, and automated backfill.
+- Introduced drift monitoring (PSI on input features, delayed-label AUC
+  tracking) that caught a silent upstream schema change within one day.
+
+Data Analyst — Kronan Retail (2017–2019)
+- Built demand-forecasting notebooks that grew into the company's first
+  production ML system.
+
+Skills
+
+Python, PyTorch, LightGBM/XGBoost, SQL, Spark, Airflow, Kafka, Redis,
+Docker, Kubernetes, AWS (SageMaker, S3, ECS), MLflow, feature stores,
+A/B testing, counterfactual evaluation, model monitoring.
+
+Education
+
+MSc Machine Learning, KTH Royal Institute of Technology (2017)
+BSc Computer Science, Lund University (2015)
+
+Publications
+
+"Point-in-time correctness in feature pipelines: lessons from production",
+  workshop paper, NORDIC-ML 2021.

@@ -52,6 +52,18 @@ class Settings(BaseSettings):
     # ~150K tokens — safety net for large CVs; well within Haiku's 200K context limit
     max_context_chars: int = 600_000
 
+    # Model-call transport mode — the record/replay seam for every network call
+    # to a model provider (LLM, embeddings, speech):
+    #   "live"    hit the provider APIs (production default)
+    #   "record"  hit the APIs AND write (request, response, latency, token
+    #             usage) to a cassette file keyed by the request's content hash
+    #   "replay"  serve recorded responses from disk by request hash — no
+    #             network, no API keys; a missing cassette is a hard error
+    transport_mode: str = "live"  # "live" | "record" | "replay"
+    # Where cassettes live. A relative path is anchored at the backend root so
+    # the same value works from any working directory.
+    cassette_dir: str = "cassettes"
+
     # Observability (self-hosted Langfuse). Tracing is best-effort: when disabled
     # (the default) or misconfigured it is a no-op and never affects a request, so
     # local/dev/CI run untouched. Point host/keys at your self-hosted instance and

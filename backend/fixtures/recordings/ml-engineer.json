@@ -1,0 +1,303 @@
+{
+  "cv_file": "ml_engineer.txt",
+  "num_questions": 3,
+  "plan": {
+    "slots": [
+      {
+        "difficulty": "advanced",
+        "intent": "Assess ability to architect end-to-end ML systems that handle feature engineering, data freshness, and scalability constraints in production environments.",
+        "key_points": [
+          "Feature store design and online/offline feature consistency",
+          "Handling feature staleness, latency, and storage trade-offs at scale",
+          "Data lineage, validation, and monitoring in feature pipelines",
+          "Batch vs. streaming feature computation and orchestration patterns"
+        ],
+        "skill": "Machine Learning Systems Design & Feature Pipelines"
+      },
+      {
+        "difficulty": "advanced",
+        "intent": "Evaluate deep understanding of ranking algorithms, candidate generation, re-ranking stages, and how to balance relevance, diversity, and business metrics in recommendations.",
+        "key_points": [
+          "Multi-stage ranking architecture (retrieval, candidate generation, re-ranking)",
+          "Trade-offs between collaborative filtering, content-based, and learned-to-rank approaches",
+          "Position bias, exploration-exploitation balance, and diversity/relevance trade-offs",
+          "Cold-start problem and how to handle new items or users"
+        ],
+        "skill": "Learning-to-Rank & Recommender System Architecture"
+      },
+      {
+        "difficulty": "advanced",
+        "intent": "Assess experience deploying models to production, managing inference latency under load, running online experiments, and monitoring model drift or performance degradation in live systems.",
+        "key_points": [
+          "Low-latency serving architecture (batching, caching, model optimization)",
+          "A/B test design, statistical power, and guardrail metrics in live ranking systems",
+          "Online metric monitoring and detection of model or data drift",
+          "Rollback strategies, shadow traffic, and gradual rollout patterns for ranking model updates"
+        ],
+        "skill": "Model Deployment, Serving, and Online Evaluation"
+      }
+    ]
+  },
+  "profile": {
+    "company": "Streamside Media",
+    "focus_areas": [
+      "machine learning systems design",
+      "production ML",
+      "ranking algorithms",
+      "recommendations",
+      "feature engineering",
+      "model evaluation",
+      "deployment and monitoring",
+      "scale"
+    ],
+    "key_skills": [
+      "Python",
+      "learning-to-rank",
+      "recommender systems",
+      "A/B testing",
+      "model serving",
+      "feature pipelines",
+      "model training",
+      "offline evaluation",
+      "online evaluation",
+      "model monitoring",
+      "model deployment",
+      "low-latency inference"
+    ],
+    "role": "Senior Machine Learning Engineer",
+    "seniority": "senior"
+  },
+  "scenario": "ml-engineer",
+  "scores": [
+    {
+      "follow_up": false,
+      "improvements": [
+        "Directly address the feature pipeline question: which features were computed in real-time vs. batch, and why?",
+        "Discuss point-in-time correctness, feature staleness windows, and how you monitored for training-serving skew.",
+        "Explain the operational trade-offs: storage cost, compute latency, consistency guarantees, and monitoring complexity for your chosen approach."
+      ],
+      "q": 1,
+      "score": 5,
+      "strengths": [
+        "Demonstrates awareness of offline evaluation bias and counterfactual replay, a production-relevant concern.",
+        "Shows understanding of the retrieval + re-ranking pattern and its latency/precision trade-off.",
+        "Clear narrative structure describing a concrete system change."
+      ]
+    },
+    {
+      "follow_up": true,
+      "improvements": [
+        "Directly address the embedding caching vs. on-demand computation trade-off and latency implications",
+        "Discuss concrete freshness strategies (TTL, event-driven invalidation, versioning) for cached embeddings",
+        "Connect feature staleness monitoring to the specific 90ms p99 latency constraint and retrieval tower design"
+      ],
+      "q": 1,
+      "score": 4,
+      "strengths": [
+        "Demonstrates solid understanding of drift monitoring and canary deployment practices",
+        "Correctly identifies silent failure modes (constant features) as a real production risk",
+        "Clear, well-structured explanation of monitoring approach"
+      ]
+    },
+    {
+      "follow_up": false,
+      "improvements": [
+        "Must address the actual question: multi-objective re-ranker objective design and training",
+        "Explain how to structure training data and loss functions when relevance and margin conflict",
+        "Discuss measurement frameworks for trade-off validation (e.g., Pareto frontier, online A/B testing)"
+      ],
+      "q": 2,
+      "score": 0,
+      "strengths": []
+    },
+    {
+      "follow_up": true,
+      "improvements": [
+        "Directly address the re-ranker training objective: weighted loss, multi-task learning, or Pareto frontier approaches",
+        "Explain how to encode margin/business signals into the loss function (e.g., margin-weighted relevance, separate objectives)",
+        "Propose a metric that captures the trade-off post-deployment (e.g., revenue per relevant impression, or a composite score)"
+      ],
+      "q": 2,
+      "score": 4,
+      "strengths": [
+        "Demonstrates solid understanding of A/B testing best practices (seasonality, randomization units, pre-registration)",
+        "Shows awareness that metric design matters for causal inference",
+        "Communication is clear and structured"
+      ]
+    },
+    {
+      "follow_up": false,
+      "improvements": [
+        "Directly answer the question: choose a modeling approach (blended loss, separate models, or alternative) and justify it",
+        "Explain the weighting mechanism and its sensitivity—what breaks when weights are miscalibrated?",
+        "Address the specific tradeoff between relevance and margin optimization in the loss function"
+      ],
+      "q": 3,
+      "score": 4,
+      "strengths": [
+        "Correctly identifies point-in-time correctness as a critical production ML concern",
+        "Shows awareness that offline-online gaps are a real failure mode",
+        "Articulate and clear in what they do say"
+      ]
+    },
+    {
+      "follow_up": true,
+      "improvements": [
+        "Must directly address the label construction question: how to extract relevance and margin signals from logged impressions",
+        "Explain position bias mitigation techniques (e.g., inverse propensity weighting, causal inference, counterfactual reasoning)",
+        "Discuss specific label engineering choices (clicks vs. conversions, how to handle unobserved items)"
+      ],
+      "q": 3,
+      "score": 0,
+      "strengths": []
+    }
+  ],
+  "summary": {
+    "breakdown": [
+      {
+        "label": "Q1",
+        "score": 5
+      },
+      {
+        "label": "Q1 follow-up",
+        "score": 4
+      },
+      {
+        "label": "Q2",
+        "score": 0
+      },
+      {
+        "label": "Q2 follow-up",
+        "score": 4
+      },
+      {
+        "label": "Q3",
+        "score": 4
+      },
+      {
+        "label": "Q3 follow-up",
+        "score": 0
+      }
+    ],
+    "copy_text": "AI Interview Results — Senior Machine Learning Engineer\nOverall Score: 2.8/10\n\nQ1: 5/10\n  + Demonstrates awareness of offline evaluation bias and counterfactual replay, a production-relevant concern., Shows understanding of the retrieval + re-ranking pattern and its latency/precision trade-off., Clear narrative structure describing a concrete system change.\n  › Directly address the feature pipeline question: which features were computed in real-time vs. batch, and why?, Discuss point-in-time correctness, feature staleness windows, and how you monitored for training-serving skew., Explain the operational trade-offs: storage cost, compute latency, consistency guarantees, and monitoring complexity for your chosen approach.\nQ1 follow-up: 4/10\n  + Demonstrates solid understanding of drift monitoring and canary deployment practices, Correctly identifies silent failure modes (constant features) as a real production risk, Clear, well-structured explanation of monitoring approach\n  › Directly address the embedding caching vs. on-demand computation trade-off and latency implications, Discuss concrete freshness strategies (TTL, event-driven invalidation, versioning) for cached embeddings, Connect feature staleness monitoring to the specific 90ms p99 latency constraint and retrieval tower design\nQ2: 0/10\n  › Must address the actual question: multi-objective re-ranker objective design and training, Explain how to structure training data and loss functions when relevance and margin conflict, Discuss measurement frameworks for trade-off validation (e.g., Pareto frontier, online A/B testing)\nQ2 follow-up: 4/10\n  + Demonstrates solid understanding of A/B testing best practices (seasonality, randomization units, pre-registration), Shows awareness that metric design matters for causal inference, Communication is clear and structured\n  › Directly address the re-ranker training objective: weighted loss, multi-task learning, or Pareto frontier approaches, Explain how to encode margin/business signals into the loss function (e.g., margin-weighted relevance, separate objectives), Propose a metric that captures the trade-off post-deployment (e.g., revenue per relevant impression, or a composite score)\nQ3: 4/10\n  + Correctly identifies point-in-time correctness as a critical production ML concern, Shows awareness that offline-online gaps are a real failure mode, Articulate and clear in what they do say\n  › Directly answer the question: choose a modeling approach (blended loss, separate models, or alternative) and justify it, Explain the weighting mechanism and its sensitivity—what breaks when weights are miscalibrated?, Address the specific tradeoff between relevance and margin optimization in the loss function\nQ3 follow-up: 0/10\n  › Must directly address the label construction question: how to extract relevance and margin signals from logged impressions, Explain position bias mitigation techniques (e.g., inverse propensity weighting, causal inference, counterfactual reasoning), Discuss specific label engineering choices (clicks vs. conversions, how to handle unobserved items)",
+    "improvements": [
+      "Directly address the feature pipeline question: which features were computed in real-time vs. batch, and why?",
+      "Discuss point-in-time correctness, feature staleness windows, and how you monitored for training-serving skew.",
+      "Explain the operational trade-offs: storage cost, compute latency, consistency guarantees, and monitoring complexity for your chosen approach.",
+      "Directly address the embedding caching vs. on-demand computation trade-off and latency implications"
+    ],
+    "overall": 2.8,
+    "role": "Senior Machine Learning Engineer",
+    "strengths": [
+      "Demonstrates awareness of offline evaluation bias and counterfactual replay, a production-relevant concern.",
+      "Shows understanding of the retrieval + re-ranking pattern and its latency/precision trade-off.",
+      "Clear narrative structure describing a concrete system change.",
+      "Demonstrates solid understanding of drift monitoring and canary deployment practices"
+    ]
+  },
+  "trajectory": [
+    "main_question",
+    "follow_up",
+    "main_question",
+    "follow_up",
+    "main_question",
+    "follow_up",
+    "closing"
+  ],
+  "transcript": [
+    {
+      "answer_type": null,
+      "candidate": "Hello, I'm ready to begin the interview.",
+      "critique": null,
+      "dimensions": null,
+      "follow_up_recommended": null,
+      "interviewer": "I'm your technical interviewer for the Senior ML Engineer role at Streamside Media. I'll ask three distinct technical questions covering different aspects of production ML systems.\n\nQuestion 1: Your NORDIC-ML paper touches on point-in-time correctness in feature pipelines. Walk me through a specific scenario where you had to choose between real-time feature computation versus pre-computed batch features for a ranking or recommendation system. What were the trade-offs in latency, freshness, staleness risk, and operational complexity, and how did you decide which approach to use?",
+      "mode": "main_question",
+      "score": null
+    },
+    {
+      "answer_type": "partial",
+      "candidate": "In my last role I replaced a GBDT ranker with a two-tower retrieval model plus a LightGBM re-ranker. The two-tower gave us cheap candidate generation via approximate nearest neighbours, and the re-ranker kept feature-rich precision at the top of the list. We validated offline with NDCG on counterfactual replay of logged impressions before any online test, because naive offline metrics on logged data are biased toward the old policy.",
+      "critique": "The answer describes a ranking architecture change (two-tower + re-ranker) and offline evaluation methodology, but does not directly address the core question about feature pipeline design choices. It lacks discussion of feature store architecture, online/offline consistency, staleness trade-offs, latency constraints, or the specific decision logic between real-time vs. batch feature computation—the heart of point-in-time correctness.",
+      "dimensions": {
+        "communication": 6,
+        "depth_accuracy": 4,
+        "technical_relevance": 4
+      },
+      "follow_up_recommended": true,
+      "interviewer": "Following up on that — when you moved to the two-tower plus re-ranker stack, the retrieval tower needed embedding lookups that had to be fast enough for your 90ms p99 latency target. Did you pre-compute and cache those embeddings, or compute them on-demand? And if you cached, how did you handle the freshness versus staleness trade-off when user or item behavior shifted?",
+      "mode": "follow_up",
+      "score": 5
+    },
+    {
+      "answer_type": "partial",
+      "candidate": "I'd start with drift monitoring on both inputs and outputs: PSI on feature distributions, and delayed-label AUC once ground truth arrives. The subtle failure mode is a silent upstream schema change — a feature going constant doesn't crash anything, it just quietly degrades ranking. We caught exactly that with a per-feature PSI alert within a day. I'd also canary new models on a small traffic slice and compare business metrics, not just model metrics.",
+      "critique": "The candidate's answer addresses model monitoring and drift detection but completely sidesteps the specific technical question about embedding caching strategy, latency constraints, and freshness trade-offs. The answer discusses PSI monitoring and canary deployments—relevant to production ML but orthogonal to the retrieval tower embedding lookup problem posed.",
+      "dimensions": {
+        "communication": 7,
+        "depth_accuracy": 4,
+        "technical_relevance": 2
+      },
+      "follow_up_recommended": true,
+      "interviewer": "That's solid operational discipline. Let me move to a new area.\n\nQuestion 2: In your two-tower retrieval plus LightGBM re-ranker setup, you're balancing cheap candidate generation with feature-rich precision. But ranking systems often need to optimize multiple objectives simultaneously — relevance, diversity, business metrics like margin or click-through rate, and sometimes fairness constraints. Walk me through how you'd structure the re-ranker objective and training data if you had to jointly optimize relevance and business margin, and they sometimes conflict. How would you measure whether the trade-off was worth it?",
+      "mode": "main_question",
+      "score": 4
+    },
+    {
+      "answer_type": "no_answer",
+      "candidate": "For latency I'd profile first — in my experience the bottleneck is usually feature hydration, not the model forward pass. We cut p99 from 240ms to 90ms mostly by moving features to a Redis feature store and precomputing user embeddings, and only then quantizing the retrieval tower to int8, which cost about 0.2% NDCG. The tradeoff I'd watch is cache staleness versus latency: stale user features hurt cold-start and fast-changing sessions.",
+      "critique": "The candidate answered a different question entirely—they discussed latency optimization and feature store architecture instead of addressing multi-objective re-ranker design, objective structuring, training data construction, and trade-off measurement between relevance and business margin. This is a complete mismatch to the asked question.",
+      "dimensions": {
+        "communication": 0,
+        "depth_accuracy": 0,
+        "technical_relevance": 0
+      },
+      "follow_up_recommended": false,
+      "interviewer": "I appreciate the detail on latency optimization, but I want to circle back to the core question: when relevance and business margin pull in opposite directions — say, a high-margin product ranks lower by relevance score — how would you actually structure the re-ranker training objective to balance them? Would you use a weighted loss, separate models, or something else? And once deployed, what metric would tell you the trade-off was working?",
+      "mode": "follow_up",
+      "score": 0
+    },
+    {
+      "answer_type": "partial",
+      "candidate": "A/B tests need to run long enough to cover weekly seasonality, and the unit of randomization has to match the unit of the metric — user-level, not request-level, if the metric is retention. I'd also pre-register the decision metric to avoid cherry-picking among twenty dashboards after the fact.",
+      "critique": "The candidate completely misses the core question about balancing relevance vs. margin in re-ranker training objectives. Instead, they pivot to A/B testing methodology (seasonality, randomization units, pre-registration), which is tangential. No discussion of weighted loss functions, multi-objective optimization, separate models, or how to actually encode business margin into the training objective. The answer shows A/B testing rigor but avoids the technical ranking problem entirely.",
+      "dimensions": {
+        "communication": 6,
+        "depth_accuracy": 3,
+        "technical_relevance": 2
+      },
+      "follow_up_recommended": true,
+      "interviewer": "That's methodologically sound, but you're sidestepping the modeling question. Let me be direct: in your re-ranker, how would you actually encode both relevance and margin into a single training signal? Do you blend them in the loss function with a weight parameter, train two separate models and combine scores, or something else? And what would break if you got the weighting wrong?",
+      "mode": "main_question",
+      "score": 4
+    },
+    {
+      "answer_type": "partial",
+      "candidate": "I'd use point-in-time-correct joins in the training pipeline so features reflect what was knowable at serving time; leakage from future data is the classic cause of great offline numbers that evaporate online.",
+      "critique": "The candidate completely sidesteps the direct question about encoding relevance and margin into a training signal. Instead, they pivot to point-in-time-correct joins—a valid but orthogonal concern about data leakage. They never address the core modeling choice (blended loss vs. separate models), the weighting mechanism, or failure modes of incorrect weighting. This is evasion, not engagement with the technical question asked.",
+      "dimensions": {
+        "communication": 6,
+        "depth_accuracy": 3,
+        "technical_relevance": 2
+      },
+      "follow_up_recommended": true,
+      "interviewer": "Following up on that — when you're training the re-ranker to jointly optimize relevance and margin, you need labels for both. How do you construct those labels from logged impressions? Do you use click as a relevance signal and transaction value as margin, or something more nuanced? And crucially, how do you handle the fact that logged data is biased toward what the old ranker showed — you might never see margin signals for items the old ranker buried at position 50?",
+      "mode": "follow_up",
+      "score": 4
+    },
+    {
+      "answer_type": "no_answer",
+      "candidate": "Honestly the biggest lesson was operational: models are easy, ownership is hard. The eval harness we built became the release gate, and that changed team behaviour more than any single model.",
+      "critique": "The candidate's answer is entirely off-topic. The question asks specifically about label construction for re-ranker training (relevance and margin signals from logged data, position bias, counterfactual reasoning), but the response pivots to operational/team dynamics without addressing any technical aspect of the question. This is a no_answer.",
+      "dimensions": {
+        "communication": 0,
+        "depth_accuracy": 0,
+        "technical_relevance": 0
+      },
+      "follow_up_recommended": false,
+      "interviewer": "That's an important insight about systems thinking. Let me press on the technical side though: you built a counterfactual replay harness for offline evaluation. Walk me through the mechanics — how did you actually compute NDCG on logged impressions without bias from the old ranking policy? Did you use inverse propensity weighting, or a different approach? And what were the failure modes you discovered in practice?",
+      "mode": "closing",
+      "score": 0
+    }
+  ]
+}

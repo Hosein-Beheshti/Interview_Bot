@@ -1,0 +1,42 @@
+Priya Raman
+Bengaluru, India | priya.raman@example.com
+
+Summary
+
+Data engineer with 4 years of experience building batch and streaming
+pipelines on Spark and Flink. Cares about data contracts, cost efficiency,
+and making datasets trustworthy enough that analysts stop keeping their own
+shadow copies.
+
+Experience
+
+Data Engineer — Meridian Commerce (2022–present)
+- Own the order-events pipeline: Kafka -> Flink -> Iceberg on S3, ~1.2B
+  events/day, exactly-once semantics via two-phase commit sinks.
+- Led adoption of data contracts (Protobuf schemas + CI compatibility
+  checks) between the checkout team and analytics; breaking-change
+  incidents dropped from monthly to zero over two quarters.
+- Rebuilt the nightly batch layer from Hive on EMR to Spark on EKS with
+  spot instances and Iceberg table maintenance, cutting compute cost 38%.
+- Built dbt models and freshness/volume anomaly checks for the core
+  revenue mart; on-call rotation for data quality pages.
+
+Analytics Engineer — Southbridge Fintech (2020–2022)
+- Owned the dbt project (300+ models); introduced staging/mart layering,
+  CI with slim builds, and documentation coverage checks.
+- Migrated reporting from a read replica to Snowflake; modeled slowly
+  changing dimensions for account status history.
+
+Data Analyst Intern — Civic Data Collective (2019)
+- Cleaned and published open civic datasets; first exposure to the gap
+  between "data exists" and "data is usable".
+
+Skills
+
+Python, SQL, Scala (basic), Spark, Flink, Kafka, dbt, Snowflake, Iceberg,
+Airflow, Dagster, AWS (S3, EMR, EKS, Glue), Protobuf, Great Expectations,
+data contracts, dimensional modeling, cost optimization.
+
+Education
+
+BTech Computer Science, PES University (2019)

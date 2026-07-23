@@ -1,0 +1,117 @@
+{
+  "cassette_version": 1,
+  "kind": "llm.parse",
+  "request_hash": "b06833329daace2b3e79efb52c5f54eacd732d8425925670111e55b42a6554b2",
+  "request": {
+    "kind": "llm.parse",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "system": "You extract a concise, structured interview profile from whatever job information the user provides (title, company, description, requirements). Infer sensible values when details are implicit, but never invent a company name that isn't present.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Senior Machine Learning Engineer — Streamside Media (Stockholm).\nWe run personalized ranking and recommendations for 20M weekly listeners. You will own ranking models end to end: feature pipelines, training, offline and online evaluation, deployment, and monitoring. Requirements: 5+ years of production ML, strong Python, experience with learning-to-rank or recommender systems, A/B testing at scale, and low-latency model serving. Nice to have: feature stores, counterfactual evaluation, Kubernetes."
+      }
+    ],
+    "output_model": "ProfileExtraction",
+    "output_schema": {
+      "description": "The shape the model fills when extracting a profile from job context.\n\nThe LLM-I/O contract (one of three intentionally distinct profile shapes:\nthis for extraction, `JobProfile` for the domain, `JobProfileSchema` for the\nAPI response). Delivered to the API as a structured-output format via\n`messages.parse`. Normalization (dedupe, caps, blank handling, fallback role)\nlives in `parse_profile`.",
+      "properties": {
+        "role": {
+          "description": "The job title being interviewed for, e.g. 'Senior Backend Engineer'.",
+          "title": "Role",
+          "type": "string"
+        },
+        "company": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Company name if stated, otherwise null.",
+          "title": "Company"
+        },
+        "seniority": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seniority level if inferable, e.g. 'junior', 'mid', 'senior', 'staff'.",
+          "title": "Seniority"
+        },
+        "key_skills": {
+          "description": "Specific skills, tools, or technologies the role requires and that questions should test.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Key Skills",
+          "type": "array"
+        },
+        "focus_areas": {
+          "description": "Broader competency areas to probe, e.g. 'system design', 'team leadership'.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Focus Areas",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "ProfileExtraction",
+      "type": "object"
+    },
+    "max_tokens": 500
+  },
+  "response": {
+    "role": "Senior Machine Learning Engineer",
+    "company": "Streamside Media",
+    "seniority": "senior",
+    "key_skills": [
+      "Python",
+      "learning-to-rank",
+      "recommender systems",
+      "A/B testing",
+      "model serving",
+      "feature pipelines",
+      "model training",
+      "offline evaluation",
+      "online evaluation",
+      "model monitoring",
+      "model deployment",
+      "low-latency inference"
+    ],
+    "focus_areas": [
+      "machine learning systems design",
+      "production ML",
+      "ranking algorithms",
+      "recommendations",
+      "feature engineering",
+      "model evaluation",
+      "deployment and monitoring",
+      "scale"
+    ]
+  },
+  "latency_ms": 3905.3,
+  "usage": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "input_tokens": 784,
+    "output_tokens": 106,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "request_id": "req_011CdKN9Ejup6nJcFPrqzpSL",
+    "stop_reason": "end_turn"
+  },
+  "recorded_at": "2026-07-23T17:14:29Z"
+}

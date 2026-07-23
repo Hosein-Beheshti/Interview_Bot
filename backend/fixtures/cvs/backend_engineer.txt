@@ -1,0 +1,48 @@
+Daniel Okafor
+Manchester, UK | daniel.okafor@example.com
+
+Summary
+
+Backend engineer with 5 years of experience building payment and billing
+systems in Python and Go. Strong focus on correctness under concurrency,
+idempotency, and observability. Led the migration of a monolith's billing
+module into an event-driven service without customer-visible downtime.
+
+Experience
+
+Backend Engineer II — Ledgerline (2021–present)
+- Own the invoicing service (FastAPI + PostgreSQL): 2M invoices/month,
+  four-nines availability target.
+- Designed the idempotency-key scheme for payment webhooks; duplicate charge
+  incidents went from ~3/month to zero.
+- Migrated billing out of the Django monolith into a separate service
+  communicating over Kafka, using the strangler-fig pattern and dual-writes
+  with reconciliation jobs during the cutover.
+- Introduced OpenTelemetry tracing across five services; cut mean
+  time-to-diagnosis for cross-service incidents roughly in half.
+- Wrote the team's testing guide: contract tests at service boundaries,
+  property-based tests for money arithmetic.
+
+Software Engineer — Brightmoor Systems (2019–2021)
+- Built REST APIs (Flask, later FastAPI) for a logistics platform;
+  introduced database migrations with Alembic and zero-downtime deploy
+  practices (expand/contract schema changes).
+- Optimized a hot N+1 query path, dropping a dashboard load from 8s to 300ms.
+
+Junior Developer — Cobalt Web Agency (2018–2019)
+- Full-stack work on client sites; first exposure to production incidents
+  and postmortems.
+
+Skills
+
+Python, Go, FastAPI, Django, PostgreSQL, Kafka, Redis, RabbitMQ, Docker,
+Kubernetes, Terraform, GCP, OpenTelemetry, Grafana, property-based testing,
+distributed systems patterns (sagas, outbox, idempotency).
+
+Education
+
+BEng Software Engineering, University of Manchester (2018)
+
+Certifications
+
+CKA: Certified Kubernetes Administrator (2023)
