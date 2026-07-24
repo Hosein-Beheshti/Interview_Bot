@@ -48,6 +48,7 @@ async def upload_cv(
     session.cv_indexed_at = datetime.utcnow()
     session.cv_sections = result.sections
     session.cv_full_text = parsed.text
+    session.candidate_name = cv_parser.extract_name(parsed.text)
     db.add(session)
     db.commit()
 
@@ -83,6 +84,7 @@ async def delete_cv(session_id: str, db: Session = Depends(get_db)) -> Response:
     session.cv_indexed_at = None
     session.cv_sections = None
     session.cv_full_text = None
+    session.candidate_name = None
     db.add(session)
     db.commit()
     return Response(status_code=204)

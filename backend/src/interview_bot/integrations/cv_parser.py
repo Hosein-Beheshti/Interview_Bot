@@ -83,3 +83,39 @@ def _normalize(text: str) -> str:
     text = _WHITESPACE.sub(" ", text)
     text = _BLANK_LINES.sub("\n\n", text)
     return text.strip()
+
+
+# A CV's own name line is almost always near the top and looks like "Jane Doe" or
+# "JANE A. DOE" — one to four capitalised words, no digits or contact-detail
+# punctuation. Heading keywords ("Resume", "Curriculum Vitae", ...) are common on
+# the same line or just above it and would otherwise match the same shape.
+_NAME_LINE = re.compile(r"^[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*){0,3}$")
+_NON_NAME_KEYWORDS = (
+    "resume",
+    "curriculum vitae",
+    "cv",
+    "phone",
+    "email",
+    "address",
+    "profile",
+    "summary",
+    "objective",
+)
+
+
+def extract_name(text: str) -> str | None:
+    """Best-effort first name of the CV's owner, from the document's opening lines.
+
+    Heuristic, not authoritative: returns None rather than guessing when the
+    top of the document doesn't look like a name line.
+    """
+    for line in text.splitlines()[:8]:
+        candidate = line.strip()
+        if not candidate or "@" in candidate or any(ch.isdigit() for ch in candidate):
+            continue
+        if candidate.lower() in _NON_NAME_KEYWORDS:
+            continue
+        if not _NAME_LINE.match(candidate):
+            continue
+        return candidate.split()[0].capitalize()
+    return None

@@ -103,6 +103,7 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
                 follow_up_kind,
                 current_topic=last_assistant(session.messages),
                 slot=slot,
+                candidate_name=session.candidate_name,
             )
             reply = await llm.generate(
                 session.messages, turn, cache_prefix=stable, operation="interviewer_turn"

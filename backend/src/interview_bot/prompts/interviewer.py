@@ -84,6 +84,7 @@ def turn_instruction(
     follow_up_kind: str | None = None,
     current_topic: str | None = None,
     slot: PlanSlot | None = None,
+    candidate_name: str | None = None,
 ) -> str:
     """The instruction telling the model exactly what this turn must be.
 
@@ -95,6 +96,8 @@ def turn_instruction(
     stays on the same topic instead of drifting to a new one. `slot` is the
     blueprint entry for this main question; when present it pins the topic,
     otherwise the model chooses the topic itself (pre-plan behaviour).
+    `candidate_name` (best-effort, from the CV) greets the candidate by name on
+    the opening turn only; omitted elsewhere and when unknown.
     """
     if mode == MODE_FOLLOW_UP:
         anchor = (
@@ -125,9 +128,15 @@ def turn_instruction(
     # MODE_MAIN
     focus = _focus_clause(slot)
     if question_number <= 1:
+        greeting = (
+            f" Greet the candidate by their first name, {candidate_name},"
+            " in your opening sentence."
+            if candidate_name
+            else ""
+        )
         return (
             'Begin: introduce yourself in one sentence, then ask Question 1, '
-            'labelled exactly "Question 1:".' + focus
+            'labelled exactly "Question 1:".' + greeting + focus
         )
     return (
         f"Ask the next main question now, on a NEW topic, labelled exactly "

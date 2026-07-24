@@ -42,6 +42,9 @@ class InterviewSession(Base):
     cv_indexed_at: Mapped[datetime | None] = mapped_column(default=None)
     cv_sections: Mapped[Any | None] = mapped_column(JSON, default=None)
     cv_full_text: Mapped[str | None] = mapped_column(Text, default=None)
+    # Best-effort first name parsed from the CV, for the opening greeting. Null
+    # when no CV is uploaded or the heuristic couldn't find a name line.
+    candidate_name: Mapped[str | None] = mapped_column(default=None)
     job_context: Mapped[str | None] = mapped_column(Text, default=None)
     job_profile: Mapped[Any | None] = mapped_column(JSON, default=None)
     # Upfront coverage blueprint: one slot per main question (see
