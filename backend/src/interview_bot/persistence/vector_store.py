@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, select
 
-from interview_bot.persistence.database import SessionLocal, engine
+from interview_bot.persistence.database import SessionLocal
 from interview_bot.persistence.models import CVChunk
 
 
@@ -19,12 +19,6 @@ class RetrievedChunk:
     text: str
     section: str
     distance: float
-
-
-def ensure_extension() -> None:
-    """Enable the pgvector extension. Idempotent; safe to call on startup."""
-    with engine.begin() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
 
 def upsert(

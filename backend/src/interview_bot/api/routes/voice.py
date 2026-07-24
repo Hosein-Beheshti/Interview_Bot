@@ -1,31 +1,49 @@
+"""Speech-to-text and text-to-speech endpoints.
+
+Both wrap a third-party vendor (Deepgram). Vendor failures are logged with their
+detail and reported to the caller as a bare 502: an upstream error body can carry
+request ids, quota figures, or fragments of our own request, and these endpoints
+are reachable by anyone.
+"""
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from interview_bot.config import settings
 from interview_bot.integrations import speech
+from interview_bot.logger import logger
 
-router = APIRouter()
+router = APIRouter(tags=["voice"])
 
 
 class SpeakRequest(BaseModel):
-    text: str
+    # Bounded so the endpoint cannot be driven as an open-ended text-to-speech
+    # service; one interviewer question is far below this.
+    text: str = Field(..., min_length=1, max_length=2000)
 
 
 @router.post("/transcribe")
-async def transcribe(audio: UploadFile = File(...)):
+async def transcribe(audio: UploadFile = File(...)) -> dict[str, str]:
+    audio_bytes = await audio.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Empty audio upload")
+    if len(audio_bytes) > settings.audio_max_bytes:
+        limit_mb = settings.audio_max_bytes // (1024 * 1024)
+        raise HTTPException(status_code=413, detail=f"Audio exceeds {limit_mb}MB limit")
+
     try:
-        audio_bytes = await audio.read()
-        content_type = audio.content_type or "audio/webm"
-        transcript = await speech.transcribe(audio_bytes, content_type)
-        return {"transcript": transcript}
+        transcript = await speech.transcribe(audio_bytes, audio.content_type or "audio/webm")
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Transcription failed: {str(e)}") from e
+        logger.error(f"Transcription failed | bytes={len(audio_bytes)} | error={e}")
+        raise HTTPException(status_code=502, detail="Transcription unavailable") from e
+    return {"transcript": transcript}
 
 
 @router.post("/speak")
-async def speak(request: SpeakRequest):
+async def speak(request: SpeakRequest) -> Response:
     try:
         audio_bytes = await speech.synthesize(request.text)
-        return Response(content=audio_bytes, media_type="audio/mpeg")
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Speech synthesis failed: {str(e)}") from e
+        logger.error(f"Speech synthesis failed | chars={len(request.text)} | error={e}")
+        raise HTTPException(status_code=502, detail="Speech synthesis unavailable") from e
+    return Response(content=audio_bytes, media_type="audio/mpeg")

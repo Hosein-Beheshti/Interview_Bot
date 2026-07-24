@@ -4,14 +4,23 @@ Typed columns so a persisted field reads as its Python type (`str`, not
 `Column[str]`) across the app — the boundary between storage and the rest of the
 code is fully typed. Table shape and defaults are unchanged.
 """
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, ForeignKey, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from interview_bot.config import settings
+
+# Timestamps are stored with a zone and written as aware UTC. Retention and CV
+# freshness compare them against `datetime.now(UTC)`; a naive column would make
+# that comparison depend on the server's local zone.
+_UTC_TIMESTAMP = DateTime(timezone=True)
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
 
 
 class Base(DeclarativeBase):
@@ -37,9 +46,9 @@ class InterviewSession(Base):
     # interview result summary is derived from this server-side.
     scores: Mapped[list] = mapped_column(JSON, default=list)
     is_complete: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(_UTC_TIMESTAMP, default=_now)
     cv_filename: Mapped[str | None] = mapped_column(default=None)
-    cv_indexed_at: Mapped[datetime | None] = mapped_column(default=None)
+    cv_indexed_at: Mapped[datetime | None] = mapped_column(_UTC_TIMESTAMP, default=None)
     cv_sections: Mapped[Any | None] = mapped_column(JSON, default=None)
     cv_full_text: Mapped[str | None] = mapped_column(Text, default=None)
     # Best-effort first name parsed from the CV, for the opening greeting. Null
@@ -73,4 +82,4 @@ class CVChunk(Base):
     section: Mapped[str] = mapped_column(default="general")
     content: Mapped[str]
     embedding: Mapped[list[float]] = mapped_column(Vector(settings.embedding_dim))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(_UTC_TIMESTAMP, default=_now)

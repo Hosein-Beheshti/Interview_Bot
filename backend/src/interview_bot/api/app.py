@@ -1,3 +1,9 @@
+"""FastAPI application wiring: lifespan, middleware, routers."""
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,21 +12,32 @@ from interview_bot.api.routes.cv import router as cv_router
 from interview_bot.api.routes.health import router as health_router
 from interview_bot.api.routes.sessions import router as sessions_router
 from interview_bot.api.routes.voice import router as voice_router
-from interview_bot.persistence.database import engine
-from interview_bot.persistence.migrations import run_migrations
-from interview_bot.persistence.models import Base
-from interview_bot.persistence.vector_store import ensure_extension
+from interview_bot.config import settings
+from interview_bot.persistence import schema
 from interview_bot.telemetry import shutdown as observability_shutdown
 
-ensure_extension()
-Base.metadata.create_all(bind=engine)
-run_migrations()
 
-app = FastAPI(title="Interview Bot API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Own the process lifecycle: prepare the schema, flush traces on the way out.
+
+    Schema preparation belongs here rather than at import time. Importing this
+    module must stay side-effect-free so tests and tooling do not need a
+    reachable database, and so a slow or briefly unavailable database cannot
+    stop the process from starting and answering its liveness probe.
+    """
+    schema.initialize()
+    try:
+        yield
+    finally:
+        observability_shutdown()
+
+
+app = FastAPI(title="Interview Bot API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -30,9 +47,3 @@ app.include_router(chat_router, prefix="/api")
 app.include_router(voice_router, prefix="/api")
 app.include_router(cv_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
-
-
-@app.on_event("shutdown")
-def _flush_observability() -> None:
-    """Flush buffered traces so the last events aren't lost on shutdown."""
-    observability_shutdown()

@@ -1,9 +1,9 @@
 """CV upload and indexing endpoints."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from interview_bot.api.schemas import CVStatusResponse, CVUploadResponse
@@ -22,9 +22,12 @@ router = APIRouter(prefix="/cv", tags=["cv"])
 @router.post("/upload", response_model=CVUploadResponse)
 async def upload_cv(
     file: UploadFile = File(...),
-    session_id: str | None = None,
-    role: str | None = None,
-    job_context: str | None = None,
+    # Form fields, not query parameters: `job_context` is a full job description,
+    # which in a URL gets truncated by proxies and written verbatim into every
+    # access log along the way.
+    session_id: str | None = Form(default=None),
+    role: str | None = Form(default=None),
+    job_context: str | None = Form(default=None),
     db: Session = Depends(get_db),
 ) -> CVUploadResponse:
     content = await file.read()
@@ -45,7 +48,7 @@ async def upload_cv(
         raise HTTPException(status_code=502, detail="Failed to index CV") from e
 
     session.cv_filename = parsed.filename
-    session.cv_indexed_at = datetime.utcnow()
+    session.cv_indexed_at = datetime.now(UTC)
     session.cv_sections = result.sections
     session.cv_full_text = parsed.text
     session.candidate_name = cv_parser.extract_name(parsed.text)

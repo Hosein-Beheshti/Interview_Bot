@@ -35,14 +35,15 @@ export async function uploadCV(
   sessionId?: string,
   jobContext?: string,
 ): Promise<CVUploadResponse> {
+  // Everything travels in the multipart body: a job description is too long for
+  // a URL and would otherwise be logged in full by every proxy in the path.
   const form = new FormData()
   form.append('file', file)
+  form.append('role', role)
+  if (sessionId) form.append('session_id', sessionId)
+  if (jobContext) form.append('job_context', jobContext)
 
-  const params = new URLSearchParams({ role })
-  if (sessionId) params.set('session_id', sessionId)
-  if (jobContext) params.set('job_context', jobContext)
-
-  const response = await fetch(`${API_BASE}/cv/upload?${params.toString()}`, {
+  const response = await fetch(`${API_BASE}/cv/upload`, {
     method: 'POST',
     body: form,
   })

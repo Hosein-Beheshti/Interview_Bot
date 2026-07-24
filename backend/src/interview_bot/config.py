@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     embedding_model: str = "voyage-3-lite"
     embedding_dim: int = 512
     cv_max_bytes: int = 5 * 1024 * 1024
+    # One recorded answer, not a media file. Deepgram bills by audio duration, so
+    # this is a cost bound as much as a request-size bound.
+    audio_max_bytes: int = 10 * 1024 * 1024
     rag_top_k: int = 4
     # CVs at or below this many characters (~3K tokens, ~2 pages) are sent to the
     # interviewer in full on every turn — best grounding, no retrieval query to
@@ -82,9 +85,18 @@ class Settings(BaseSettings):
     # package isn't installed.
     use_system_trust_store: bool = True
 
+    # Browser origins allowed to call this API, comma-separated. The default is
+    # local development only — a public deployment must set CORS_ORIGINS to its
+    # frontend origin. "*" is accepted but disables the protection entirely.
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+
     # `extra="ignore"`: tolerate unknown keys in .env (typos, vars for other
     # tools) instead of crashing at startup.
     model_config = {"env_file": ".env", "extra": "ignore"}
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 settings = Settings()
