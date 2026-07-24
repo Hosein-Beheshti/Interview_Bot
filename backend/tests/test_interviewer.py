@@ -49,6 +49,21 @@ def test_main_question_without_slot_has_no_focus_clause():
     assert "Focus this question on" not in text
 
 
+def test_first_main_question_greets_by_name_when_known():
+    text = prompt.turn_instruction(prompt.MODE_MAIN, question_number=1, candidate_name="Hosein")
+    assert "Hosein" in text
+
+
+def test_first_main_question_omits_greeting_when_name_unknown():
+    text = prompt.turn_instruction(prompt.MODE_MAIN, question_number=1)
+    assert "Greet the candidate" not in text
+
+
+def test_later_main_question_ignores_candidate_name():
+    text = prompt.turn_instruction(prompt.MODE_MAIN, question_number=3, candidate_name="Hosein")
+    assert "Hosein" not in text
+
+
 def test_follow_up_ignores_slot():
     slot = PlanSlot(skill="Redis", intent="x", difficulty="advanced")
     text = prompt.turn_instruction(
