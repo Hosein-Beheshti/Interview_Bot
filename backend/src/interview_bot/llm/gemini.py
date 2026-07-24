@@ -17,6 +17,7 @@ long prompt prefixes implicitly).
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
 
 from google import genai
 from google.genai import errors, types
@@ -79,6 +80,37 @@ class GeminiProvider(LLMProvider):
         if not text:
             raise ValueError("Empty response from Gemini")
         return text
+
+    # Not decorated with @_RETRY: a stream that fails has already delivered part
+    # of the reply, so re-running it would append a second attempt to the first.
+    async def stream(
+        self,
+        messages: list[dict],
+        system: str,
+        *,
+        cache_prefix: str | None = None,
+        temperature: float | None = None,
+    ) -> AsyncIterator[str]:
+        full_system = _merge_system(cache_prefix, system)
+        safe_messages = trim_to_context_limit(messages, full_system)
+        chunks = await self._client.aio.models.generate_content_stream(
+            model=settings.gemini_model,
+            contents=_to_contents(safe_messages),  # type: ignore[arg-type]
+            config=types.GenerateContentConfig(
+                system_instruction=full_system or None,
+                max_output_tokens=settings.max_tokens,
+                temperature=temperature,
+                thinking_config=_thinking_config(),
+            ),
+        )
+        last = None
+        async for chunk in chunks:
+            last = chunk
+            if chunk.text:
+                yield chunk.text
+        # Cumulative usage arrives on the final chunk, not on each one.
+        if last is not None:
+            _record_usage(last)
 
     @_RETRY
     async def generate_structured(

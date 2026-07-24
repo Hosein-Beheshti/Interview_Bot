@@ -25,7 +25,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -95,6 +95,75 @@ async def call(
     )
 
 
+async def call_streaming(
+    kind: str,
+    request: dict,
+    live: Callable[[], AsyncIterator[str]],
+) -> AsyncIterator[str]:
+    """Run one streaming provider call through the waist, yielding text chunks.
+
+    Streaming is treated as a delivery detail of an otherwise ordinary call: the
+    `request` passed here is byte-identical to the non-streaming form, so it
+    hashes to the same cassette. A cassette recorded either way replays either
+    way, and the frozen outputs are unaffected by which transport a caller picks.
+
+    In replay the recorded reply is re-chunked deterministically — the pieces are
+    arbitrary, their concatenation is not.
+    """
+    mode = settings.transport_mode
+    if mode == "live":
+        async for chunk in live():
+            yield chunk
+        return
+    if mode == "replay":
+        for chunk in _rechunk(_replay(kind, request)):
+            yield chunk
+        return
+    if mode == "record":
+        async for chunk in _record_streaming(kind, request, live):
+            yield chunk
+        return
+    raise ValueError(
+        f"Unknown transport_mode={mode!r}. Expected 'live', 'record', or 'replay'."
+    )
+
+
+# Replay chunk size. Only affects how a recorded reply is sliced on the way out;
+# the concatenation is identical regardless, so no test depends on this value.
+REPLAY_CHUNK_CHARS = 24
+
+
+def _rechunk(text: Any) -> list[str]:
+    """Slice a recorded reply into stream-sized pieces."""
+    if not isinstance(text, str):
+        raise CassetteMiss(
+            f"Cassette holds a {type(text).__name__} response, which cannot be "
+            f"streamed as text. Streaming replay expects a recorded string reply."
+        )
+    return [text[i : i + REPLAY_CHUNK_CHARS] for i in range(0, len(text), REPLAY_CHUNK_CHARS)]
+
+
+async def _record_streaming(
+    kind: str,
+    request: dict,
+    live: Callable[[], AsyncIterator[str]],
+) -> AsyncIterator[str]:
+    """Stream from the provider, accumulating the full reply into a cassette.
+
+    Writes the same entry shape as a non-streaming recording, so cassettes stay
+    interchangeable between the two paths.
+    """
+    chunks: list[str] = []
+    with capture_generation_usage() as usage:
+        started = time.perf_counter()
+        async for chunk in live():
+            chunks.append(chunk)
+            yield chunk
+        latency_ms = round((time.perf_counter() - started) * 1000, 1)
+
+    _write_cassette(kind, request, "".join(chunks), latency_ms, usage)
+
+
 def _cassette_path(hash_: str) -> Path:
     return cassette_dir() / f"{hash_[:16]}.json"
 
@@ -127,18 +196,30 @@ async def _record(
     live: Callable[[], Awaitable[Any]],
     encode: Callable[[Any], Any],
 ) -> Any:
-    hash_ = request_hash(request)
     with capture_generation_usage() as usage:
         started = time.perf_counter()
         result = await live()
         latency_ms = round((time.perf_counter() - started) * 1000, 1)
 
+    _write_cassette(kind, request, encode(result), latency_ms, usage)
+    return result
+
+
+def _write_cassette(
+    kind: str,
+    request: dict,
+    response: Any,
+    latency_ms: float,
+    usage: dict,
+) -> None:
+    """Persist one recording. Shared by the buffered and streaming record paths."""
+    hash_ = request_hash(request)
     entry = {
         "cassette_version": CASSETTE_VERSION,
         "kind": kind,
         "request_hash": hash_,
         "request": request,
-        "response": encode(result),
+        "response": response,
         "latency_ms": latency_ms,
         "usage": usage,
         "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -158,4 +239,3 @@ async def _record(
     path.write_text(
         json.dumps(entry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    return result

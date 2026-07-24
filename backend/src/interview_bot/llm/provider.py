@@ -8,6 +8,7 @@ facade the app actually imports.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 
 from pydantic import BaseModel
 
@@ -52,6 +53,26 @@ class LLMProvider(ABC):
 
         `temperature` is the sampling temperature; when None the provider uses its
         own default (the API default).
+        """
+
+    @abstractmethod
+    def stream(
+        self,
+        messages: list[dict],
+        system: str,
+        *,
+        cache_prefix: str | None = None,
+        temperature: float | None = None,
+    ) -> AsyncIterator[str]:
+        """Generate the same reply as `generate`, yielded incrementally.
+
+        The concatenation of every chunk must equal what `generate` would have
+        returned for the same arguments — streaming is a delivery detail, not a
+        different request, and the record/replay waist relies on that being true.
+
+        Unlike the other methods this one is not retried: by the time a stream
+        fails, part of the reply has already been handed to the caller, so a
+        transparent retry would duplicate text rather than replace it.
         """
 
     @abstractmethod

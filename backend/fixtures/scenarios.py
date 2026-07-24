@@ -198,12 +198,30 @@ async def _paced_embed(texts: list[str], input_type: str) -> None:
     await embeddings.embed(texts, input_type=input_type)  # type: ignore[arg-type]
 
 
-async def run_scenario(scenario: Scenario) -> dict:
+async def _drive_turn(session, message: str, profile, *, stream: bool):
+    """Run one turn through either engine entry point, returning its TurnResult."""
+    if not stream:
+        return await interview.run_turn(session, message, profile)
+
+    result = None
+    async for kind, payload in interview.stream_turn(session, message, profile):
+        if kind == "result":
+            result = payload
+    if result is None:
+        raise RuntimeError("stream_turn ended without producing a result")
+    return result
+
+
+async def run_scenario(scenario: Scenario, *, stream: bool = False) -> dict:
     """Drive one scenario end to end and return its structured outputs.
 
     Deterministic under replay: the only nondeterminism (the provider responses)
     is served from cassettes, so identical cassettes yield an identical dict —
     which is what the golden-output and FSM-trajectory tests assert on.
+
+    `stream=True` drives the same interview through `stream_turn` instead of
+    `run_turn`. The returned dict must be identical either way; recording always
+    uses the default path.
     """
     profile = await build_profile(scenario.job_description)
     interview_plan = await build_plan(profile, scenario.num_questions)
@@ -235,7 +253,7 @@ async def run_scenario(scenario: Scenario) -> dict:
     # Budget: each main question can add at most `max_followups_per_question`
     # extra turns, plus the kickoff and closing turns.
     for _ in range(scenario.num_questions * (1 + settings.max_followups_per_question) + 2):
-        result = await interview.run_turn(session, message, profile)
+        result = await _drive_turn(session, message, profile, stream=stream)
         score = result.score_data
         transcript.append(
             {

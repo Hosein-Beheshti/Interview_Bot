@@ -1,9 +1,18 @@
-"""Chat endpoint — a thin shell over the interview engine.
+"""Chat endpoints — a thin shell over the interview engine.
 
 HTTP concerns only: resolve/create the session (404 vs. create-new policy), run
 one interview turn, commit, and map the domain result to the API response.
+
+Two shapes of the same turn. `POST /chat` answers once the turn is complete;
+`POST /chat/stream` sends the same result as server-sent events, so the score for
+the previous answer appears immediately and the next question arrives as it is
+written. Both run identical engine code and persist identical state.
 """
+import json
+from collections.abc import AsyncIterator
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from interview_bot.api import limits
@@ -19,7 +28,7 @@ from interview_bot.domain import rubric
 from interview_bot.domain.scoring import ScoreData
 from interview_bot.logger import logger
 from interview_bot.persistence import sessions as session_store
-from interview_bot.persistence.database import get_db
+from interview_bot.persistence.database import SessionLocal, get_db
 from interview_bot.pipeline import interview
 from interview_bot.pipeline import session as session_flow
 from interview_bot.pipeline.interview import InterviewError
@@ -70,6 +79,108 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
     db.commit()
     db.refresh(session)
 
+    return _to_chat_response(session, result)
+
+
+@router.post(
+    "/chat/stream",
+    dependencies=[
+        Depends(limits.enforce(limits.INTERVIEW_TURN)),
+        Depends(limits.require_token_budget),
+    ],
+)
+async def chat_stream(request: ChatRequest) -> StreamingResponse:
+    """The same turn as `/chat`, delivered as server-sent events.
+
+    Event sequence: `score` (the grade for the previous answer, available before
+    the next question exists), then `delta` per text chunk, then `done` carrying
+    the identical ChatResponse `/chat` would have returned. `error` replaces the
+    remainder if the turn fails.
+
+    Errors after the first byte cannot become an HTTP status — the response has
+    already begun — so they are delivered as an `error` event instead, and the
+    client must treat a stream that ends without `done` as a failure.
+    """
+    return StreamingResponse(
+        _turn_events(request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            # Tells nginx not to buffer the response into a single write, which
+            # would defeat the point of streaming it.
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+async def _turn_events(request: ChatRequest) -> AsyncIterator[str]:
+    """Run one streamed turn, owning its own database session.
+
+    The session is opened here rather than injected: a `Depends(get_db)` session
+    is closed when the response object is returned, which for a streaming
+    response is before any of this body has run. The row lock taken on the
+    interview must also be held until the turn is committed.
+    """
+    tokens: dict[str, int] = {}
+    with SessionLocal() as db:
+        try:
+            session = await _resolve_session(request, db)
+            if session.status == "complete":
+                yield _event("error", {"detail": "Interview already completed"})
+                return
+
+            logger.info(f"Chat stream | session={session.session_id} | status={session.status}")
+            profile = session_store.resolve_profile(session)
+
+            with accumulate_token_usage() as tokens:
+                async with observe_turn(
+                    "interview_turn",
+                    session_id=session.session_id,
+                    input={"message": request.message},
+                    metadata={
+                        "role": session.role,
+                        "has_cv": session.has_cv,
+                        "status": session.status,
+                        "streamed": True,
+                    },
+                ):
+                    async for kind, payload in interview.stream_turn(
+                        session, request.message, profile
+                    ):
+                        if kind == "score":
+                            yield _event(
+                                "score",
+                                {"score": _to_score_result(payload).model_dump()}
+                                if payload
+                                else {"score": None},
+                            )
+                        elif kind == "delta":
+                            yield _event("delta", {"text": payload})
+                        else:
+                            db.add(session)
+                            db.commit()
+                            db.refresh(session)
+                            yield _event(
+                                "done", _to_chat_response(session, payload).model_dump()
+                            )
+        except HTTPException as e:
+            yield _event("error", {"detail": e.detail})
+        except InterviewError as e:
+            yield _event("error", {"detail": str(e)})
+        except Exception as e:
+            logger.error(f"Chat stream failed | error={e}")
+            yield _event("error", {"detail": "AI service unavailable"})
+        finally:
+            limits.record_tokens(tokens)
+
+
+def _event(name: str, data: dict) -> str:
+    """One server-sent event frame."""
+    return f"event: {name}\ndata: {json.dumps(data)}\n\n"
+
+
+def _to_chat_response(session, result: interview.TurnResult) -> ChatResponse:
+    """Map an engine result plus the persisted session to the wire response."""
     return ChatResponse(
         reply=result.reply,
         session_id=session.session_id,
