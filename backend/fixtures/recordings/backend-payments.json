@@ -293,7 +293,7 @@
         "technical_relevance": 2
       },
       "follow_up_recommended": true,
-      "interviewer": "That's a good catch with property-based testing, but that's a different issue. During the actual cutover reconciliation, when the nightly jobs flagged a discrepancy between Django and the new service, what was your process to resolve it and get both systems back in sync?",
+      "interviewer": "That wraps up the interview for the Backend Engineer, Payments role — thank you for your time. Your overall score was 3.8/10. A highlight: Correctly identifies the core pattern: store response in same transaction as side effect, return cached response on retry. Something to build on: Discuss exactly-once vs. at-least-once semantics and when compensating transactions are needed (e.g., if payment succeeds but webhook handler crashes before storing response). Wishing you the best.",
       "mode": "closing",
       "score": 5
     }

@@ -295,7 +295,7 @@
         "technical_relevance": 0
       },
       "follow_up_recommended": false,
-      "interviewer": "That's an important insight about systems thinking. Let me press on the technical side though: you built a counterfactual replay harness for offline evaluation. Walk me through the mechanics — how did you actually compute NDCG on logged impressions without bias from the old ranking policy? Did you use inverse propensity weighting, or a different approach? And what were the failure modes you discovered in practice?",
+      "interviewer": "That wraps up the interview for the Senior Machine Learning Engineer role — thank you for your time. Your overall score was 2.8/10. A highlight: Demonstrates awareness of offline evaluation bias and counterfactual replay, a production-relevant concern. Something to build on: Directly address the feature pipeline question: which features were computed in real-time vs. batch, and why? Wishing you the best.",
       "mode": "closing",
       "score": 0
     }

@@ -90,7 +90,6 @@ def test_snapshot_turn_instructions():
             follow_up_kind=prompt.FOLLOW_UP_SIMPLIFY,
             current_topic="Question 1: How do you design an idempotency scheme?",
         ),
-        "closing": prompt.turn_instruction(prompt.MODE_CLOSING),
     }
     rendered = "\n\n".join(f"### {k}\n{v}" for k, v in parts.items())
     assert_snapshot("turn_instructions", rendered)

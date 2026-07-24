@@ -44,6 +44,32 @@ def build_summary(role: str, scores: list[dict]) -> dict:
     }
 
 
+def closing_message(summary: dict) -> str:
+    """The interviewer's final wrap-up, rendered deterministically from results.
+
+    The server owns the closing entirely — it is never a model turn — so it can
+    neither ask a further question nor be derailed by an instruction embedded in a
+    candidate's answer. Derived from `build_summary` output.
+    """
+    parts = [
+        f"That wraps up the interview for the {summary['role']} role — thank you "
+        f"for your time.",
+        f"Your overall score was {summary['overall']}/10.",
+    ]
+    if summary["strengths"]:
+        parts.append(f"A highlight: {_as_sentence(summary['strengths'][0])}")
+    if summary["improvements"]:
+        parts.append(f"Something to build on: {_as_sentence(summary['improvements'][0])}")
+    parts.append("Wishing you the best.")
+    return " ".join(parts)
+
+
+def _as_sentence(text: str) -> str:
+    """Trim and ensure the item ends with sentence punctuation (it may already)."""
+    text = text.rstrip()
+    return text if text[-1:] in ".?!" else text + "."
+
+
 def _copy_text(role: str, overall: float, scores: list[dict]) -> str:
     lines = [
         f"AI Interview Results — {role}",

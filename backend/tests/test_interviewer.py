@@ -33,12 +33,6 @@ def test_simplify_follow_up_is_supportive_and_does_not_reveal_answer():
     assert "reveal the answer" in text
 
 
-def test_closing_gives_feedback_and_asks_nothing():
-    text = _build(prompt.MODE_CLOSING)
-    assert "interview is over" in text.lower()
-    assert "Do not ask another question" in text
-
-
 def test_main_question_pins_topic_to_plan_slot():
     slot = PlanSlot(
         skill="Kubernetes networking",

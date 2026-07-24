@@ -85,19 +85,17 @@ def turn_instruction(
     current_topic: str | None = None,
     slot: PlanSlot | None = None,
 ) -> str:
-    """The single instruction telling the model exactly what this turn must be.
+    """The instruction telling the model exactly what this turn must be.
+
+    Only the two model-driven modes are rendered here — a main question or a
+    follow-up. The closing turn is server-owned and deterministic (see
+    `domain.summary.closing_message`), so it never reaches this function.
 
     `current_topic` (the question just answered) anchors follow-ups so the model
     stays on the same topic instead of drifting to a new one. `slot` is the
     blueprint entry for this main question; when present it pins the topic,
     otherwise the model chooses the topic itself (pre-plan behaviour).
     """
-    if mode == MODE_CLOSING:
-        return (
-            "The interview is over. Give brief, balanced overall feedback in 2-3 "
-            "sentences, then close warmly. Do not ask another question."
-        )
-
     if mode == MODE_FOLLOW_UP:
         anchor = (
             f' The topic you must stay on is your previous question: "{current_topic.strip()}".'

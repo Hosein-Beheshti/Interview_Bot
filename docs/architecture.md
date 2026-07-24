@@ -103,6 +103,13 @@ API response, so the behavior freeze holds.
 - No provider factory beyond the existing registry, no DI container, no base
   class for routes. Each fails the "name the second implementation today" test.
 
+**Server owns control, the model owns language — including the ending.** The FSM
+decides every transition; the interviewer model only phrases questions. The
+*closing* turn is fully server-owned: it is rendered deterministically from the
+results (`domain.summary.closing_message`), not generated, so it can neither ask a
+dangling question nor be derailed by an instruction injected into an answer. Only
+the two model-driven modes (main question, follow-up) reach `turn_instruction`.
+
 **Simpler-over-architectural choices:**
 - `progression` is a pure function taking `max_followups` as an argument, not a
   stateful policy object.

@@ -210,7 +210,7 @@
         "technical_relevance": 0
       },
       "follow_up_recommended": true,
-      "interviewer": "I hear you on maintenance being critical for cost. But I need you to stay with the idempotency question — it's core to exactly-once guarantees. When your two-phase-commit sink to Iceberg fails partway through, what prevents duplicate rows? Is it Iceberg's atomic writes, dedup logic in your Flink state, or upsert semantics downstream?",
+      "interviewer": "That wraps up the interview for the Data Engineer, Streaming Platform role — thank you for your time. Your overall score was 1.8/10. A highlight: Correctly identifies two-phase-commit pattern and Iceberg as transaction boundary. Something to build on: Address the actual question: explain partition key selection (e.g., order_id, customer_id) and justify partition count for 1.2B events. Wishing you the best.",
       "mode": "closing",
       "score": 0
     }

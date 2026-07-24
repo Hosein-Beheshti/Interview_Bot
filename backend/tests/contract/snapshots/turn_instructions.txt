@@ -12,6 +12,3 @@ The candidate's last answer was on the right track but worth probing further. As
 
 ### follow_up_simplify
 The candidate could not answer the current question. Briefly and supportively acknowledge that, then ask ONE simpler question on the SAME topic to find the edge of their knowledge. Do not reveal the answer. The topic you must stay on is your previous question: "Question 1: How do you design an idempotency scheme?". This is a FOLLOW-UP, NOT a new main question. Do NOT introduce a new topic, technology, project, or company. Do NOT write a numbered question and do NOT start with the word "Question" — start naturally.
-
-### closing
-The interview is over. Give brief, balanced overall feedback in 2-3 sentences, then close warmly. Do not ask another question.

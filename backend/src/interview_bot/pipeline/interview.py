@@ -66,36 +66,50 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
         session, score_data, settings.max_followups_per_question
     )
 
-    try:
-        cv_context = await build_cv_context(session)
-        # The role/rules/CV guidance is identical every turn — send it as a cached
-        # prefix so re-sending a full CV each turn is nearly free. Only the turn
-        # instruction (which question, follow-up vs. closing) varies.
-        stable = interviewer.build_stable_prompt(
-            profile, num_questions=session.num_questions, cv_context=cv_context
-        )
-        # For a main question, pin the topic to its blueprint slot (if planned).
-        # Follow-ups and the closing turn ignore the slot — they stay on the
-        # current topic or wrap up.
-        next_question_number = session.questions_asked + 1
-        slot = (
-            interview_plan.slot_for(next_question_number)
-            if interview_plan and mode == interviewer.MODE_MAIN
-            else None
-        )
-        turn = interviewer.turn_instruction(
-            mode,
-            next_question_number,
-            follow_up_kind,
-            current_topic=last_assistant(session.messages),
-            slot=slot,
-        )
-        reply = await llm.generate(
-            session.messages, turn, cache_prefix=stable, operation="interviewer_turn"
-        )
-    except Exception as e:
-        logger.error(f"LLM generation failed | session={session.session_id} | error={e}")
-        raise InterviewError("AI service unavailable") from e
+    score_record = (
+        _score_record(answered_q, answered_follow_up, score_data)
+        if score_data is not None
+        else None
+    )
+
+    if mode == progression.MODE_CLOSING:
+        # The closing turn is server-owned and deterministic — rendered from the
+        # final results, never a model turn — so it can neither ask a further
+        # question nor be derailed by an instruction embedded in an answer.
+        final_scores = session.scores + ([score_record] if score_record else [])
+        summary_data = summary.build_summary(profile.role, final_scores)
+        reply = summary.closing_message(summary_data)
+    else:
+        summary_data = None
+        try:
+            cv_context = await build_cv_context(session)
+            # The role/rules/CV guidance is identical every turn — send it as a
+            # cached prefix so re-sending a full CV each turn is nearly free. Only
+            # the turn instruction (which question, follow-up) varies.
+            stable = interviewer.build_stable_prompt(
+                profile, num_questions=session.num_questions, cv_context=cv_context
+            )
+            # For a main question, pin the topic to its blueprint slot (if planned);
+            # a follow-up ignores the slot and stays on the current topic.
+            next_question_number = session.questions_asked + 1
+            slot = (
+                interview_plan.slot_for(next_question_number)
+                if interview_plan and mode == interviewer.MODE_MAIN
+                else None
+            )
+            turn = interviewer.turn_instruction(
+                mode,
+                next_question_number,
+                follow_up_kind,
+                current_topic=last_assistant(session.messages),
+                slot=slot,
+            )
+            reply = await llm.generate(
+                session.messages, turn, cache_prefix=stable, operation="interviewer_turn"
+            )
+        except Exception as e:
+            logger.error(f"LLM generation failed | session={session.session_id} | error={e}")
+            raise InterviewError("AI service unavailable") from e
 
     session.messages.append({"role": "assistant", "content": reply})
     flag_modified(session, "messages")
@@ -112,17 +126,19 @@ async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
 
     # Persist the score only now that the turn has fully succeeded, so a failed
     # generation followed by a retry cannot double-record an answer.
-    if score_data is not None:
-        session.scores = session.scores + [
-            {
-                "q": answered_q,
-                "follow_up": answered_follow_up,
-                "score": score_data.overall,
-                "strengths": score_data.strengths,
-                "improvements": score_data.improvements,
-            }
-        ]
+    if score_record is not None:
+        session.scores = session.scores + [score_record]
         flag_modified(session, "scores")
 
-    summary_data = summary.build_summary(profile.role, session.scores) if session.is_complete else None
     return TurnResult(reply=reply, mode=mode, score_data=score_data, summary=summary_data)
+
+
+def _score_record(q: int | None, follow_up: bool | None, score_data: ScoreData) -> dict:
+    """The per-answer record persisted on the session (see domain/summary.py)."""
+    return {
+        "q": q,
+        "follow_up": follow_up,
+        "score": score_data.overall,
+        "strengths": score_data.strengths,
+        "improvements": score_data.improvements,
+    }
