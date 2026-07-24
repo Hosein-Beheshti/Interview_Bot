@@ -85,6 +85,12 @@ class Settings(BaseSettings):
     # package isn't installed.
     use_system_trust_store: bool = True
 
+    # How long an interview session — transcript, scores, and the uploaded CV's
+    # text and embeddings — is retained before the sweep erases it. Uploaded CVs
+    # are personal data from people trying a public demo; keep the window short.
+    # Applied by `scripts/purge_expired.py`, which is meant to run on a schedule.
+    session_retention_days: int = 30
+
     # Browser origins allowed to call this API, comma-separated. The default is
     # local development only — a public deployment must set CORS_ORIGINS to its
     # frontend origin. "*" is accepted but disables the protection entirely.

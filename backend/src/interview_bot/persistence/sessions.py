@@ -1,4 +1,4 @@
-"""Interview-session persistence: fetch, insert, and profile reconstruction.
+"""Interview-session persistence: fetch, insert, delete, and profile reconstruction.
 
 Plain database mechanics over `InterviewSession`. Routes own HTTP policy (404 vs.
 create-new); the async setup flow that composes profile + plan extraction before
@@ -7,13 +7,16 @@ insert lives in `interview_bot.pipeline.session`.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
+from sqlalchemy import delete as delete_rows
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from interview_bot.domain.plan import InterviewPlan
 from interview_bot.domain.profile import JobProfile, minimal
 from interview_bot.logger import logger
-from interview_bot.persistence.models import InterviewSession
+from interview_bot.persistence.models import CVChunk, InterviewSession
 
 
 def get(db: Session, session_id: str, *, lock: bool = False) -> InterviewSession | None:
@@ -54,6 +57,44 @@ def create(
         f"planned={interview_plan is not None}"
     )
     return session
+
+
+def delete(db: Session, session_id: str) -> bool:
+    """Erase a session and its indexed CV chunks. False if it did not exist.
+
+    Chunks are removed explicitly rather than left to the foreign key's ON DELETE
+    CASCADE: tables created before that constraint existed would silently keep
+    their embeddings, and this is the path that has to actually erase a person's
+    CV on request.
+    """
+    session = get(db, session_id)
+    if session is None:
+        return False
+    db.execute(delete_rows(CVChunk).where(CVChunk.session_id == session_id))
+    db.delete(session)
+    db.commit()
+    logger.info(f"Session deleted | id={session_id}")
+    return True
+
+
+def delete_created_before(db: Session, cutoff: datetime) -> int:
+    """Erase every session created before `cutoff`. Returns how many were removed.
+
+    The retention sweep. Uploaded CVs are personal data belonging to people who
+    tried a demo once, so sessions are not kept indefinitely.
+    """
+    expired = list(
+        db.execute(
+            select(InterviewSession.session_id).where(InterviewSession.created_at < cutoff)
+        ).scalars()
+    )
+    if not expired:
+        return 0
+    db.execute(delete_rows(CVChunk).where(CVChunk.session_id.in_(expired)))
+    db.execute(delete_rows(InterviewSession).where(InterviewSession.session_id.in_(expired)))
+    db.commit()
+    logger.info(f"Retention sweep | deleted={len(expired)} | cutoff={cutoff.isoformat()}")
+    return len(expired)
 
 
 def resolve_profile(session: InterviewSession) -> JobProfile:

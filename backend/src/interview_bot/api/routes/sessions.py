@@ -1,7 +1,7 @@
 """Interview session creation from free-text job context."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from interview_bot.api.schemas import (
@@ -43,3 +43,16 @@ async def create_session(
         job_profile=JobProfileSchema(**profile.to_dict()),
         plan=plan_slots,
     )
+
+
+@router.delete("/{session_id}", status_code=204)
+async def delete_session(session_id: str, db: Session = Depends(get_db)) -> Response:
+    """Erase a session, its transcript, and its indexed CV.
+
+    The candidate-facing "delete my data" action. Sessions also expire on their
+    own (see `settings.session_retention_days`), but a person who uploaded a CV
+    should not have to wait for that.
+    """
+    if not session_store.delete(db, session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    return Response(status_code=204)
