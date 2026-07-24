@@ -1,4 +1,20 @@
+# Secrets must never reach an image layer, even one that is later discarded.
 .env
+.env.*
+
 __pycache__
 *.pyc
+*.pyo
 .pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Dev-only inputs. Cassettes back offline replay in CI; production runs live.
+tests
+evals
+fixtures
+cassettes
+
+.venv
+venv
+*.egg-info

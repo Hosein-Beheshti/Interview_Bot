@@ -36,6 +36,22 @@ jobs:
       - name: Tests (unit + contract, offline)
         run: pytest -q
 
+  audit:
+    # Known-vulnerability scan of the pinned dependencies. Runs on every push so
+    # a new advisory against something already in requirements.txt surfaces here
+    # rather than in production.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install pip-audit
+        run: pip install pip-audit==2.7.3
+      - name: Audit pinned dependencies
+        run: pip-audit --requirement requirements.txt --strict --progress-spinner off
+
   eval:
     # Golden-set scorer eval. Needs provider keys, so it only runs on a manual
     # dispatch or the nightly schedule — never gates a push.

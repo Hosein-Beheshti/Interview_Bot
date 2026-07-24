@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
+from interview_bot.api import limits
 from interview_bot.api.schemas import CVStatusResponse, CVUploadResponse
 from interview_bot.config import settings
 from interview_bot.integrations import cv_parser
@@ -19,7 +20,11 @@ from interview_bot.retrieval import rag
 router = APIRouter(prefix="/cv", tags=["cv"])
 
 
-@router.post("/upload", response_model=CVUploadResponse)
+@router.post(
+    "/upload",
+    response_model=CVUploadResponse,
+    dependencies=[Depends(limits.enforce(limits.CV_UPLOAD))],
+)
 async def upload_cv(
     file: UploadFile = File(...),
     # Form fields, not query parameters: `job_context` is a full job description,

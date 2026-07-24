@@ -157,6 +157,32 @@ def capture_generation_usage():
         _usage_sink.reset(token)
 
 
+TOKEN_FIELDS = ("input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens")
+
+# Second sink, summing rather than overwriting. `capture_generation_usage` records
+# one call's usage for its cassette, so it replaces; metering a unit of work needs
+# the total across every call it made, so this one adds.
+_token_totals: contextvars.ContextVar[dict[str, int] | None] = contextvars.ContextVar(
+    "token_totals", default=None
+)
+
+
+@contextlib.contextmanager
+def accumulate_token_usage():
+    """Sum token counts across every generation inside the block.
+
+    The measurement behind the spend budget: one interview turn makes several
+    provider calls (scoring, then the interviewer), and what a budget cares about
+    is their total.
+    """
+    totals = dict.fromkeys(TOKEN_FIELDS, 0)
+    token = _token_totals.set(totals)
+    try:
+        yield totals
+    finally:
+        _token_totals.reset(token)
+
+
 def record_generation_usage(**attrs: Any) -> None:
     """Attach model/token/cost metadata to the currently-active generation.
 
@@ -168,6 +194,12 @@ def record_generation_usage(**attrs: Any) -> None:
     sink = _usage_sink.get()
     if sink is not None:
         sink.update({k: v for k, v in attrs.items() if v is not None})
+    totals = _token_totals.get()
+    if totals is not None:
+        for field in TOKEN_FIELDS:
+            value = attrs.get(field)
+            if value:
+                totals[field] += int(value)
     try:
         _backend.update_current_generation(**attrs)
     except Exception as e:

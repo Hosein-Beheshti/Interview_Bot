@@ -5,10 +5,11 @@ detail and reported to the caller as a bare 502: an upstream error body can carr
 request ids, quota figures, or fragments of our own request, and these endpoints
 are reachable by anyone.
 """
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from interview_bot.api import limits
 from interview_bot.config import settings
 from interview_bot.integrations import speech
 from interview_bot.logger import logger
@@ -22,7 +23,7 @@ class SpeakRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=2000)
 
 
-@router.post("/transcribe")
+@router.post("/transcribe", dependencies=[Depends(limits.enforce(limits.TRANSCRIPTION))])
 async def transcribe(audio: UploadFile = File(...)) -> dict[str, str]:
     audio_bytes = await audio.read()
     if not audio_bytes:
@@ -40,7 +41,12 @@ async def transcribe(audio: UploadFile = File(...)) -> dict[str, str]:
 
 
 @router.post("/speak")
-async def speak(request: SpeakRequest) -> Response:
+async def speak(request: SpeakRequest, http_request: Request) -> Response:
+    # Charged per character, not per call: synthesis is billed by length, so a
+    # handful of maximum-length requests costs the same as many short ones.
+    limits.charge(
+        limits.TTS_CHARACTERS, limits.client_ip(http_request), amount=len(request.text)
+    )
     try:
         audio_bytes = await speech.synthesize(request.text)
     except Exception as e:

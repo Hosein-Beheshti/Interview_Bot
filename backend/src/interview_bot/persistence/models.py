@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, DateTime, ForeignKey, Text
+from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from interview_bot.config import settings
@@ -69,6 +69,22 @@ class InterviewSession(Base):
     def question_number(self) -> int:
         """1-based number of the main question currently in play (for display)."""
         return min(max(self.questions_asked, 1), self.num_questions)
+
+
+class UsageCounter(Base):
+    """One fixed window of one metered thing, for rate limits and the spend budget.
+
+    `subject` is whoever is being metered — a client IP for a rate limit, or the
+    literal "global" for an instance-wide budget.
+    """
+
+    __tablename__ = "usage_counters"
+
+    bucket: Mapped[str] = mapped_column(primary_key=True)
+    subject: Mapped[str] = mapped_column(primary_key=True)
+    window_start: Mapped[datetime] = mapped_column(_UTC_TIMESTAMP, primary_key=True)
+    # Tokens overflow a 32-bit counter within a day of ordinary traffic.
+    amount: Mapped[int] = mapped_column(BigInteger, default=0)
 
 
 class CVChunk(Base):

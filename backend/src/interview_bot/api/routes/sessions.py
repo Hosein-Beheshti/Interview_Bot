@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
+from interview_bot.api import limits
 from interview_bot.api.schemas import (
     JobProfileSchema,
     PlanSlotSchema,
@@ -14,16 +15,32 @@ from interview_bot.persistence import sessions as session_store
 from interview_bot.persistence.database import get_db
 from interview_bot.pipeline.plan import build_plan
 from interview_bot.pipeline.profile import build_profile
+from interview_bot.telemetry import accumulate_token_usage
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
-@router.post("", response_model=SessionCreateResponse)
+@router.post(
+    "",
+    response_model=SessionCreateResponse,
+    dependencies=[
+        Depends(limits.enforce(limits.SESSION_CREATION)),
+        Depends(limits.require_token_budget),
+    ],
+)
 async def create_session(
     request: SessionCreateRequest, db: Session = Depends(get_db)
 ) -> SessionCreateResponse:
-    profile = await build_profile(request.job_context)
-    interview_plan = await build_plan(profile, request.num_questions)
+    # Setup spends tokens too (profile extraction, then plan generation), so it
+    # counts against the same instance-wide ceiling as an interview turn.
+    tokens: dict[str, int] = {}
+    try:
+        with accumulate_token_usage() as tokens:
+            profile = await build_profile(request.job_context)
+            interview_plan = await build_plan(profile, request.num_questions)
+    finally:
+        limits.record_tokens(tokens)
+
     session = session_store.create(
         db,
         profile=profile,

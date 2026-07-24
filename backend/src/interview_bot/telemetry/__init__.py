@@ -6,6 +6,7 @@ self-hosted Langfuse). The rest of the app only uses these helpers:
     observe_turn(...)              # root trace for one unit of work, tagged by session
     observe_generation(...)        # one LLM call (model, prompt, completion, latency)
     record_generation_usage(...)   # a provider reports tokens / request_id / stop_reason
+    accumulate_token_usage()       # sum tokens across a block (metering, budgets)
     observe_span(...)              # a non-LLM step (embedding, vector search, speech)
     set_session(...)               # tag the active trace with a session/user id
     shutdown()                     # flush buffered events (call on app shutdown)
@@ -19,6 +20,7 @@ Design contract:
     implement `TracingBackend` and select it in `tracer.py` to use something else.
 """
 from .tracer import (
+    accumulate_token_usage,
     capture_generation_usage,
     observe_generation,
     observe_span,
@@ -32,6 +34,7 @@ __all__ = [
     "observe_turn",
     "observe_generation",
     "observe_span",
+    "accumulate_token_usage",
     "capture_generation_usage",
     "record_generation_usage",
     "set_session",

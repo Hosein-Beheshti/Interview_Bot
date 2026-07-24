@@ -18,8 +18,13 @@ from sqlalchemy import func, select
 
 from interview_bot.config import settings
 from interview_bot.persistence import sessions as session_store
+from interview_bot.persistence import usage
 from interview_bot.persistence.database import SessionLocal
 from interview_bot.persistence.models import InterviewSession
+
+# Rate-limit windows are at most a day, so counters older than this are closed
+# and only take up space.
+_COUNTER_RETENTION = timedelta(days=2)
 
 
 def main() -> None:
@@ -53,6 +58,9 @@ def main() -> None:
             return
         deleted = session_store.delete_created_before(db, cutoff)
         print(f"Deleted {deleted} session(s) created before {cutoff.isoformat()}.")
+
+    counters = usage.delete_windows_before(datetime.now(UTC) - _COUNTER_RETENTION)
+    print(f"Deleted {counters} closed rate-limit counter(s).")
 
 
 if __name__ == "__main__":

@@ -85,6 +85,32 @@ class Settings(BaseSettings):
     # package isn't installed.
     use_system_trust_store: bool = True
 
+    # ---- Admission control -------------------------------------------------
+    # Every endpoint below is unauthenticated by design (a public demo), and each
+    # one spends money with a third party per call. These are the caps that make
+    # publishing the URL safe. Enforced in api/limits.py; set false only for
+    # local development.
+    rate_limit_enabled: bool = True
+
+    # Per-client-IP allowances.
+    sessions_per_hour_per_ip: int = 5
+    turns_per_hour_per_ip: int = 60
+    cv_uploads_per_hour_per_ip: int = 5
+    transcriptions_per_hour_per_ip: int = 60
+    tts_chars_per_day_per_ip: int = 20_000
+
+    # Instance-wide daily model-token ceiling — the backstop that bounds the bill
+    # no matter how the per-IP limits are spread across addresses. Counts every
+    # token in and out, across all providers and operations. Reaching it returns
+    # 503 until the window rolls over. 0 disables the ceiling.
+    daily_token_ceiling: int = 2_000_000
+
+    # Whether to read the client IP from X-Forwarded-For. Required behind a proxy
+    # or load balancer (Railway, Render, Fly, nginx), where the socket address is
+    # the proxy's. Must stay false when the app is directly reachable: the header
+    # is caller-supplied, so trusting it lets anyone reset their own rate limit.
+    trust_proxy_headers: bool = False
+
     # How long an interview session — transcript, scores, and the uploaded CV's
     # text and embeddings — is retained before the sweep erases it. Uploaded CVs
     # are personal data from people trying a public demo; keep the window short.

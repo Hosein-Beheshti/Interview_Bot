@@ -6,6 +6,7 @@ one interview turn, commit, and map the domain result to the API response.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from interview_bot.api import limits
 from interview_bot.api.schemas import (
     ChatRequest,
     ChatResponse,
@@ -22,12 +23,19 @@ from interview_bot.persistence.database import get_db
 from interview_bot.pipeline import interview
 from interview_bot.pipeline import session as session_flow
 from interview_bot.pipeline.interview import InterviewError
-from interview_bot.telemetry import observe_turn
+from interview_bot.telemetry import accumulate_token_usage, observe_turn
 
 router = APIRouter()
 
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    dependencies=[
+        Depends(limits.enforce(limits.INTERVIEW_TURN)),
+        Depends(limits.require_token_budget),
+    ],
+)
 async def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
     session = await _resolve_session(request, db)
     logger.info(f"Chat | session={session.session_id} | status={session.status}")
@@ -36,16 +44,27 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
         raise HTTPException(status_code=400, detail="Interview already completed")
 
     profile = session_store.resolve_profile(session)
+    # Meter what the turn actually spends across all of its provider calls, so the
+    # instance-wide ceiling reflects real usage rather than an estimate. A turn
+    # that fails halfway still spent tokens, hence the `finally`.
+    tokens: dict[str, int] = {}
     try:
-        async with observe_turn(
-            "interview_turn",
-            session_id=session.session_id,
-            input={"message": request.message},
-            metadata={"role": session.role, "has_cv": session.has_cv, "status": session.status},
-        ):
-            result = await interview.run_turn(session, request.message, profile)
+        with accumulate_token_usage() as tokens:
+            async with observe_turn(
+                "interview_turn",
+                session_id=session.session_id,
+                input={"message": request.message},
+                metadata={
+                    "role": session.role,
+                    "has_cv": session.has_cv,
+                    "status": session.status,
+                },
+            ):
+                result = await interview.run_turn(session, request.message, profile)
     except InterviewError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
+    finally:
+        limits.record_tokens(tokens)
 
     db.add(session)
     db.commit()
