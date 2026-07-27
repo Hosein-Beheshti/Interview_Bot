@@ -1,16 +1,63 @@
-import { ChatResponse, CVUploadResponse } from '../types'
+import { ChatResponse, CVUploadResponse, ScoreResult } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
   : '/api'
 
-export async function sendMessage(
+/** An API failure that kept its HTTP status, so the UI can explain *why*. */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+/** Turns any failure into the sentence a candidate should actually read. */
+export function describeError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 429) {
+      return 'Too many requests from your connection. Please wait a minute and try again.'
+    }
+    if (err.status === 503) {
+      return 'This demo has hit its daily usage limit. Please try again tomorrow.'
+    }
+    if (err.status === 413) return 'That file is too large.'
+    if (err.status >= 500) return 'The interviewer is unavailable right now. Please try again.'
+    return err.message
+  }
+  if (err instanceof TypeError) return 'Cannot reach the server. Check your connection.'
+  return err instanceof Error ? err.message : 'Something went wrong'
+}
+
+async function toApiError(response: Response, fallback: string): Promise<ApiError> {
+  const body = await response.json().catch(() => null)
+  return new ApiError(body?.detail || fallback, response.status)
+}
+
+export interface ChatStreamHandlers {
+  /** The grade for the previous answer. Arrives before the next question exists. */
+  onScore?: (score: ScoreResult | null) => void
+  onDelta: (text: string) => void
+  onDone: (response: ChatResponse) => void
+}
+
+/**
+ * Run one interview turn over server-sent events.
+ *
+ * The stream is the source of truth for the reply text; the closing `done` event
+ * carries the same full response the non-streaming endpoint would have returned.
+ * A stream that ends without `done` is a failure — the server cannot change the
+ * HTTP status once the body has started, so late errors arrive as an `error`
+ * event instead.
+ */
+export async function streamMessage(
   message: string,
-  sessionId?: string,
-  role?: string,
-  jobContext?: string
-): Promise<ChatResponse> {
-  const response = await fetch(`${API_BASE}/chat`, {
+  sessionId: string | undefined,
+  role: string | undefined,
+  jobContext: string | undefined,
+  handlers: ChatStreamHandlers,
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -21,12 +68,56 @@ export async function sendMessage(
     }),
   })
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || 'Failed to send message')
+  if (!response.ok) throw await toApiError(response, 'Failed to send message')
+  if (!response.body) throw new ApiError('Streaming is not supported here', 500)
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let completed = false
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    // Frames are separated by a blank line; the last piece may be partial.
+    const frames = buffer.split('\n\n')
+    buffer = frames.pop() ?? ''
+
+    for (const frame of frames) {
+      const parsed = parseFrame(frame)
+      if (!parsed) continue
+      if (parsed.event === 'error') {
+        throw new ApiError(parsed.data.detail || 'The interviewer is unavailable', 502)
+      }
+      if (parsed.event === 'score') handlers.onScore?.(parsed.data.score ?? null)
+      if (parsed.event === 'delta') handlers.onDelta(parsed.data.text ?? '')
+      if (parsed.event === 'done') {
+        completed = true
+        handlers.onDone(parsed.data as ChatResponse)
+      }
+    }
   }
 
-  return response.json()
+  if (!completed) {
+    throw new ApiError('The connection dropped mid-answer. Please try again.', 502)
+  }
+}
+
+function parseFrame(frame: string): { event: string; data: any } | null {
+  let event = 'message'
+  const dataLines: string[] = []
+  for (const line of frame.split('\n')) {
+    if (line.startsWith('event:')) event = line.slice(6).trim()
+    else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim())
+  }
+  if (dataLines.length === 0) return null
+  try {
+    return { event, data: JSON.parse(dataLines.join('\n')) }
+  } catch {
+    return null
+  }
 }
 
 export async function uploadCV(
@@ -48,10 +139,7 @@ export async function uploadCV(
     body: form,
   })
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Upload failed' }))
-    throw new Error(error.detail || 'Failed to upload CV')
-  }
+  if (!response.ok) throw await toApiError(response, 'Failed to upload CV')
 
   return response.json()
 }
@@ -59,6 +147,14 @@ export async function uploadCV(
 export async function deleteCV(sessionId: string): Promise<void> {
   const response = await fetch(`${API_BASE}/cv/${sessionId}`, { method: 'DELETE' })
   if (!response.ok && response.status !== 404) {
-    throw new Error('Failed to remove CV')
+    throw new ApiError('Failed to remove CV', response.status)
+  }
+}
+
+/** Erase a session, its transcript, and any uploaded CV. */
+export async function deleteSession(sessionId: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, { method: 'DELETE' })
+  if (!response.ok && response.status !== 404) {
+    throw new ApiError('Failed to delete session', response.status)
   }
 }

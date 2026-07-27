@@ -3,13 +3,14 @@ import { useChat } from '../hooks/useChat'
 import { useVoice } from '../hooks/useVoice'
 import { useCV } from '../hooks/useCV'
 import { CVUpload } from './CVUpload'
+import { EXAMPLE_ROLES } from '../data/examples'
 import { InterviewSummary, ScoreResult } from '../types'
 import '../styles/chat.css'
 
 const AUTO_SEND_DELAY_MS = 6000
 
 export function ChatInterface() {
-  const { messages, session_id, question_number, num_questions, is_complete, summary, loading, error, send, reset, adoptSession } = useChat()
+  const { messages, session_id, question_number, num_questions, is_complete, summary, loading, streaming, error, send, reset, forget, adoptSession, dismissError } = useChat()
   const {
     isListening, transcript, interimText, isSpeaking, micError,
     unlockAudio, startListening, stopListening, resetTranscript,
@@ -35,16 +36,18 @@ export function ChatInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Speak each assistant message exactly once, identified by index
+  // Speak each assistant message exactly once, identified by index. Waits for
+  // the stream to finish: reading a half-written question aloud would cut off
+  // mid-sentence, and the text is only final once `streaming` clears.
   useEffect(() => {
-    if (loading || messages.length === 0) return
+    if (loading || streaming || messages.length === 0) return
     const lastIdx = messages.length - 1
     const last = messages[lastIdx]
-    if (last.role === 'assistant' && lastIdx !== lastSpokenIdxRef.current) {
+    if (last.role === 'assistant' && last.content && lastIdx !== lastSpokenIdxRef.current) {
       lastSpokenIdxRef.current = lastIdx
       speak(last.content, is_complete ? undefined : () => startListening())
     }
-  }, [messages, loading, is_complete, speak, startListening])
+  }, [messages, loading, streaming, is_complete, speak, startListening])
 
   // Mirror live transcript into the input box for visibility (interim takes priority while user is talking)
   useEffect(() => {
@@ -141,7 +144,21 @@ export function ChatInterface() {
               </div>
             ) : (
               <div className="card">
-                <label className="field-label">Your role</label>
+                <label className="field-label">Try an example</label>
+                <div className="example-chips">
+                  {EXAMPLE_ROLES.map((example) => (
+                    <button
+                      key={example.id}
+                      type="button"
+                      className={`chip${role === example.role && jobDescription === example.jobDescription ? ' chip-active' : ''}`}
+                      onClick={() => { setRole(example.role); setJobDescription(example.jobDescription) }}
+                    >
+                      {example.label}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="field-label" style={{ marginTop: 14 }}>Your role</label>
                 <input
                   list="role-options"
                   className="field-input"
@@ -195,6 +212,12 @@ export function ChatInterface() {
                 >
                   {cv.info ? 'Start CV-Aware Interview' : 'Start Interview'}
                 </button>
+
+                <p className="privacy-note">
+                  Your answers and any CV you upload are stored so the interview can
+                  resume, and are deleted automatically after 30 days. You can erase
+                  them at any time from the summary at the end.
+                </p>
               </div>
             )}
           </div>
@@ -210,7 +233,14 @@ export function ChatInterface() {
                       {msg.role === 'assistant' ? '🎙' : null}
                     </div>
                     <div className="msg-body">
-                      <div className="msg-bubble">{msg.content}</div>
+                      <div className="msg-bubble">
+                        {msg.content}
+                        {isLastBot && streaming && (
+                          msg.content
+                            ? <span className="stream-caret" />
+                            : <span className="typing-dots inline"><span /><span /><span /></span>
+                        )}
+                      </div>
                       {isLastBot && isSpeaking && (
                         <div className="waveform">
                           {[0, 1, 2, 3, 4].map((i) => (
@@ -226,19 +256,13 @@ export function ChatInterface() {
               )
             })}
 
-            {loading && (
-              <div className="msg-row assistant">
-                <div className="msg-av bot">🎙</div>
-                <div className="typing-dots"><span /><span /><span /></div>
-              </div>
-            )}
-
             {is_complete && summary && (
               <SummaryCard
                 summary={summary}
                 copied={copied}
                 onCopy={handleCopyResults}
                 onReset={() => { lastSpokenIdxRef.current = -1; stopSpeaking(); stopListening(); cv.clear(); reset() }}
+                onForget={() => { lastSpokenIdxRef.current = -1; stopSpeaking(); stopListening(); cv.clear(); forget() }}
               />
             )}
 
@@ -270,9 +294,14 @@ export function ChatInterface() {
         </div>
       )}
 
+      {/* The server distinguishes "you are going too fast" from "the demo is out
+          of budget" from "the model is down"; showing that beats one generic line. */}
       {(error || micError) && (
         <div className="error-strip">
-          {error ? 'Something went wrong — please try again.' : micError}
+          <span>{error || micError}</span>
+          {error && (
+            <button className="strip-btn" onClick={dismissError}>Dismiss</button>
+          )}
         </div>
       )}
 
@@ -344,12 +373,13 @@ function ScoreCard({ score }: { score: ScoreResult }) {
 }
 
 function SummaryCard({
-  summary, copied, onCopy, onReset
+  summary, copied, onCopy, onReset, onForget
 }: {
   summary: InterviewSummary
   copied: boolean
   onCopy: () => void
   onReset: () => void
+  onForget: () => void
 }) {
   return (
     <div className="summary-card">
@@ -398,6 +428,10 @@ function SummaryCard({
           New Interview
         </button>
       </div>
+
+      <button className="btn-link" onClick={onForget}>
+        Delete my transcript and CV from the server
+      </button>
     </div>
   )
 }

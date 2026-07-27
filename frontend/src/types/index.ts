@@ -9,8 +9,15 @@ export interface Message {
   mode?: TurnMode
 }
 
+export interface DimensionScore {
+  key: string
+  label: string
+  score: number
+}
+
 export interface ScoreResult {
   score: number
+  dimensions?: DimensionScore[]
   strengths: string[]
   improvements: string[]
 }
@@ -65,5 +72,8 @@ export interface ChatState {
   is_complete: boolean
   summary: InterviewSummary | null
   loading: boolean
+  // True while the current reply is still arriving. Distinct from `loading`,
+  // which also covers the wait before the first chunk.
+  streaming: boolean
   error: string | null
 }
