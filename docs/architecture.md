@@ -119,7 +119,65 @@ the two model-driven modes (main question, follow-up) reach `turn_instruction`.
   type across the app — typed boundaries without a mapping layer.
 
 **Known debt (frozen behavior — not fixed here):**
-- `api/app.py` runs DDL at import time and uses the deprecated `on_event`
-  shutdown hook; `datetime.utcnow` in the ORM is deprecated. CORS is `*`.
-- `voice.py` returns the exception string to the client (minor info leak).
 - `prompts.prompt.get_system_prompt` is now used only by tests.
+- **Prompt-injection hardening is deferred.** Job-description and CV text flow
+  into the interviewer prompt as ordinary content, so a crafted job description
+  can steer the interviewer's phrasing. The blast radius is already capped —
+  progression is server-authoritative, the scorer is schema-constrained, and the
+  closing turn is rendered rather than generated — so the worst case is an odd
+  question, not a hijacked interview. Fixing it means adding a line to
+  `prompts/interviewer.py` telling the model to treat that text as reference data
+  and never as instructions, which is a deliberate prompt change: it alters the
+  assembled bytes, so it needs its own commit, updated snapshots, and re-recorded
+  cassettes (`make record`, requires API keys). Not something to slip in.
+
+Resolved since the freeze (see git history): import-time DDL and the deprecated
+`on_event` hook (now a lifespan), `datetime.utcnow` (now aware UTC on
+`timestamptz` columns), wildcard CORS (now `settings.cors_origins`), and the
+vendor-exception leak in `voice.py`.
+
+## Running it in public
+
+The API is unauthenticated by design and every endpoint spends money with a third
+party per call, so two independent caps make publishing the URL safe
+(`api/limits.py`, counters in `persistence/usage.py`):
+
+- **Per-IP quotas** — sessions, turns, CV uploads, transcriptions, and TTS charged
+  by character rather than by call, since synthesis is billed by length.
+- **A daily instance-wide token ceiling** — the backstop that bounds the bill
+  regardless of how requests are spread across addresses. It is the cruder cap
+  and the one that actually guarantees a maximum.
+
+Counters live in Postgres, not memory, so limits survive a restart and hold
+across replicas. Windows are fixed rather than sliding: one upsert per check, and
+the worst case (up to 2x the limit when straddling a boundary) is irrelevant at
+the scale these defend against.
+
+Client IP comes from `X-Forwarded-For` only when `TRUST_PROXY_HEADERS=true`. That
+must stay false unless a proxy is definitely in front and rewriting the header —
+otherwise any caller resets their own limit by forging it.
+
+Uploaded CVs are personal data. `DELETE /api/sessions/{id}` erases a session on
+request, and `scripts/purge_expired.py` (scheduled, not in-process) sweeps
+anything past `SESSION_RETENTION_DAYS`.
+
+## Streaming
+
+`POST /chat/stream` delivers a turn as server-sent events: `score` (the grade for
+the previous answer, known before the next question exists), then `delta` per
+chunk, then `done` carrying the same `ChatResponse` the buffered endpoint returns.
+
+Streaming is modelled as a **delivery detail, not a second kind of request**. The
+request dict handed to the waist is byte-identical to the buffered one — both are
+built by `llm._generate_request` — so a streamed call hashes to the same cassette.
+A recording made either way replays either way, and outputs cannot diverge by
+transport. Under replay the recorded reply is re-chunked deterministically: the
+pieces are arbitrary, the concatenation is not.
+
+`run_turn` and `stream_turn` share `_decide_turn` and `_finish_turn`, so scoring,
+progression, and prompt assembly are literally the same code; only delivery
+differs. `tests/contract/test_streaming_identity.py` drives every scenario both
+ways and asserts the resulting interviews are equal.
+
+Provider streams are not retried — by the time one fails, part of the reply is
+already delivered, so a retry would append rather than replace.
