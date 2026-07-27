@@ -24,4 +24,7 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "interview_bot.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Bind whatever port the platform assigns. Render, Fly, and Cloud Run all inject
+# $PORT and route to it; a hard-coded port makes the container unreachable there.
+# Shell form so the variable is expanded at runtime, with a local-dev default.
+CMD ["sh", "-c", "exec uvicorn interview_bot.api.app:app --host 0.0.0.0 --port ${PORT:-8000}"]
