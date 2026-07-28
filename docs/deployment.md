@@ -1,158 +1,136 @@
-# Deployment
+# Deployment (Railway)
 
-The free stack, and why each piece:
+Three services in one Railway project, unchanged from the original setup:
 
-| Piece | Where | Why | Cost |
-|---|---|---|---|
-| Postgres + pgvector | **Neon** | Free tier includes pgvector and does not expire. Render's own free Postgres has neither. | $0 |
-| FastAPI container | **Render** | Builds the repo's Dockerfile straight from GitHub. | $0 |
-| React frontend | **Cloudflare Pages** | Static, global CDN, genuinely unmetered on the free plan. | $0 |
-| Retention sweep | **GitHub Actions** | Render's free tier has no cron. | $0 |
+| Service | What | Source |
+|---|---|---|
+| **Postgres** | database + pgvector | Railway's pgvector template |
+| **backend** | FastAPI API | `backend/Dockerfile` |
+| **frontend** | React behind nginx | `frontend/Dockerfile` |
 
-Everything deploys from the GitHub repo — there is no CLI to install.
-
-**The one honest caveat:** a free Render instance sleeps after 15 minutes idle and
-takes roughly 50 seconds to wake. The first visitor after a quiet spell waits.
-Neon also scales to zero, adding a few hundred milliseconds on top. Options: pay
-$7/month for Render's `starter` plan (the fix), or keep it warm (see the end).
+There is no `railway.json` — the services are configured in the dashboard, which
+is how they were set up originally. Nothing here changes that.
 
 ---
 
-## Order matters
+## What Phases 1–3 changed that Railway needs
 
-The frontend needs the backend's URL, and the backend needs the frontend's origin
-for CORS. Neither exists until the other is deployed, so: **database → backend →
-frontend → point the backend at the frontend.**
+The hardening work altered two defaults that were previously permissive. **On the
+next redeploy the app will not work correctly until both are set**, so do these
+before or immediately after pushing.
 
----
+### `CORS_ORIGINS` — required, or the frontend is blocked
 
-## 1. Database (Neon)
+CORS used to be hard-coded to `*`. It now defaults to localhost only, because a
+public API that accepts requests from any origin is exactly what you don't want
+once there are rate limits and a spend ceiling worth bypassing.
 
-1. Sign up at [neon.tech](https://neon.tech) — no card required.
-2. Create a project. Any region; pick one near your users.
-3. Copy the **pooled** connection string from the dashboard. It looks like:
-
-   ```
-   postgresql://USER:PASSWORD@ep-xxx-pooler.REGION.aws.neon.tech/neondb?sslmode=require
-   ```
-
-   Keep `?sslmode=require`. Prefer the **pooled** endpoint (`-pooler`) — a
-   sleeping free instance handles reconnections better through it.
-
-You do not need to create tables or enable pgvector by hand. The API does both on
-startup (`persistence/schema.py`), inside one advisory-locked transaction.
-
-## 2. Backend (Render)
-
-1. Sign up at [render.com](https://render.com) with your GitHub account.
-2. **New → Blueprint**, pick the `Interview_Bot` repo, and choose the branch you
-   pushed. Render reads `render.yaml` and configures the service itself.
-3. It will prompt for the five values marked `sync: false`:
-
-   | Variable | Value |
-   |---|---|
-   | `DATABASE_URL` | the Neon string from step 1 |
-   | `ANTHROPIC_API_KEY` | your Anthropic key |
-   | `VOYAGE_API_KEY` | your Voyage key (CV upload fails without it) |
-   | `DEEPGRAM_API_KEY` | your Deepgram key (voice fails without it; text is fine) |
-   | `CORS_ORIGINS` | `http://localhost:5173` for now — corrected in step 4 |
-
-4. Deploy. The first build takes 3–5 minutes. When it is live, check:
-
-   ```sh
-   curl https://YOUR-SERVICE.onrender.com/health        # {"status":"ok"}
-   curl https://YOUR-SERVICE.onrender.com/health/ready   # {"status":"ready"}
-   ```
-
-   `ready` is the one that matters — it returns `ready` only if Neon is
-   reachable. A 503 means `DATABASE_URL` is wrong or the database is unreachable.
-
-Note the service URL; the frontend needs it.
-
-## 3. Frontend (Cloudflare Pages)
-
-1. Sign up at [dash.cloudflare.com](https://dash.cloudflare.com) — no card required.
-2. **Workers & Pages → Create → Pages → Connect to Git**, pick the repo and branch.
-3. Build settings:
-
-   | Setting | Value |
-   |---|---|
-   | Framework preset | None |
-   | Build command | `npm run build` |
-   | Build output directory | `dist` |
-   | Root directory | `frontend` |
-
-4. Environment variables (Settings → Environment variables), **both** required:
-
-   | Variable | Value |
-   |---|---|
-   | `VITE_API_URL` | `https://YOUR-SERVICE.onrender.com` — origin only, no `/api` |
-   | `NODE_VERSION` | `20` |
-
-   `VITE_API_URL` is read at **build** time, not run time. Changing it later means
-   triggering a fresh deployment, not just saving the variable.
-
-5. Deploy. Note the `*.pages.dev` URL.
-
-## 4. Close the CORS loop
-
-Back in Render → your service → Environment, set:
+On the **backend** service:
 
 ```
-CORS_ORIGINS = https://YOUR-PROJECT.pages.dev
+CORS_ORIGINS = https://YOUR-FRONTEND.up.railway.app
 ```
 
-Saving triggers a redeploy. Until this is right, the browser blocks every API
-call and the UI shows "Cannot reach the server" — that message is CORS, not a
-backend outage. Comma-separate to allow more than one origin (e.g. a custom
-domain alongside the `pages.dev` one).
+Comma-separate for more than one origin. If you later add a custom domain, it
+goes here too.
 
-## 5. Retention sweep
+> If the UI starts showing "Cannot reach the server" after this deploy, this is
+> the cause — it is a CORS rejection, not a backend outage.
 
-In GitHub → Settings → Secrets and variables → Actions, add a repository secret
-`DATABASE_URL` with the same Neon string. The workflow in
-`.github/workflows/retention.yml` then runs daily.
+### `TRUST_PROXY_HEADERS` — required, or rate limits collapse
 
-Verify it without deleting anything: Actions → retention-sweep → Run workflow,
-leaving "dry run" checked.
+Railway terminates TLS in front of your container, so every request arrives with
+the proxy's address as its socket peer. Without this, all visitors share a single
+rate-limit bucket and the first person to hit the limit locks out everyone else.
+
+On the **backend** service:
+
+```
+TRUST_PROXY_HEADERS = true
+```
+
+It is safe here *because* a proxy is guaranteed to be in front. It must stay
+`false` anywhere the container is directly reachable, since the header is
+caller-supplied and otherwise lets anyone reset their own limit.
+
+### `DAILY_TOKEN_CEILING` — set it deliberately
+
+Defaults to 2,000,000 tokens/day, which on Haiku 4.5 is roughly $50–85/month at
+the absolute worst case. With a $5 credit that default is far too high to be a
+meaningful backstop. Something like:
+
+```
+DAILY_TOKEN_CEILING = 150000
+```
+
+is closer to a $5 budget (~$0.20/day worst case). Reaching it returns 503 until
+the window rolls over. Set a spend alert in the Anthropic Console as well — the
+in-app ceiling only stops what it can see.
 
 ---
 
-## Before you share the link
+## Everything else
 
-- [ ] `curl .../health/ready` returns `ready`
-- [ ] Run one full interview end to end in the browser — the reply should stream
-      in word by word, and the score card should appear before the next question
+**No new required variables.** Every other setting added in Phases 1–3 has a
+working default (`RATE_LIMIT_ENABLED`, the per-IP quotas, `SESSION_RETENTION_DAYS`,
+`AUDIO_MAX_BYTES`). Override them only if you want different numbers — see
+`.env.example` for the full list.
+
+**Port binding.** The container now binds `$PORT` rather than a hard-coded 8000.
+Railway injects `PORT` and routes to it, so this is strictly more correct than
+before and needs no configuration.
+
+**Schema migrations run themselves** on boot, inside one advisory-locked
+transaction (`persistence/schema.py`). This deploy adds a `usage_counters` table
+and converts the existing timestamp columns to `timestamptz`. The conversion is
+guarded so it runs exactly once; re-running it on already-converted columns would
+shift the stored instants, which is why it checks the column type first.
+
+**pgvector** is already enabled on your existing Postgres service — no change.
+
+---
+
+## Retention sweep
+
+`.github/workflows/retention.yml` runs the purge daily via GitHub Actions. Add a
+repository secret `DATABASE_URL` (GitHub → Settings → Secrets and variables →
+Actions) with your Railway Postgres connection string.
+
+Railway's own cron would work equally well; GitHub Actions is used because it is
+free and platform-independent. Verify it without deleting anything: Actions →
+retention-sweep → Run workflow, leaving "dry run" checked.
+
+---
+
+## Cost note
+
+Three always-on services (Postgres, backend, frontend) all bill continuously on
+Railway's usage model. A $5 credit is tight for three containers running 24/7 —
+watch the usage graph in the first week rather than assuming it fits.
+
+The cheapest lever, if it doesn't: move the **frontend** to Cloudflare Pages,
+which is free and unmetered for static sites. That drops Railway to two services
+and changes nothing about the architecture — the frontend is a static bundle
+either way, and `VITE_API_URL` already points it at the backend's public URL.
+
+---
+
+## Verify after deploying
+
+```sh
+curl https://YOUR-BACKEND.up.railway.app/health        # {"status":"ok"}
+curl https://YOUR-BACKEND.up.railway.app/health/ready  # {"status":"ready"}
+```
+
+`/health` is deliberately dependency-free so a database blip cannot make the
+platform restart a container that is otherwise serving. `/health/ready` is the
+one that actually checks Postgres — point any uptime monitor at that one.
+
+Then in the browser:
+
+- [ ] Run a full interview — the reply should stream in word by word, and the
+      score for your previous answer should appear *before* the next question
       finishes writing
-- [ ] Upload a CV, confirm the questions reference it, then use **Delete my
+- [ ] Upload a CV, confirm questions reference it, then use **Delete my
       transcript and CV** and confirm it is gone
-- [ ] Confirm `DAILY_TOKEN_CEILING` is a number you would be content to pay on the
-      worst possible day (the `render.yaml` default of 500,000/day is roughly
-      $18/month at the absolute ceiling — usually far less)
-- [ ] Set a spend alert in the [Anthropic Console](https://console.anthropic.com)
-      as a second, independent backstop. The in-app ceiling can only stop what it
-      can see; a billing alert stops what it cannot.
 - [ ] Update the demo link at the top of `README.md`
-
----
-
-## Operating notes
-
-**Cold starts.** A free Render instance sleeps after 15 minutes idle. You *can*
-keep it warm with a scheduled ping, but be aware of the arithmetic: the free plan
-grants 750 instance-hours per month and a month is 744 hours, so an always-warm
-service consumes essentially the entire allowance and leaves nothing for a second
-service. If the wait bothers you, `starter` at $7/month is the cleaner answer.
-
-**Logs.** Render → your service → Logs. Every rate-limit rejection, vendor
-failure, and readiness failure is logged with context; nothing logs a CV's
-contents or an API key.
-
-**Scaling past free.** In rough order of when it starts to hurt: Render
-`starter` ($7/mo, no sleeping) → Neon paid (~$19/mo, point-in-time recovery,
-which matters as soon as the data is someone else's) → a second Render instance.
-Cloudflare Pages will not be the thing that needs upgrading.
-
-**Rolling back.** Render keeps previous deploys — Deploys → pick one → Redeploy.
-The schema migrations are additive and idempotent, so an app rollback does not
-need a database rollback.

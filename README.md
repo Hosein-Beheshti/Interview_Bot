@@ -195,4 +195,4 @@ the calibration metrics, and known limits.
 
 ## Deployment
 
-Deployed on Railway as three services — PostgreSQL (pgvector), backend, and frontend. See [QUICKSTART.md](QUICKSTART.md) for full deployment steps.
+Deployed on Railway as three services — PostgreSQL (pgvector), backend, and frontend. See **[docs/deployment.md](docs/deployment.md)** for the required environment variables and the post-deploy checks. ([QUICKSTART.md](QUICKSTART.md) covers running it locally.)
