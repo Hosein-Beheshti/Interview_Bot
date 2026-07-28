@@ -53,19 +53,24 @@ It is safe here *because* a proxy is guaranteed to be in front. It must stay
 `false` anywhere the container is directly reachable, since the header is
 caller-supplied and otherwise lets anyone reset their own limit.
 
-### `DAILY_TOKEN_CEILING` — set it deliberately
+### `DAILY_TOKEN_CEILING` — already safe by default
 
-Defaults to 2,000,000 tokens/day, which on Haiku 4.5 is roughly $50–85/month at
-the absolute worst case. With a $5 credit that default is far too high to be a
-meaningful backstop. Something like:
+Defaults to **150,000 tokens/day**: roughly $0.20/day on Haiku 4.5, or about
+20–30 full interviews. That is sized for a $5 credit, so no action is needed —
+the default fails toward a small bill rather than an unbounded one. Reaching it
+returns 503 until the window rolls over.
+
+Raise it once you know what real traffic actually costs:
 
 ```
-DAILY_TOKEN_CEILING = 150000
+DAILY_TOKEN_CEILING = 500000
 ```
 
-is closer to a $5 budget (~$0.20/day worst case). Reaching it returns 503 until
-the window rolls over. Set a spend alert in the Anthropic Console as well — the
-in-app ceiling only stops what it can see.
+**Set a spend alert in the [Anthropic Console](https://console.anthropic.com)
+regardless.** The in-app ceiling only counts what this application spends —
+anything else on the same API key is invisible to it, and a bug in the metering
+path would be invisible too. Two independent backstops, one of which does not
+depend on your own code being correct.
 
 ---
 

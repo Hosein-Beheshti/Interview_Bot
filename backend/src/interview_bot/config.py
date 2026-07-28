@@ -103,7 +103,12 @@ class Settings(BaseSettings):
     # no matter how the per-IP limits are spread across addresses. Counts every
     # token in and out, across all providers and operations. Reaching it returns
     # 503 until the window rolls over. 0 disables the ceiling.
-    daily_token_ceiling: int = 2_000_000
+    #
+    # The default is deliberately conservative: ~150K tokens/day is roughly
+    # $0.20/day on Haiku 4.5 at a 90/10 input/output split, or about 20-30 full
+    # interviews. A forgotten environment variable should fail toward a small
+    # bill, not an unbounded one — raise it once you know what real traffic costs.
+    daily_token_ceiling: int = 150_000
 
     # Whether to read the client IP from X-Forwarded-For. Required behind a proxy
     # or load balancer (Railway, Render, Fly, nginx), where the socket address is
