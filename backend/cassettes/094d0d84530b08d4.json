@@ -82,7 +82,7 @@
       "Go",
       "PostgreSQL",
       "Kafka",
-      "event-driven architecture",
+      "event-driven architectures",
       "idempotency",
       "exactly-once processing",
       "observability",
@@ -91,22 +91,22 @@
     ],
     "focus_areas": [
       "payment systems",
-      "concurrency and correctness",
-      "invoicing and reconciliation",
-      "webhook handling",
-      "distributed systems reliability"
+      "concurrency correctness",
+      "distributed systems",
+      "system reliability",
+      "data consistency"
     ]
   },
-  "latency_ms": 1594.6,
+  "latency_ms": 3727.6,
   "usage": {
     "provider": "anthropic",
     "model": "claude-haiku-4-5-20251001",
     "input_tokens": 782,
-    "output_tokens": 98,
+    "output_tokens": 94,
     "cache_read_tokens": 0,
     "cache_write_tokens": 0,
-    "request_id": "req_011CdKNHQFsknw2aiMsvdzos",
+    "request_id": "req_011CdVWEi93EUvcxtZkVcaj5",
     "stop_reason": "end_turn"
   },
-  "recorded_at": "2026-07-23T17:16:19Z"
+  "recorded_at": "2026-07-29T01:46:35Z"
 }

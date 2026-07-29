@@ -79,39 +79,40 @@
     "seniority": "senior",
     "key_skills": [
       "Python",
-      "learning-to-rank",
-      "recommender systems",
+      "Learning-to-rank",
+      "Recommender systems",
       "A/B testing",
-      "model serving",
-      "feature pipelines",
-      "model training",
-      "offline evaluation",
-      "online evaluation",
-      "model monitoring",
-      "model deployment",
-      "low-latency inference"
+      "Model serving",
+      "Low-latency inference",
+      "Feature pipelines",
+      "Model training",
+      "Offline evaluation",
+      "Online evaluation",
+      "Model monitoring",
+      "Kubernetes",
+      "Feature stores",
+      "Counterfactual evaluation"
     ],
     "focus_areas": [
-      "machine learning systems design",
-      "production ML",
-      "ranking algorithms",
-      "recommendations",
-      "feature engineering",
-      "model evaluation",
-      "deployment and monitoring",
-      "scale"
+      "Production machine learning",
+      "Ranking models",
+      "End-to-end model ownership",
+      "Personalization at scale",
+      "System design for ML",
+      "Model deployment",
+      "Performance evaluation"
     ]
   },
-  "latency_ms": 3905.3,
+  "latency_ms": 3416.8,
   "usage": {
     "provider": "anthropic",
     "model": "claude-haiku-4-5-20251001",
     "input_tokens": 784,
-    "output_tokens": 106,
+    "output_tokens": 126,
     "cache_read_tokens": 0,
     "cache_write_tokens": 0,
-    "request_id": "req_011CdKN9Ejup6nJcFPrqzpSL",
+    "request_id": "req_011CdVW8H5Vp4uhCLEoStBCq",
     "stop_reason": "end_turn"
   },
-  "recorded_at": "2026-07-23T17:14:29Z"
+  "recorded_at": "2026-07-29T01:45:06Z"
 }

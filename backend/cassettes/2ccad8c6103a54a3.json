@@ -1,0 +1,107 @@
+{
+  "cassette_version": 1,
+  "kind": "llm.parse",
+  "request_hash": "2ccad8c6103a54a3e96a87a41331ff5efb354053dd9433db9b1a423a833cc054",
+  "request": {
+    "kind": "llm.parse",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "system": "You design a structured interview blueprint. Given a job profile and a target number of main questions, produce exactly that many question slots that together give broad, non-overlapping coverage of the role's most important skills and focus areas. Order them to flow naturally — foundational topics before advanced ones. Calibrate each difficulty to the stated seniority. Each slot names the specific skill to test, the intent (what to assess), a difficulty, and the key points a strong answer should cover — the concepts, tradeoffs, and edge cases later used to grade the candidate's answer.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Job context:\n- Company: Meridian Commerce\n- Target role: Data Engineer, Streaming Platform\n- Seniority: mid\n- Key skills to assess: Kafka, Flink, Iceberg, S3, Python, SQL, Stream Processing, Data Contracts, Exactly-Once Semantics, AWS\n- Focus areas: Event Pipeline Architecture, Lakehouse Design, Data Quality & Governance, Distributed Systems, Cost Optimization\n\nDesign exactly 2 interview question slots for this role."
+      }
+    ],
+    "output_model": "PlanExtraction",
+    "output_schema": {
+      "$defs": {
+        "PlanSlotExtraction": {
+          "properties": {
+            "skill": {
+              "description": "The specific skill or topic this question tests, e.g. 'Kubernetes networking'.",
+              "title": "Skill",
+              "type": "string"
+            },
+            "intent": {
+              "description": "What the question should assess about that skill — the angle to probe.",
+              "title": "Intent",
+              "type": "string"
+            },
+            "difficulty": {
+              "description": "One of: foundational, intermediate, advanced — calibrated to the role's seniority.",
+              "title": "Difficulty",
+              "type": "string"
+            },
+            "key_points": {
+              "description": "3-5 specific things a strong answer should cover: the core concepts, tradeoffs, edge cases, or facts that distinguish real depth from a surface-level reply. Each a short phrase. Used later to grade answers, so be concrete and answer-focused, not a restatement of the question.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Key Points",
+              "type": "array"
+            }
+          },
+          "required": [
+            "skill",
+            "intent",
+            "difficulty"
+          ],
+          "title": "PlanSlotExtraction",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "slots": {
+          "description": "One slot per main question, ordered, giving non-overlapping coverage of the role.",
+          "items": {
+            "$ref": "#/$defs/PlanSlotExtraction"
+          },
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "title": "PlanExtraction",
+      "type": "object"
+    },
+    "max_tokens": 1500
+  },
+  "response": {
+    "slots": [
+      {
+        "skill": "Kafka & Stream Processing Architecture",
+        "intent": "Assess ability to design and troubleshoot high-throughput event pipelines, including partition strategy, consumer group management, and handling of late/out-of-order data.",
+        "difficulty": "intermediate",
+        "key_points": [
+          "Partition key selection and its impact on ordering and load balancing",
+          "Consumer group semantics and offset management for exactly-once semantics",
+          "Trade-offs between throughput, latency, and data ordering constraints",
+          "Strategies for handling late-arriving or duplicate events in production"
+        ]
+      },
+      {
+        "skill": "Lakehouse Design with Iceberg & Data Quality",
+        "intent": "Evaluate understanding of modern data architecture using Apache Iceberg on S3, including schema evolution, data contracts, governance, and cost optimization in a streaming context.",
+        "difficulty": "intermediate",
+        "key_points": [
+          "Iceberg table format advantages over Parquet/Delta for versioning and schema changes",
+          "Data contract definition and enforcement between producers and consumers",
+          "Partitioning and file size optimization for query performance and S3 costs",
+          "Exactly-once semantics implementation from Kafka/Flink into Iceberg tables"
+        ]
+      }
+    ]
+  },
+  "latency_ms": 3326.5,
+  "usage": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "input_tokens": 793,
+    "output_tokens": 267,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "request_id": "req_011CdVWMTBKe1HxMt7SGNw5k",
+    "stop_reason": "end_turn"
+  },
+  "recorded_at": "2026-07-29T01:48:06Z"
+}

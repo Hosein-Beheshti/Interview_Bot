@@ -5,37 +5,34 @@
     "slots": [
       {
         "difficulty": "intermediate",
-        "intent": "Assess ability to design and reason about idempotent payment operations, understand the guarantees offered by different architectures, and handle duplicate requests safely.",
+        "intent": "Assess understanding of how to prevent duplicate charges and ensure payment state consistency in a distributed, message-driven payment platform",
         "key_points": [
-          "Idempotency key generation, storage, and retrieval strategy",
-          "Exactly-once semantics vs. at-least-once delivery and compensating transactions",
-          "Race conditions between checking and writing (check-then-act antipattern)",
-          "Handling retries without side effects (e.g., charging twice)",
-          "State machine design for payment lifecycle to prevent invalid transitions"
+          "Idempotency keys and request deduplication strategies",
+          "Exactly-once semantics vs. at-least-once delivery guarantees",
+          "Reconciliation patterns for detecting and handling missed or duplicate transactions",
+          "Database design choices (unique constraints, state tables) to enforce idempotency"
         ],
         "skill": "Idempotency and exactly-once processing in payment systems"
       },
       {
         "difficulty": "intermediate",
-        "intent": "Evaluate ability to build resilient event-driven systems, manage message ordering and replayability, and handle webhook delivery failures and out-of-order events.",
+        "intent": "Evaluate ability to design reliable payment event pipelines that maintain data consistency across multiple services and handle backpressure",
         "key_points": [
-          "Partition key selection for ordering guarantees and consumer group semantics",
-          "Dead-letter queues and retry strategies for webhook delivery",
-          "Webhook signature verification, timeout handling, and exponential backoff",
-          "Event schema versioning and backwards compatibility",
-          "Ordering guarantees vs. scalability tradeoffs (single partition vs. partitioned topics)"
+          "Partition strategy for payment events (by merchant, customer, or transaction ID) and ordering guarantees",
+          "Outbox pattern or CDC to atomically write state changes and publish events",
+          "Consumer group management and offset tracking for reliable event replay",
+          "Handling schema evolution and version compatibility in payment event streams"
         ],
-        "skill": "Event-driven architecture with Kafka and webhook reliability"
+        "skill": "Event-driven architecture with Kafka and PostgreSQL"
       },
       {
         "difficulty": "intermediate",
-        "intent": "Determine how the candidate approaches monitoring, tracing, and troubleshooting complex payment reconciliation and invoicing workflows across multiple services.",
+        "intent": "Determine capability to instrument, monitor, and troubleshoot payment transactions across multiple services and identify root causes of failures or inconsistencies",
         "key_points": [
-          "Distributed tracing (correlation IDs, span hierarchy) to track payment lifecycle",
-          "Logging strategy for compliance and auditing (what to log, PII masking)",
-          "Metrics selection for payment success rate, latency, and failure modes",
-          "Diagnosing eventual consistency issues and reconciliation gaps",
-          "Alerting thresholds and on-call runbooks for common payment failures"
+          "Distributed tracing (trace IDs, span correlation) to follow a payment through multiple services",
+          "Metrics, logs, and alerts for detecting payment anomalies (stuck transactions, latency spikes)",
+          "Debugging techniques for race conditions and timing-dependent failures in concurrent payment processing",
+          "Observability trade-offs: sampling strategies and cost vs. fidelity in high-volume payment systems"
         ],
         "skill": "Observability and debugging in distributed payment flows"
       }
@@ -45,17 +42,17 @@
     "company": "Ledgerpoint",
     "focus_areas": [
       "payment systems",
-      "concurrency and correctness",
-      "invoicing and reconciliation",
-      "webhook handling",
-      "distributed systems reliability"
+      "concurrency correctness",
+      "distributed systems",
+      "system reliability",
+      "data consistency"
     ],
     "key_skills": [
       "Python",
       "Go",
       "PostgreSQL",
       "Kafka",
-      "event-driven architecture",
+      "event-driven architectures",
       "idempotency",
       "exactly-once processing",
       "observability",
@@ -70,24 +67,24 @@
     {
       "follow_up": false,
       "improvements": [
-        "Discuss exactly-once vs. at-least-once semantics and when compensating transactions are needed (e.g., if payment succeeds but webhook handler crashes before storing response)",
-        "Explain state machine design for payment lifecycle to prevent invalid transitions (e.g., charging a refunded payment)",
-        "Address edge cases: idempotency key expiration, what happens if two concurrent requests both fail, and how to handle partial failures in multi-step payment flows"
+        "Address the dual-channel problem: how do Kafka events and sync requests coordinate? What prevents a Kafka event from re-executing after a sync request already succeeded?",
+        "Discuss reconciliation: how do you detect and recover from a missed Kafka event or a sync request that failed before storing the idempotency key?",
+        "Explain the race between storing the idempotency key and executing the side effect—what if the process crashes between them?"
       ],
       "q": 1,
-      "score": 8,
+      "score": 7,
       "strengths": [
-        "Correctly identifies the core pattern: store response in same transaction as side effect, return cached response on retry",
-        "Demonstrates understanding of the subtle scoping problem—business operation vs. HTTP request—which is a common pitfall",
-        "Mentions the race condition solution (unique constraint) showing awareness of concurrency hazards"
+        "Correctly identifies the core pattern: idempotency key + unique constraint + transactional response storage",
+        "Recognizes the subtle scoping issue—business operation vs. HTTP request—showing practical experience",
+        "Clear, concise explanation of the happy path and basic retry logic"
       ]
     },
     {
       "follow_up": true,
       "improvements": [
-        "Acknowledge the gap but attempt to reason through the problem: e.g., 'I haven't done this, but I'd expect we'd either pass the key through if the processor supports it, or maintain a mapping table to correlate our key with theirs.'",
-        "Demonstrate problem-solving instinct even without direct experience—discuss tradeoffs (passthrough vs. mapping layer) or potential failure modes.",
-        "If truly unfamiliar, pivot to related experience: idempotency patterns you *have* implemented, or distributed system coordination challenges you've solved."
+        "Attempt to reason through the problem even if uncertain—e.g., 'I'd probably use idempotency keys to deduplicate, but I'm not sure how to handle the race condition between paths'",
+        "Acknowledge the specific challenge and ask clarifying questions rather than declining outright",
+        "Discuss any related experience with deduplication or event processing, even if not in payments context"
       ],
       "q": 1,
       "score": 0,
@@ -96,9 +93,9 @@
     {
       "follow_up": false,
       "improvements": [
-        "Explain the reconciliation strategy: what fields/entities were compared, at what frequency (hourly, daily), and why that cadence was chosen.",
-        "Describe actual inconsistencies encountered (e.g., duplicate charges, missing invoices, state divergence) and the root causes.",
-        "Detail the conflict resolution logic: how did you determine which system was authoritative when disagreements arose, and how were corrections applied?"
+        "Explain how to match the REST payment to the Kafka event (e.g., idempotency key correlation, merchant/transaction ID lookup)",
+        "Describe the deduplication mechanism (e.g., consumer-side state check, outbox pattern, or idempotent writes)",
+        "Detail partition strategy and ordering guarantees to ensure exactly-once semantics"
       ],
       "q": 2,
       "score": 0,
@@ -107,54 +104,46 @@
     {
       "follow_up": true,
       "improvements": [
-        "Directly answer the reconciliation question: name specific invoice fields (amount, status, line items, tax) and states (pending, paid, failed) that were compared",
-        "Explain reconciliation frequency and triggers (continuous, batch hourly, on-demand) and why that cadence was chosen",
-        "Address partition key strategy for ordering guarantees and how it affects consumer scalability in payment systems"
+        "Directly name the idempotency key (e.g., transaction ID, request ID, or idempotent key from the payment request) that must be extracted from the Kafka event and looked up in the table",
+        "Explain the lookup query: what columns in the idempotency table are matched against the incoming event to detect a duplicate",
+        "Clarify the decision logic: if found, skip processing; if not found, insert and process"
       ],
       "q": 2,
       "score": 4,
       "strengths": [
-        "Correctly identifies outbox pattern as a mechanism for transactional consistency",
-        "Understands idempotency principle and at-least-once delivery semantics",
-        "Clear, grammatically sound explanation of the pattern itself"
+        "Correctly identifies outbox pattern as a mechanism for consistency",
+        "Acknowledges at-least-once delivery and consumer idempotency as a design principle",
+        "Shows awareness of the broader event-driven architecture"
       ]
     },
     {
       "follow_up": false,
       "improvements": [
-        "Specify what fields were actually compared (invoice counts, amounts, timestamps, line items, tax, discounts) and why each matters",
-        "Describe reconciliation job frequency, SLA, and what happened when mismatches were found—root cause diagnosis, alerting, manual intervention",
-        "Add observability details: distributed tracing (correlation IDs), logging strategy for PII masking and audit trails, metrics (reconciliation lag, mismatch rate), and on-call runbooks for common failures"
+        "Address the actual question: explain how to detect if a payment event from Kafka was already processed via REST API (idempotency key, request ID, or database lookup)",
+        "Clarify the deduplication strategy: what unique identifier ties together REST and Kafka payloads to prevent double-charging",
+        "Discuss observability and monitoring for duplicate detection failures, not just migration strategy"
       ],
       "q": 3,
-      "score": 6,
-      "strengths": [
-        "Correctly identifies strangler-fig pattern and dual-write as appropriate migration strategy",
-        "Mentions nightly reconciliation jobs and waiting for zero-diff stability before cutover—shows sound migration discipline",
-        "Clear, concise explanation of the overall approach"
-      ]
+      "score": 0,
+      "strengths": []
     },
     {
       "follow_up": true,
       "improvements": [
-        "Directly address the reconciliation question: how did you determine which system was the source of truth when counts/amounts diverged?",
-        "Explain the operational fix process: was it manual review, automated replay, data correction, or a combination?",
-        "Connect to observability and tracing to show how you diagnosed the root cause in production"
+        "Answer the question asked: identify the idempotency key column(s) used to query the table (typically payment_id or a composite of idempotency_key + merchant_id)",
+        "Explain why that column choice prevents duplicate processing of the same event",
+        "Address the tradeoff between query performance and collision risk in high-volume systems"
       ],
       "q": 3,
-      "score": 5,
-      "strengths": [
-        "Demonstrates awareness of property-based testing as a tool for catching subtle bugs in financial systems",
-        "Correctly identifies a real class of bugs (rounding in currency conversion) that is relevant to payments",
-        "Clear, concise phrasing of the bug discovery"
-      ]
+      "score": 0,
+      "strengths": []
     }
   ],
   "summary": {
     "breakdown": [
       {
         "label": "Q1",
-        "score": 8
+        "score": 7
       },
       {
         "label": "Q1 follow-up",
@@ -170,27 +159,27 @@
       },
       {
         "label": "Q3",
-        "score": 6
+        "score": 0
       },
       {
         "label": "Q3 follow-up",
-        "score": 5
+        "score": 0
       }
     ],
-    "copy_text": "AI Interview Results — Backend Engineer, Payments\nOverall Score: 3.8/10\n\nQ1: 8/10\n  + Correctly identifies the core pattern: store response in same transaction as side effect, return cached response on retry, Demonstrates understanding of the subtle scoping problem—business operation vs. HTTP request—which is a common pitfall, Mentions the race condition solution (unique constraint) showing awareness of concurrency hazards\n  › Discuss exactly-once vs. at-least-once semantics and when compensating transactions are needed (e.g., if payment succeeds but webhook handler crashes before storing response), Explain state machine design for payment lifecycle to prevent invalid transitions (e.g., charging a refunded payment), Address edge cases: idempotency key expiration, what happens if two concurrent requests both fail, and how to handle partial failures in multi-step payment flows\nQ1 follow-up: 0/10\n  › Acknowledge the gap but attempt to reason through the problem: e.g., 'I haven't done this, but I'd expect we'd either pass the key through if the processor supports it, or maintain a mapping table to correlate our key with theirs.', Demonstrate problem-solving instinct even without direct experience—discuss tradeoffs (passthrough vs. mapping layer) or potential failure modes., If truly unfamiliar, pivot to related experience: idempotency patterns you *have* implemented, or distributed system coordination challenges you've solved.\nQ2: 0/10\n  › Explain the reconciliation strategy: what fields/entities were compared, at what frequency (hourly, daily), and why that cadence was chosen., Describe actual inconsistencies encountered (e.g., duplicate charges, missing invoices, state divergence) and the root causes., Detail the conflict resolution logic: how did you determine which system was authoritative when disagreements arose, and how were corrections applied?\nQ2 follow-up: 4/10\n  + Correctly identifies outbox pattern as a mechanism for transactional consistency, Understands idempotency principle and at-least-once delivery semantics, Clear, grammatically sound explanation of the pattern itself\n  › Directly answer the reconciliation question: name specific invoice fields (amount, status, line items, tax) and states (pending, paid, failed) that were compared, Explain reconciliation frequency and triggers (continuous, batch hourly, on-demand) and why that cadence was chosen, Address partition key strategy for ordering guarantees and how it affects consumer scalability in payment systems\nQ3: 6/10\n  + Correctly identifies strangler-fig pattern and dual-write as appropriate migration strategy, Mentions nightly reconciliation jobs and waiting for zero-diff stability before cutover—shows sound migration discipline, Clear, concise explanation of the overall approach\n  › Specify what fields were actually compared (invoice counts, amounts, timestamps, line items, tax, discounts) and why each matters, Describe reconciliation job frequency, SLA, and what happened when mismatches were found—root cause diagnosis, alerting, manual intervention, Add observability details: distributed tracing (correlation IDs), logging strategy for PII masking and audit trails, metrics (reconciliation lag, mismatch rate), and on-call runbooks for common failures\nQ3 follow-up: 5/10\n  + Demonstrates awareness of property-based testing as a tool for catching subtle bugs in financial systems, Correctly identifies a real class of bugs (rounding in currency conversion) that is relevant to payments, Clear, concise phrasing of the bug discovery\n  › Directly address the reconciliation question: how did you determine which system was the source of truth when counts/amounts diverged?, Explain the operational fix process: was it manual review, automated replay, data correction, or a combination?, Connect to observability and tracing to show how you diagnosed the root cause in production",
+    "copy_text": "AI Interview Results — Backend Engineer, Payments\nOverall Score: 1.8/10\n\nQ1: 7/10\n  + Correctly identifies the core pattern: idempotency key + unique constraint + transactional response storage, Recognizes the subtle scoping issue—business operation vs. HTTP request—showing practical experience, Clear, concise explanation of the happy path and basic retry logic\n  › Address the dual-channel problem: how do Kafka events and sync requests coordinate? What prevents a Kafka event from re-executing after a sync request already succeeded?, Discuss reconciliation: how do you detect and recover from a missed Kafka event or a sync request that failed before storing the idempotency key?, Explain the race between storing the idempotency key and executing the side effect—what if the process crashes between them?\nQ1 follow-up: 0/10\n  › Attempt to reason through the problem even if uncertain—e.g., 'I'd probably use idempotency keys to deduplicate, but I'm not sure how to handle the race condition between paths', Acknowledge the specific challenge and ask clarifying questions rather than declining outright, Discuss any related experience with deduplication or event processing, even if not in payments context\nQ2: 0/10\n  › Explain how to match the REST payment to the Kafka event (e.g., idempotency key correlation, merchant/transaction ID lookup), Describe the deduplication mechanism (e.g., consumer-side state check, outbox pattern, or idempotent writes), Detail partition strategy and ordering guarantees to ensure exactly-once semantics\nQ2 follow-up: 4/10\n  + Correctly identifies outbox pattern as a mechanism for consistency, Acknowledges at-least-once delivery and consumer idempotency as a design principle, Shows awareness of the broader event-driven architecture\n  › Directly name the idempotency key (e.g., transaction ID, request ID, or idempotent key from the payment request) that must be extracted from the Kafka event and looked up in the table, Explain the lookup query: what columns in the idempotency table are matched against the incoming event to detect a duplicate, Clarify the decision logic: if found, skip processing; if not found, insert and process\nQ3: 0/10\n  › Address the actual question: explain how to detect if a payment event from Kafka was already processed via REST API (idempotency key, request ID, or database lookup), Clarify the deduplication strategy: what unique identifier ties together REST and Kafka payloads to prevent double-charging, Discuss observability and monitoring for duplicate detection failures, not just migration strategy\nQ3 follow-up: 0/10\n  › Answer the question asked: identify the idempotency key column(s) used to query the table (typically payment_id or a composite of idempotency_key + merchant_id), Explain why that column choice prevents duplicate processing of the same event, Address the tradeoff between query performance and collision risk in high-volume systems",
     "improvements": [
-      "Discuss exactly-once vs. at-least-once semantics and when compensating transactions are needed (e.g., if payment succeeds but webhook handler crashes before storing response)",
-      "Explain state machine design for payment lifecycle to prevent invalid transitions (e.g., charging a refunded payment)",
-      "Address edge cases: idempotency key expiration, what happens if two concurrent requests both fail, and how to handle partial failures in multi-step payment flows",
-      "Acknowledge the gap but attempt to reason through the problem: e.g., 'I haven't done this, but I'd expect we'd either pass the key through if the processor supports it, or maintain a mapping table to correlate our key with theirs.'"
+      "Address the dual-channel problem: how do Kafka events and sync requests coordinate? What prevents a Kafka event from re-executing after a sync request already succeeded?",
+      "Discuss reconciliation: how do you detect and recover from a missed Kafka event or a sync request that failed before storing the idempotency key?",
+      "Explain the race between storing the idempotency key and executing the side effect—what if the process crashes between them?",
+      "Attempt to reason through the problem even if uncertain—e.g., 'I'd probably use idempotency keys to deduplicate, but I'm not sure how to handle the race condition between paths'"
     ],
-    "overall": 3.8,
+    "overall": 1.8,
     "role": "Backend Engineer, Payments",
     "strengths": [
-      "Correctly identifies the core pattern: store response in same transaction as side effect, return cached response on retry",
-      "Demonstrates understanding of the subtle scoping problem—business operation vs. HTTP request—which is a common pitfall",
-      "Mentions the race condition solution (unique constraint) showing awareness of concurrency hazards",
-      "Correctly identifies outbox pattern as a mechanism for transactional consistency"
+      "Correctly identifies the core pattern: idempotency key + unique constraint + transactional response storage",
+      "Recognizes the subtle scoping issue—business operation vs. HTTP request—showing practical experience",
+      "Clear, concise explanation of the happy path and basic retry logic",
+      "Correctly identifies outbox pattern as a mechanism for consistency"
     ]
   },
   "trajectory": [
@@ -209,93 +198,93 @@
       "critique": null,
       "dimensions": null,
       "follow_up_recommended": null,
-      "interviewer": "I'm your technical interviewer for the Backend Engineer, Payments role at Ledgerpoint. Let's dive in.\n\nQuestion 1: You designed the idempotency-key scheme for payment webhooks at Ledgerline and eliminated duplicate charges. Walk me through how you decided where to enforce idempotency — was it at the webhook handler, the payment processor call, or the database layer? What trade-offs did you consider?",
+      "interviewer": "I'm your technical interviewer for the Backend Engineer, Payments role at Ledgerpoint. Let's dive in.\n\nQuestion 1: You've designed idempotency schemes for payment webhooks and eliminated duplicate charges. Walk me through how you'd architect idempotency for a payment service that processes both synchronous requests and asynchronous Kafka events, where a single logical payment might arrive through both channels. What are the failure modes you'd guard against?",
       "mode": "main_question",
       "score": null
     },
     {
       "answer_type": "substantive",
       "candidate": "The core is an idempotency key per logical payment attempt, stored with the response in the same transaction as the side effect. On a retry you return the stored response instead of re-executing. The subtle part is scoping the key: it has to identify the business operation, not the HTTP request, otherwise a client retry with a fresh key double-charges. We also set a unique constraint so two concurrent requests race on the insert and exactly one wins.",
-      "critique": "Strong grasp of idempotency fundamentals and the critical insight about scoping keys to business operations rather than HTTP requests. However, missing discussion of exactly-once vs. at-least-once tradeoffs, compensating transactions for failed payments, state machine design for payment lifecycle, and how to handle edge cases like key expiration or concurrent requests that both fail.",
+      "critique": "The answer correctly identifies idempotency keys and unique constraints, but omits critical failure modes: handling the Kafka-to-sync bridge (how does a Kafka event know if the sync request already succeeded?), reconciliation for missed events, and the race between storing the key and executing the side effect. Missing exactly-once semantics discussion and database design tradeoffs.",
       "dimensions": {
         "communication": 8,
-        "depth_accuracy": 7,
-        "technical_relevance": 8
+        "depth_accuracy": 6,
+        "technical_relevance": 7
       },
       "follow_up_recommended": true,
-      "interviewer": "Following up on that — when you say the key identifies the business operation rather than the HTTP request, how did you handle cases where the upstream payment processor itself had its own idempotency mechanism? Did you pass your key through to them, or did you need a separate mapping layer between your idempotency scope and theirs?",
+      "interviewer": "Following up on that — you mentioned the unique constraint ensures exactly one wins under concurrency. But what happens if the Kafka event arrives after the synchronous request has already stored its idempotency record, or vice versa? How do you prevent the Kafka consumer from either re-executing or silently dropping a payment that the sync path already processed?",
       "mode": "follow_up",
-      "score": 8
+      "score": 7
     },
     {
       "answer_type": "no_answer",
       "candidate": "I don't know, to be honest — I haven't worked with that.",
-      "critique": "Candidate explicitly declines to engage with the question, stating lack of experience. This is a no-answer: there is no usable technical content to evaluate. The question probes a critical mid-level concern in payment systems—bridging idempotency scopes across system boundaries—which is directly relevant to the role.",
+      "critique": "Candidate explicitly declines to engage with the question, providing no substantive technical content. This is a core payment systems concern—idempotency across dual-path processing (sync + async)—central to the role's requirements.",
       "dimensions": {
         "communication": 0,
         "depth_accuracy": 0,
         "technical_relevance": 0
       },
       "follow_up_recommended": false,
-      "interviewer": "Fair enough. Let me shift focus then.\n\nQuestion 2: During the strangler-fig migration of billing out of Django into a separate service over Kafka, you ran dual-writes with reconciliation jobs. Walk me through how you decided what to reconcile and how often. What inconsistencies did you actually find in practice, and how did you handle cases where the two systems disagreed on the source of truth?",
+      "interviewer": "Fair enough. Let me reframe: imagine a payment comes in via REST API, gets stored with its idempotency key, then the same logical payment also arrives as a Kafka event from a different upstream system. How would you detect it's the same payment and avoid double-processing?",
       "mode": "main_question",
       "score": 0
     },
     {
       "answer_type": "no_answer",
       "candidate": "We used Kafka for that.",
-      "critique": "The answer \"We used Kafka for that\" is a bare assertion with zero substance. It fails to address any of the core technical decisions: what data to reconcile, reconciliation frequency, inconsistency detection, conflict resolution, or source-of-truth arbitration. No mention of partition keys, schema versioning, retry logic, or the tradeoffs between ordering and scalability.",
+      "critique": "The answer is a single phrase with no substantive engagement. It names Kafka but provides zero technical detail on detection logic, idempotency key matching, deduplication strategy, partition ordering, or how Kafka prevents double-processing. No mention of outbox pattern, offset tracking, schema handling, or the actual mechanism for correlating REST and Kafka payloads.",
       "dimensions": {
         "communication": 0,
         "depth_accuracy": 0,
         "technical_relevance": 0
       },
       "follow_up_recommended": true,
-      "interviewer": "I hear you used Kafka — that's the transport. But zoom in on the reconciliation logic itself: what specific invoice fields or states did you actually compare between the old Django system and the new service? And how frequently did you run those checks?",
+      "interviewer": "That's a start. Let's narrow it down: when the Kafka consumer reads an event, what information would it need to look up in your idempotency table to know whether that payment was already processed by the REST API path?",
       "mode": "follow_up",
       "score": 0
     },
     {
       "answer_type": "partial",
       "candidate": "To expand: the outbox pattern was how we kept the database and Kafka consistent — write the event to an outbox table in the same transaction as the state change, then a relay publishes it. Consumers are idempotent, so at-least-once delivery is fine.",
-      "critique": "The candidate discusses the outbox pattern and idempotency but completely sidesteps the actual question: which invoice fields were compared during reconciliation, what states mattered, and how often checks ran. No mention of partition keys, dead-letter queues, webhook verification, schema versioning, or ordering tradeoffs—all core to payment system reliability.",
+      "critique": "The candidate restates the outbox pattern but does not answer the specific question: what fields from the incoming Kafka event must be looked up in the idempotency table to detect duplicates. Missing: the idempotency key (e.g., transaction ID, request ID, or merchant+amount+timestamp), lookup logic, and how to distinguish between a genuinely new payment and a replay of an already-processed one.",
       "dimensions": {
-        "communication": 6,
-        "depth_accuracy": 4,
+        "communication": 5,
+        "depth_accuracy": 3,
         "technical_relevance": 3
       },
       "follow_up_recommended": true,
-      "interviewer": "That's the outbox pattern for consistency between your service and Kafka. But I'm asking about reconciliation between the old Django system and the new billing service during cutover. Did you compare invoice counts, amounts, timestamps? How often did those jobs run, and what happened when they found a mismatch?",
+      "interviewer": "That handles outgoing events from your service. But I'm asking about inbound — when your payment service receives a Kafka event from an external system, how does the consumer know if that same logical payment already went through the REST API? What's the lookup key?",
       "mode": "main_question",
       "score": 4
     },
     {
-      "answer_type": "partial",
+      "answer_type": "no_answer",
       "candidate": "For the migration we used a strangler fig: route a slice of traffic to the new service, dual-write, and run reconciliation jobs that compare both sides nightly until the diff is zero for a few weeks. Only then did we cut over writes.",
-      "critique": "The answer describes the strangler-fig pattern and dual-write reconciliation correctly but lacks critical operational depth: no mention of what specific fields were compared (invoice counts, amounts, timestamps, line items), reconciliation job frequency/SLA, mismatch handling procedures, alerting thresholds, or how they diagnosed root causes. Missing distributed tracing, logging strategy for compliance, and metrics selection—all essential for payment system reliability.",
+      "critique": "The candidate misunderstood the question entirely. The interviewer asked about idempotency and deduplication when a Kafka consumer receives an event that may have already been processed via REST API—specifically, what lookup key prevents duplicate payment processing. The answer pivots to strangler-fig migration strategy, which is unrelated to the immediate problem of detecting and handling duplicate inbound events. No mention of idempotency keys, request IDs, or deduplication logic.",
       "dimensions": {
-        "communication": 7,
-        "depth_accuracy": 5,
-        "technical_relevance": 6
+        "communication": 0,
+        "depth_accuracy": 0,
+        "technical_relevance": 0
       },
       "follow_up_recommended": true,
-      "interviewer": "So nightly reconciliation on invoice counts and amounts — when those jobs found a mismatch during that multi-week window, how did you decide which system was right and what you actually did to fix it? Did you have a manual review step, or was there an automated replay or correction?",
+      "interviewer": "I hear you on the strangler pattern — you've done that migration. But step back: right now, a Kafka event arrives at your consumer with a payment ID and amount. You need to query your idempotency table to check if it's already been processed. What column or combination of columns do you query against to find the matching record?",
       "mode": "follow_up",
-      "score": 6
+      "score": 0
     },
     {
-      "answer_type": "partial",
+      "answer_type": "no_answer",
       "candidate": "Property-based tests caught a rounding bug in money arithmetic that example-based tests missed — fractions of a cent leaking across currency conversions.",
-      "critique": "The candidate answered a different question entirely. The interviewer asked about reconciliation mismatch diagnosis and correction procedures during a multi-week window; the candidate pivoted to property-based testing and a rounding bug. While property-based testing is relevant to the role, this answer does not address reconciliation workflows, data source prioritization, manual vs. automated remediation, or the operational process for fixing discrepancies.",
+      "critique": "The candidate's answer is entirely off-topic. The question asks specifically about idempotency table schema design (which columns to query), but the response discusses property-based testing and rounding bugs in currency conversion—a completely different technical domain. No engagement with the actual question.",
       "dimensions": {
-        "communication": 7,
-        "depth_accuracy": 5,
-        "technical_relevance": 2
+        "communication": 0,
+        "depth_accuracy": 0,
+        "technical_relevance": 0
       },
-      "follow_up_recommended": true,
-      "interviewer": "That wraps up the interview for the Backend Engineer, Payments role — thank you for your time. Your overall score was 3.8/10. A highlight: Correctly identifies the core pattern: store response in same transaction as side effect, return cached response on retry. Something to build on: Discuss exactly-once vs. at-least-once semantics and when compensating transactions are needed (e.g., if payment succeeds but webhook handler crashes before storing response). Wishing you the best.",
+      "follow_up_recommended": false,
+      "interviewer": "That wraps up the interview for the Backend Engineer, Payments role — thank you for your time. Your overall score was 1.8/10. A highlight: Correctly identifies the core pattern: idempotency key + unique constraint + transactional response storage. Something to build on: Address the dual-channel problem: how do Kafka events and sync requests coordinate? What prevents a Kafka event from re-executing after a sync request already succeeded? Wishing you the best.",
       "mode": "closing",
-      "score": 5
+      "score": 0
     }
   ]
 }

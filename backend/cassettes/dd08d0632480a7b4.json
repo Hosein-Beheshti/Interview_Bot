@@ -1,0 +1,118 @@
+{
+  "cassette_version": 1,
+  "kind": "llm.parse",
+  "request_hash": "dd08d0632480a7b46ae6a10604afb45dd7d4822b46c944805d8a686af4fa527f",
+  "request": {
+    "kind": "llm.parse",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "system": "You design a structured interview blueprint. Given a job profile and a target number of main questions, produce exactly that many question slots that together give broad, non-overlapping coverage of the role's most important skills and focus areas. Order them to flow naturally — foundational topics before advanced ones. Calibrate each difficulty to the stated seniority. Each slot names the specific skill to test, the intent (what to assess), a difficulty, and the key points a strong answer should cover — the concepts, tradeoffs, and edge cases later used to grade the candidate's answer.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Job context:\n- Company: Ledgerpoint\n- Target role: Backend Engineer, Payments\n- Seniority: mid\n- Key skills to assess: Python, Go, PostgreSQL, Kafka, event-driven architectures, idempotency, exactly-once processing, observability, strangler-fig migrations, property-based testing\n- Focus areas: payment systems, concurrency correctness, distributed systems, system reliability, data consistency\n\nDesign exactly 3 interview question slots for this role."
+      }
+    ],
+    "output_model": "PlanExtraction",
+    "output_schema": {
+      "$defs": {
+        "PlanSlotExtraction": {
+          "properties": {
+            "skill": {
+              "description": "The specific skill or topic this question tests, e.g. 'Kubernetes networking'.",
+              "title": "Skill",
+              "type": "string"
+            },
+            "intent": {
+              "description": "What the question should assess about that skill — the angle to probe.",
+              "title": "Intent",
+              "type": "string"
+            },
+            "difficulty": {
+              "description": "One of: foundational, intermediate, advanced — calibrated to the role's seniority.",
+              "title": "Difficulty",
+              "type": "string"
+            },
+            "key_points": {
+              "description": "3-5 specific things a strong answer should cover: the core concepts, tradeoffs, edge cases, or facts that distinguish real depth from a surface-level reply. Each a short phrase. Used later to grade answers, so be concrete and answer-focused, not a restatement of the question.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Key Points",
+              "type": "array"
+            }
+          },
+          "required": [
+            "skill",
+            "intent",
+            "difficulty"
+          ],
+          "title": "PlanSlotExtraction",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "slots": {
+          "description": "One slot per main question, ordered, giving non-overlapping coverage of the role.",
+          "items": {
+            "$ref": "#/$defs/PlanSlotExtraction"
+          },
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "title": "PlanExtraction",
+      "type": "object"
+    },
+    "max_tokens": 1500
+  },
+  "response": {
+    "slots": [
+      {
+        "skill": "Idempotency and exactly-once processing in payment systems",
+        "intent": "Assess understanding of how to prevent duplicate charges and ensure payment state consistency in a distributed, message-driven payment platform",
+        "difficulty": "intermediate",
+        "key_points": [
+          "Idempotency keys and request deduplication strategies",
+          "Exactly-once semantics vs. at-least-once delivery guarantees",
+          "Reconciliation patterns for detecting and handling missed or duplicate transactions",
+          "Database design choices (unique constraints, state tables) to enforce idempotency"
+        ]
+      },
+      {
+        "skill": "Event-driven architecture with Kafka and PostgreSQL",
+        "intent": "Evaluate ability to design reliable payment event pipelines that maintain data consistency across multiple services and handle backpressure",
+        "difficulty": "intermediate",
+        "key_points": [
+          "Partition strategy for payment events (by merchant, customer, or transaction ID) and ordering guarantees",
+          "Outbox pattern or CDC to atomically write state changes and publish events",
+          "Consumer group management and offset tracking for reliable event replay",
+          "Handling schema evolution and version compatibility in payment event streams"
+        ]
+      },
+      {
+        "skill": "Observability and debugging in distributed payment flows",
+        "intent": "Determine capability to instrument, monitor, and troubleshoot payment transactions across multiple services and identify root causes of failures or inconsistencies",
+        "difficulty": "intermediate",
+        "key_points": [
+          "Distributed tracing (trace IDs, span correlation) to follow a payment through multiple services",
+          "Metrics, logs, and alerts for detecting payment anomalies (stuck transactions, latency spikes)",
+          "Debugging techniques for race conditions and timing-dependent failures in concurrent payment processing",
+          "Observability trade-offs: sampling strategies and cost vs. fidelity in high-volume payment systems"
+        ]
+      }
+    ]
+  },
+  "latency_ms": 5128.8,
+  "usage": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "input_tokens": 791,
+    "output_tokens": 392,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "request_id": "req_011CdVWEzCBuRbzpAbdd23BA",
+    "stop_reason": "end_turn"
+  },
+  "recorded_at": "2026-07-29T01:46:40Z"
+}
