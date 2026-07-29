@@ -7,7 +7,7 @@ PY ?= python
 OFFLINE_ENV = TRANSPORT_MODE=replay LANGFUSE_ENABLED=false \
 	ANTHROPIC_API_KEY= GEMINI_API_KEY= VOYAGE_API_KEY= DEEPGRAM_API_KEY=
 
-.PHONY: install dev test test-fast lint typecheck contracts eval record fmt
+.PHONY: install dev test test-fast lint typecheck contracts eval eval-generator record fmt
 
 install:  ## Install the package + dev tooling into the active environment
 	$(PY) -m pip install -e . -r requirements-dev.txt
@@ -33,7 +33,10 @@ fmt:  ## Auto-fix lint + import order
 	$(PY) -m ruff check --fix src tests fixtures scripts evals
 
 eval:  ## Run the scorer eval over the golden set (REQUIRES provider API keys)
-	$(PY) -m evals.run_eval
+	$(PY) -m evals.run_scorer_eval
+
+eval-generator:  ## Run the generator eval over the golden set (REQUIRES provider API keys)
+	$(PY) -m evals.run_generator_eval
 
 record:  ## Re-record cassettes against the live provider APIs (REQUIRES keys)
 	TRANSPORT_MODE=record $(PY) scripts/record_cassettes.py

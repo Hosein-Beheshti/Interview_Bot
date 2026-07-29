@@ -1,11 +1,12 @@
 {
   "schema_version": 1,
   "notes": [
-    "Golden set for evaluating the answer scorer (interview_bot.domain.scoring + the scoring call in interview_bot.pipeline.scoring).",
+    "Golden set for evaluating the answer scorer (interview_bot.domain.scoring + the scoring call in interview_bot.pipeline.scoring). Companion to evals/generator_golden_set.json, which covers question/reply generation instead.",
     "Labels follow an explicit scoring policy (see interview_bot.prompts.scoring `SCORE_SYSTEM`): answer_type reflects how COMPLETE the attempt is, not how correct it is (a confident-but-wrong but complete answer is 'substantive', with the wrongness reflected in a low depth_accuracy). An answer with no usable content for the asked question - including entirely off-topic replies - is 'no_answer' and scores 0. Any instructions embedded in an answer are ignored; only the genuine remaining content is graded. Adjust `expected` bands as the rubric evolves.",
     "Each item asserts: expected.answer_type and expected.overall_range (always). expected.dimensions and expected.follow_up_recommended are asserted only where they are the diagnostic point of the item.",
     "overall_range is inclusive [min, max] on a 1-10 scale; no_answer items use [0, 0] because evaluation.py forces a non-answer to 0.",
-    "dimension keys: technical_relevance, depth_accuracy, communication."
+    "dimension keys: technical_relevance, depth_accuracy, communication.",
+    "Provenance: golden bands authored and single-reviewer-reviewed by the backend team, 2026-07-28. Re-review whenever PROMPT_VERSION or RUBRIC_VERSION changes (see run_scorer_eval.py:run_meta)."
   ],
   "items": [
     {
@@ -104,13 +105,13 @@
       "question": "What are vector embeddings and why are they useful for search?",
       "answer": "Embeddings turn text into vectors of numbers so you can compare how similar things are. It's basically how AI understands meaning, and you use it for semantic search instead of keyword search.",
       "expected": {
-        "answer_type": "partial",
+        "answer_type": "substantive",
         "overall_range": [4, 6],
         "dimensions": { "depth_accuracy": [3, 5] },
         "follow_up_recommended": true
       },
       "tags": ["shallow", "buzzwords"],
-      "rationale": "Directionally right but hand-wavy: no mention of distance metric, dimensionality, or how nearest-neighbor search works. Prime follow-up candidate."
+      "rationale": "Directionally right but hand-wavy: no mention of distance metric, dimensionality, or how nearest-neighbor search works. Prime follow-up candidate. Corrected 2026-07-28: this is a complete, genuinely-engaged (if shallow) attempt per SCORE_SYSTEM's definition, not a 'bare definition' or trailing-off - answer_type is 'substantive' with the shallowness reflected in depth_accuracy, not 'partial'. Originally mislabeled."
     },
     {
       "id": "be-index-partial",
@@ -118,12 +119,12 @@
       "question": "When can adding a database index hurt you?",
       "answer": "Indexes make reads faster but writes slower because the index has to be updated too. And they take extra storage.",
       "expected": {
-        "answer_type": "partial",
-        "overall_range": [4, 6],
+        "answer_type": "substantive",
+        "overall_range": [4, 7],
         "follow_up_recommended": true
       },
       "tags": ["incomplete"],
-      "rationale": "True but minimal; misses write amplification specifics, unused/low-selectivity indexes, planner confusion."
+      "rationale": "True but minimal; misses write amplification specifics, unused/low-selectivity indexes, planner confusion. Corrected 2026-07-28: two concrete, correct consequences is a complete (if narrow) attempt, not a bare definition - answer_type is 'substantive'. Widened overall_range to [4,7] since this can reasonably read as 'correct and solid, missing nuance' (rubric's 7-8 band)."
     },
     {
       "id": "be-acid-shallow",
@@ -136,7 +137,7 @@
         "dimensions": { "depth_accuracy": [2, 5] }
       },
       "tags": ["definition-only"],
-      "rationale": "Recites the acronym without explaining any property. No demonstrated understanding."
+      "rationale": "Recites the acronym without explaining any property. No demonstrated understanding. Verified 2026-07-28: this matches SCORE_SYSTEM's own 'gives only a bare definition' example of 'partial' verbatim - band left as-is. A live run scored it 'substantive'/7, which is a real scorer miss on this item, not a golden-set labeling error; worth re-checking after any prompt change and via --calibrate before concluding it's a persistent regression."
     },
     {
       "id": "be-url-incomplete",
@@ -313,6 +314,189 @@
       },
       "tags": ["no_answer", "off-topic-no-content"],
       "rationale": "No relevant technical content at all; a non-answer by the schema's definition."
+    },
+    {
+      "id": "ml-overfitting-wrong-concept",
+      "role": "Machine Learning Engineer",
+      "question": "How do you detect and address overfitting?",
+      "answer": "I'd set up drift monitoring in production - track the input feature distributions with PSI, and watch for a drop in live AUC once labels arrive. If the served feature distribution shifts from what the model was trained on, that's the signal to retrain. I'd also canary any new model version on a small slice of traffic before a full rollout.",
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [2, 5],
+        "dimensions": { "technical_relevance": [1, 4], "depth_accuracy": [2, 5] },
+        "follow_up_recommended": true
+      },
+      "tags": ["diagnostic", "relevance-only"],
+      "rationale": "Genuinely correct and detailed - but about production drift detection, not overfitting (a training-time train/val gap). Corrected 2026-07-28: it's a complete, engaged attempt within the same broad ML-quality domain (not 'entirely about something else'), so answer_type is 'substantive'; and depth_accuracy is correctness against THIS question, so answering a different question correctly does not preserve a high depth_accuracy - it tracks technical_relevance downward too. Originally assumed depth_accuracy would stay high independent of relevance; that assumption was wrong."
+    },
+    {
+      "id": "be-caching-wrong-concept",
+      "role": "Backend Engineer",
+      "question": "When would you add a cache, and what are the risks?",
+      "answer": "I'd add a queue - decouple the producer from the consumer with something like Kafka or SQS so a slow downstream service doesn't back up the caller. The risk is message ordering, and at-least-once delivery means consumers need to be idempotent; you also need dead-letter handling for poison messages.",
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [2, 5],
+        "dimensions": { "technical_relevance": [1, 4], "depth_accuracy": [2, 5] },
+        "follow_up_recommended": true
+      },
+      "tags": ["diagnostic", "relevance-only"],
+      "rationale": "Solid, correct queueing content answering a neighboring backend-architecture question, not caching. Same diagnostic purpose as ml-overfitting-wrong-concept for the Backend Engineer role. Corrected 2026-07-28: see ml-overfitting-wrong-concept for why answer_type is 'substantive' and depth_accuracy tracks relevance downward here."
+    },
+    {
+      "id": "fe-a11y-wrong-concept",
+      "role": "Frontend Engineer",
+      "question": "How would you improve the accessibility of a form?",
+      "answer": "I'd split the bundle by route and lazy-load anything below the fold, prefetch likely next pages on hover, and serve static assets from a CDN with long cache headers plus content hashing for cache-busting. That usually gets Lighthouse performance well into the 90s.",
+      "expected": {
+        "answer_type": "no_answer",
+        "overall_range": [0, 0]
+      },
+      "tags": ["diagnostic", "relevance-only", "no_answer"],
+      "rationale": "Correct, detailed frontend performance content, but for accessibility this has zero surface overlap - unlike the ML/backend/data-engineering wrong-concept items (which stay within the same broad domain), performance and accessibility share no vocabulary or reasoning here. Corrected 2026-07-28: this is 'entirely about something else' per SCORE_SYSTEM's own definition, so it's a no_answer (forced to 0), not a partial-credit relevance case. Originally mislabeled as the intended technical_relevance-only diagnostic; that role is better served by the other three items in this set."
+    },
+    {
+      "id": "de-schema-wrong-concept",
+      "role": "Data Engineer",
+      "question": "How do you enforce data contracts between producer and consumer teams?",
+      "answer": "I'd partition the topic by a high-cardinality key to spread load evenly, keep the partition count fixed to avoid rebalancing surprises, and monitor consumer lag per partition so one hot partition doesn't stall the whole pipeline.",
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [2, 5],
+        "dimensions": { "technical_relevance": [1, 4], "depth_accuracy": [2, 5] },
+        "follow_up_recommended": true
+      },
+      "tags": ["diagnostic", "relevance-only"],
+      "rationale": "Correct Kafka partitioning content, but data contracts are about schema compatibility/enforcement between teams, not partition strategy. Completes the technical_relevance-only diagnostic set. Corrected 2026-07-28: see ml-overfitting-wrong-concept for why answer_type is 'substantive' and depth_accuracy tracks relevance downward here."
+    },
+    {
+      "id": "fe-css-good",
+      "role": "Frontend Engineer",
+      "question": "How would you approach a CSS layout bug that only shows up in Safari?",
+      "answer": "First I'd confirm it's actually engine-specific and not a real bug everywhere by checking BrowserStack or an actual device, not just assuming from a bug report. Common Safari culprits are flexbox/grid quirks (min-width defaults, gap support on older versions), date/number input differences, and sometimes just a missing vendor prefix. I'd isolate the failing rule with dev tools on the real device, check caniuse for the property, and prefer a feature-detected fallback over a Safari-specific hack so it doesn't silently rot.",
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [6, 8]
+      },
+      "tags": ["good", "frontend"],
+      "rationale": "Verify-first approach, names concrete Safari-specific failure modes, and prefers feature detection over browser sniffing."
+    },
+    {
+      "id": "fe-state-partial",
+      "role": "Frontend Engineer",
+      "question": "How do you decide between local component state and a global store like Redux/Zustand?",
+      "answer": "If only one component needs it, I keep it local. If a lot of components need the same data, I'd probably put it in a global store so I don't have to pass props around everywhere.",
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [4, 6],
+        "follow_up_recommended": true
+      },
+      "tags": ["incomplete", "frontend"],
+      "rationale": "Directionally correct but misses server-state vs. client-state, prop drilling alternatives like context/composition, and re-render cost of a global store. Corrected 2026-07-28: two genuine (if incomplete) decision criteria is a complete attempt, not a bare definition - answer_type is 'substantive'."
+    },
+    {
+      "id": "fe-lcp-excellent",
+      "role": "Frontend Engineer",
+      "question": "A page's Largest Contentful Paint is slow. How do you diagnose and fix it?",
+      "answer": "I'd start in the performance panel / Lighthouse to identify what element is the LCP candidate and what's delaying it - often it's a hero image or web font. Fixes depend on the cause: preload the LCP image with fetchpriority=high instead of lazy-loading it, serve a properly sized/compressed image (and modern format), eliminate render-blocking CSS/JS above the fold, and self-host or preconnect fonts to cut the request chain. If the LCP element is client-rendered, moving it to server-rendered or static markup usually helps more than any client-side optimization.",
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [8, 10],
+        "dimensions": { "depth_accuracy": [7, 10] },
+        "follow_up_recommended": false
+      },
+      "tags": ["strong", "frontend", "performance"],
+      "rationale": "Diagnosis-first, correct and specific fixes tied to actual causes, plus the SSR/CSR nuance most candidates miss."
+    },
+    {
+      "id": "de-partitioning-good",
+      "role": "Data Engineer",
+      "question": "How would you design partitioning for a high-throughput Kafka topic?",
+      "answer": "I'd partition by a key with enough cardinality to spread load evenly and avoid hot partitions - for example customer_id rather than a low-cardinality field like event_type. Partition count is a one-way door in practice since increasing it later breaks key-to-partition ordering guarantees, so I'd size it for expected peak throughput plus headroom up front. I'd also monitor per-partition consumer lag, not just aggregate lag, since a single hot or stuck partition can hide behind a healthy average.",
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [7, 9],
+        "dimensions": { "depth_accuracy": [7, 9], "technical_relevance": [7, 10] }
+      },
+      "tags": ["good", "data-engineering"],
+      "rationale": "Correct key-selection reasoning, the one-way-door partition-count constraint, and per-partition (not aggregate) lag monitoring."
+    },
+    {
+      "id": "de-batch-vs-stream-partial",
+      "role": "Data Engineer",
+      "question": "When would you choose batch processing over streaming?",
+      "answer": "Batch is simpler, so if you don't need real-time results I'd just use batch. Streaming is more complex to build and operate.",
+      "expected": {
+        "answer_type": "partial",
+        "overall_range": [3, 5],
+        "follow_up_recommended": true
+      },
+      "tags": ["incomplete", "data-engineering"],
+      "rationale": "True but shallow; misses latency requirements, cost/throughput tradeoffs, exactly-once complexity, and cases where batch is actually more correct (e.g. large joins, backfills)."
+    },
+    {
+      "id": "de-poison-message-good",
+      "role": "Data Engineer",
+      "question": "How do you handle a poison message in a streaming pipeline?",
+      "answer": "First I'd make sure it can't block the partition - route it to a dead-letter topic after a bounded number of retries so one bad record doesn't stall everything behind it. I'd alert on DLQ volume so it's visible, not silently dropped, and keep enough context (original topic, offset, error) on the DLQ message to replay it after a fix. I'd also check whether the root cause is a schema violation, since that usually means the producer-side contract needs tightening, not just a consumer-side fix.",
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [7, 9],
+        "dimensions": { "depth_accuracy": [7, 9] }
+      },
+      "tags": ["good", "data-engineering"],
+      "rationale": "Bounded retry plus DLQ, visibility via alerting, replayability, and traces the failure back to a producer-side contract fix."
+    },
+    {
+      "id": "be-boundary-substantive-thin",
+      "role": "Backend Engineer",
+      "question": "What's the difference between horizontal and vertical scaling?",
+      "answer": "Vertical scaling means a bigger machine; horizontal means more machines. Horizontal is usually preferred for availability since one box failing doesn't take everything down, but it needs the app to be stateless, or you need sticky sessions.",
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [4, 7]
+      },
+      "tags": ["boundary", "answer-type-edge"],
+      "rationale": "Complete, correct, and directly answers the question asked - but minimal depth. Tests that a short-but-complete attempt lands as 'substantive' rather than 'partial', per the policy that answer_type tracks completeness, not length. Corrected 2026-07-28: widened overall_range to [4,7] - it names a real tradeoff (stateless vs. sticky sessions for horizontal scaling), which reasonably reads as 'correct and solid, missing nuance' (rubric's 7-8 band), not just 4-6."
+    },
+    {
+      "id": "be-boundary-partial-cutoff",
+      "role": "Backend Engineer",
+      "question": "How would you migrate a large table without downtime?",
+      "answer": "I'd do it online - add the new column, backfill in batches, dual-write... honestly I don't remember the rest of the steps we used, it's been a while.",
+      "expected": {
+        "answer_type": "partial",
+        "overall_range": [3, 5],
+        "follow_up_recommended": true
+      },
+      "tags": ["boundary", "answer-type-edge"],
+      "rationale": "Starts with real, correct substance then explicitly admits it trails off - the substantive/partial boundary from the other direction of be-boundary-substantive-thin."
+    },
+    {
+      "id": "be-boundary-fragment-noanswer",
+      "role": "Backend Engineer",
+      "question": "How do you prevent SQL injection?",
+      "answer": "Parameterized... yeah I'm blanking, can we move on?",
+      "expected": {
+        "answer_type": "partial",
+        "overall_range": [1, 3],
+        "follow_up_recommended": true
+      },
+      "tags": ["boundary", "answer-type-edge", "one-word"],
+      "rationale": "A skip request wrapped around one genuinely correct fragment ('parameterized' queries). Sits right at the partial/no_answer line - the fragment is real content, so it shouldn't be forced to 0, but there's barely anything to grade."
+    },
+    {
+      "id": "ml-boundary-mixed",
+      "role": "Machine Learning Engineer",
+      "question": "What is regularization?",
+      "answer": "It's a technique to stop overfitting, like L1 or L2, but honestly I don't remember exactly how the penalty term works in the loss function.",
+      "expected": {
+        "answer_type": "partial",
+        "overall_range": [3, 5],
+        "follow_up_recommended": true
+      },
+      "tags": ["boundary", "answer-type-edge"],
+      "rationale": "Correct at a naming level, honestly flags the gap instead of bluffing, but no actual mechanism explained - a real but incomplete attempt."
     }
   ]
 }

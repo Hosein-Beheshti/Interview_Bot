@@ -15,6 +15,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from interview_bot import llm
 from interview_bot.config import settings
 from interview_bot.domain import plan, progression, summary
+from interview_bot.domain.plan import PlanSlot
 from interview_bot.domain.profile import JobProfile
 from interview_bot.domain.scoring import ScoreData
 from interview_bot.domain.transcript import last_assistant
@@ -60,6 +61,37 @@ class _TurnPrompt:
 
     instruction: str
     cache_prefix: str
+
+
+def build_turn_prompt(
+    profile: JobProfile,
+    mode: str,
+    follow_up_kind: str | None,
+    *,
+    slot: PlanSlot | None,
+    current_topic: str | None,
+    candidate_name: str | None,
+    cv_context: str,
+    question_number: int,
+    num_questions: int,
+) -> _TurnPrompt:
+    """Assemble the interviewer's prompt for one turn. Pure — no session, no I/O.
+
+    Shared by `_decide_turn` (live turns) and the generator eval harness, so the
+    eval measures exactly the prompt bytes production sends to the model.
+    """
+    stable = interviewer.build_stable_prompt(
+        profile, num_questions=num_questions, cv_context=cv_context
+    )
+    turn = interviewer.turn_instruction(
+        mode,
+        question_number,
+        follow_up_kind,
+        current_topic=current_topic,
+        slot=slot,
+        candidate_name=candidate_name,
+    )
+    return _TurnPrompt(instruction=turn, cache_prefix=stable)
 
 
 async def run_turn(session, message: str, profile: JobProfile) -> TurnResult:
@@ -171,13 +203,10 @@ async def _decide_turn(session, message: str, profile: JobProfile) -> _PendingTu
         )
 
     try:
-        cv_context = await build_cv_context(session)
         # The role/rules/CV guidance is identical every turn — send it as a
         # cached prefix so re-sending a full CV each turn is nearly free. Only
         # the turn instruction (which question, follow-up) varies.
-        stable = interviewer.build_stable_prompt(
-            profile, num_questions=session.num_questions, cv_context=cv_context
-        )
+        cv_context = await build_cv_context(session)
         # For a main question, pin the topic to its blueprint slot (if planned);
         # a follow-up ignores the slot and stays on the current topic.
         next_question_number = session.questions_asked + 1
@@ -186,13 +215,16 @@ async def _decide_turn(session, message: str, profile: JobProfile) -> _PendingTu
             if interview_plan and mode == interviewer.MODE_MAIN
             else None
         )
-        turn = interviewer.turn_instruction(
+        prompt = build_turn_prompt(
+            profile,
             mode,
-            next_question_number,
             follow_up_kind,
-            current_topic=last_assistant(session.messages),
             slot=slot,
+            current_topic=last_assistant(session.messages),
             candidate_name=session.candidate_name,
+            cv_context=cv_context,
+            question_number=next_question_number,
+            num_questions=session.num_questions,
         )
     except Exception as e:
         logger.error(f"Turn prompt assembly failed | session={session.session_id} | error={e}")
@@ -204,7 +236,7 @@ async def _decide_turn(session, message: str, profile: JobProfile) -> _PendingTu
         score_record=score_record,
         summary=None,
         reply=None,
-        prompt=_TurnPrompt(instruction=turn, cache_prefix=stable),
+        prompt=prompt,
     )
 
 

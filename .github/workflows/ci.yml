@@ -69,10 +69,14 @@ jobs:
           cache: pip
       - name: Install
         run: pip install -e . -r requirements-dev.txt
-      - name: Run golden-set eval
-        run: python -m evals.run_eval --json-out eval-report.json
+      - name: Run golden-set eval (scorer)
+        run: python -m evals.run_scorer_eval --json-out scorer-eval-report.json
+      - name: Run golden-set eval (generator + judge)
+        run: python -m evals.run_generator_eval --json-out generator-eval-report.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: eval-report
-          path: backend/eval-report.json
+          path: |
+            backend/scorer-eval-report.json
+            backend/generator-eval-report.json

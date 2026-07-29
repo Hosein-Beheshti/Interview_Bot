@@ -14,10 +14,13 @@ CI-runnable. Prompts/models are not code; this is how a prompt or model change i
 measured rather than guessed.
 
 Usage:
-    python -m evals.run_eval                 # score the full set via the live API
-    python -m evals.run_eval --limit 5       # first 5 items only (cheap smoke test)
-    python -m evals.run_eval --dry-run       # no API calls; self-test the harness
-    python -m evals.run_eval --json-out report.json
+    python -m evals.run_scorer_eval                 # score the full set via the live API
+    python -m evals.run_scorer_eval --limit 5       # first 5 items only (cheap smoke test)
+    python -m evals.run_scorer_eval --dry-run       # no API calls; self-test the harness
+    python -m evals.run_scorer_eval --json-out report.json
+
+Companion to `run_generator_eval.py`, which covers question/reply generation
+instead of scoring.
 """
 from __future__ import annotations
 
@@ -41,7 +44,7 @@ from interview_bot.pipeline import scoring
 from interview_bot.prompts.scoring import PROMPT_VERSION
 from interview_bot.telemetry import capture_generation_usage
 
-GOLDEN_SET = Path(__file__).parent / "golden_set.json"
+GOLDEN_SET = Path(__file__).parent / "scorer_golden_set.json"
 
 
 def run_meta() -> dict:
@@ -56,7 +59,7 @@ def run_meta() -> dict:
         "rubric_version": RUBRIC_VERSION,
         # The golden bands are human-authored; this run uses no LLM-generated
         # reference key points, so nothing synthetic acts as ground truth here.
-        "ground_truth": "human-reviewed golden bands",
+        "ground_truth": "human-reviewed golden set (scorer_golden_set.json)",
         "reference_key_points": "none (not used in eval scoring)",
     }
 
@@ -225,6 +228,23 @@ def _confusion_matrix(results: list[ItemResult]) -> str:
     return "\n".join(lines)
 
 
+def _tag_breakdown(results: list[ItemResult]) -> str:
+    """Per-tag in-band rate, so a tag-level regression (e.g. one buzzword-heavy
+    category getting over-scored) is visible instead of buried in per-item notes.
+    """
+    scored = [r for r in results if r.score is not None]
+    by_tag: dict[str, list[ItemResult]] = {}
+    for r in scored:
+        for tag in r.tags:
+            by_tag.setdefault(tag, []).append(r)
+    lines = ["  in-band rate by tag:"]
+    for tag in sorted(by_tag):
+        items = by_tag[tag]
+        rate = sum(r.in_band for r in items) / len(items)
+        lines.append(f"    {tag:<20} {rate:>4.0%}  (n={len(items)})")
+    return "\n".join(lines)
+
+
 def report(results: list[ItemResult], gates: dict) -> bool:
     print("\n" + "=" * 78)
     print("SCORER EVALUATION")
@@ -244,9 +264,13 @@ def report(results: list[ItemResult], gates: dict) -> bool:
     at_acc = sum(r.answer_type_ok for r in scored) / len(results) if results else 0.0
     mae = statistics.mean([r.abs_error for r in scored]) if scored else 0.0
     hard_fails = [r for r in results if r.hard_fail]
+    fu_checked = [r for r in scored if "follow_up_recommended" in r.expected]
+    fu_acc = sum(r.follow_up_ok for r in fu_checked) / len(fu_checked) if fu_checked else None
 
     print("\n" + "-" * 78)
     print(_confusion_matrix(results))
+    print("-" * 78)
+    print(_tag_breakdown(results))
     print("-" * 78)
     print(f"  items                : {len(results)}")
     print(f"  scoring errors       : {errors}")
@@ -254,6 +278,8 @@ def report(results: list[ItemResult], gates: dict) -> bool:
     print(f"  answer_type accuracy : {at_acc:.0%}   (gate >= {gates['min_at_acc']:.0%})")
     print(f"  overall MAE          : {mae:.2f} points (vs. band midpoint)")
     print(f"  adversarial hard-fails: {len(hard_fails)}   (gate = 0)")
+    if fu_acc is not None:
+        print(f"  follow_up accuracy   : {fu_acc:.0%}   (n={len(fu_checked)}, soft signal, not gated)")
 
     gate_failures = []
     if in_band_rate < gates["min_in_band"]:
@@ -306,6 +332,7 @@ def _write_json(results: list[ItemResult], path: Path) -> None:
             for r in results
         ],
     }
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"  wrote JSON report -> {path}")
 
@@ -406,6 +433,7 @@ def main() -> int:
         )
         _report_calibration(report_data)
         if args.json_out:
+            args.json_out.parent.mkdir(parents=True, exist_ok=True)
             args.json_out.write_text(
                 json.dumps(report_data, indent=2, sort_keys=True) + "\n", encoding="utf-8"
             )
