@@ -182,11 +182,15 @@ suite freezes full-pipeline outputs, prompts, and trajectories under replay.
 
 ```bash
 cd backend
-make eval                                   # full golden set through the live scorer
-python -m evals.run_eval --limit 5          # cheap smoke test
-python -m evals.run_eval --json-out report.json          # versioned results artifact
-python -m evals.run_eval --calibrate 5 --json-out cal.json   # judge self-consistency + agreement
+make eval                                          # full golden set through the live scorer
+python -m evals.run_scorer_eval --limit 5          # cheap smoke test
+python -m evals.run_scorer_eval --json-out report.json          # versioned results artifact
+python -m evals.run_scorer_eval --calibrate 5 --json-out cal.json   # judge self-consistency + agreement
 ```
+
+There's a companion generator eval (`make eval-generator` /
+`python -m evals.run_generator_eval`) covering question/reply generation instead
+of scoring — same shape, see `evals/generator_golden_set.json`.
 
 Quality gates: ≥70% in-band overall rate, ≥75% `answer_type` accuracy, 0 adversarial
 hard-fails. The results artifact records model, prompt/rubric version, and per-item
