@@ -35,4 +35,3 @@ Thumbs.db
 backend/evals/*.json
 !backend/evals/scorer_golden_set.json
 !backend/evals/generator_golden_set.json
-backend/evals/reports/

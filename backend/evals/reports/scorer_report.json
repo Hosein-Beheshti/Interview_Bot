@@ -1,0 +1,1361 @@
+{
+  "items": [
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            8,
+            10
+          ],
+          "technical_relevance": [
+            8,
+            10
+          ]
+        },
+        "follow_up_recommended": false,
+        "overall_range": [
+          8,
+          10
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-concurrency-excellent",
+      "input_tokens": 2048,
+      "latency_ms": 6479.7,
+      "notes": [
+        "depth_accuracy=7 outside [8, 10]",
+        "follow_up True != False (soft)"
+      ],
+      "output_tokens": 373,
+      "passed": false,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 7,
+          "technical_relevance": 8
+        },
+        "follow_up_recommended": true,
+        "overall": 8
+      },
+      "tags": [
+        "strong",
+        "concurrency"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            7,
+            10
+          ]
+        },
+        "overall_range": [
+          8,
+          10
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-ratelimit-excellent",
+      "input_tokens": 2039,
+      "latency_ms": 4617.6,
+      "notes": [],
+      "output_tokens": 272,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 7,
+          "technical_relevance": 8
+        },
+        "follow_up_recommended": true,
+        "overall": 8
+      },
+      "tags": [
+        "strong",
+        "system-design"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            8,
+            10
+          ]
+        },
+        "follow_up_recommended": false,
+        "overall_range": [
+          8,
+          10
+        ]
+      },
+      "hard_fail": false,
+      "id": "ml-overfitting-excellent",
+      "input_tokens": 2023,
+      "latency_ms": 5864.3,
+      "notes": [
+        "depth_accuracy=7 outside [8, 10]",
+        "follow_up True != False (soft)"
+      ],
+      "output_tokens": 335,
+      "passed": false,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 7,
+          "technical_relevance": 8
+        },
+        "follow_up_recommended": true,
+        "overall": 8
+      },
+      "tags": [
+        "strong",
+        "ml-fundamentals"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [
+          6,
+          8
+        ]
+      },
+      "hard_fail": false,
+      "id": "ml-traintest-good",
+      "input_tokens": 1993,
+      "latency_ms": 4177.0,
+      "notes": [],
+      "output_tokens": 256,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 9,
+          "depth_accuracy": 7,
+          "technical_relevance": 8
+        },
+        "follow_up_recommended": true,
+        "overall": 8
+      },
+      "tags": [
+        "good",
+        "ml-fundamentals"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "substantive",
+        "follow_up_recommended": true,
+        "overall_range": [
+          6,
+          8
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-caching-good",
+      "input_tokens": 2004,
+      "latency_ms": 5407.3,
+      "notes": [],
+      "output_tokens": 308,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 7,
+          "technical_relevance": 7
+        },
+        "follow_up_recommended": true,
+        "overall": 7
+      },
+      "tags": [
+        "good",
+        "caching"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [
+          6,
+          8
+        ]
+      },
+      "hard_fail": false,
+      "id": "fe-react-good",
+      "input_tokens": 1994,
+      "latency_ms": 3973.6,
+      "notes": [],
+      "output_tokens": 291,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 7,
+          "technical_relevance": 8
+        },
+        "follow_up_recommended": true,
+        "overall": 8
+      },
+      "tags": [
+        "good",
+        "frontend"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [
+          6,
+          8
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-idempotency-good",
+      "input_tokens": 1990,
+      "latency_ms": 3730.3,
+      "notes": [],
+      "output_tokens": 251,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 6,
+          "technical_relevance": 7
+        },
+        "follow_up_recommended": true,
+        "overall": 7
+      },
+      "tags": [
+        "good",
+        "api"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            3,
+            5
+          ]
+        },
+        "follow_up_recommended": true,
+        "overall_range": [
+          4,
+          6
+        ]
+      },
+      "hard_fail": false,
+      "id": "ml-embeddings-partial",
+      "input_tokens": 1968,
+      "latency_ms": 4805.3,
+      "notes": [],
+      "output_tokens": 292,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 7,
+          "depth_accuracy": 5,
+          "technical_relevance": 6
+        },
+        "follow_up_recommended": true,
+        "overall": 6
+      },
+      "tags": [
+        "shallow",
+        "buzzwords"
+      ]
+    },
+    {
+      "abs_error": 1.5,
+      "expected": {
+        "answer_type": "substantive",
+        "follow_up_recommended": true,
+        "overall_range": [
+          4,
+          7
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-index-partial",
+      "input_tokens": 1947,
+      "latency_ms": 3486.3,
+      "notes": [
+        "answer_type 'partial' != expected 'substantive'"
+      ],
+      "output_tokens": 231,
+      "passed": false,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 6,
+          "technical_relevance": 7
+        },
+        "follow_up_recommended": true,
+        "overall": 7
+      },
+      "tags": [
+        "incomplete"
+      ]
+    },
+    {
+      "abs_error": 3.0,
+      "expected": {
+        "answer_type": "partial",
+        "dimensions": {
+          "depth_accuracy": [
+            2,
+            5
+          ]
+        },
+        "overall_range": [
+          3,
+          5
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-acid-shallow",
+      "input_tokens": 1952,
+      "latency_ms": 3419.1,
+      "notes": [
+        "overall 7 outside [3, 5]",
+        "depth_accuracy=6 outside [2, 5]"
+      ],
+      "output_tokens": 224,
+      "passed": false,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 6,
+          "technical_relevance": 7
+        },
+        "follow_up_recommended": true,
+        "overall": 7
+      },
+      "tags": [
+        "definition-only"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "partial",
+        "follow_up_recommended": true,
+        "overall_range": [
+          3,
+          5
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-url-incomplete",
+      "input_tokens": 1966,
+      "latency_ms": 2938.1,
+      "notes": [],
+      "output_tokens": 212,
+      "passed": true,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 6,
+          "depth_accuracy": 4,
+          "technical_relevance": 5
+        },
+        "follow_up_recommended": true,
+        "overall": 5
+      },
+      "tags": [
+        "trails-off",
+        "incomplete"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "partial",
+        "dimensions": {
+          "depth_accuracy": [
+            1,
+            3
+          ]
+        },
+        "overall_range": [
+          2,
+          4
+        ]
+      },
+      "hard_fail": false,
+      "id": "ml-biasvariance-poor",
+      "input_tokens": 1961,
+      "latency_ms": 6491.4,
+      "notes": [],
+      "output_tokens": 227,
+      "passed": true,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 5,
+          "depth_accuracy": 2,
+          "technical_relevance": 3
+        },
+        "follow_up_recommended": true,
+        "overall": 3
+      },
+      "tags": [
+        "misconception"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": [
+            5,
+            8
+          ],
+          "depth_accuracy": [
+            1,
+            3
+          ]
+        },
+        "overall_range": [
+          2,
+          4
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-transaction-confidently-wrong",
+      "input_tokens": 1958,
+      "latency_ms": 2831.2,
+      "notes": [],
+      "output_tokens": 205,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 6,
+          "depth_accuracy": 2,
+          "technical_relevance": 2
+        },
+        "follow_up_recommended": true,
+        "overall": 3
+      },
+      "tags": [
+        "adversarial",
+        "confidently-wrong"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            1,
+            3
+          ]
+        },
+        "overall_range": [
+          2,
+          4
+        ]
+      },
+      "hard_fail": false,
+      "id": "ml-gradient-confidently-wrong",
+      "input_tokens": 1961,
+      "latency_ms": 3063.5,
+      "notes": [],
+      "output_tokens": 221,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 5,
+          "depth_accuracy": 2,
+          "technical_relevance": 2
+        },
+        "follow_up_recommended": true,
+        "overall": 3
+      },
+      "tags": [
+        "adversarial",
+        "confidently-wrong"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "no_answer",
+        "overall_range": [
+          0,
+          0
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-security-offtopic",
+      "input_tokens": 1957,
+      "latency_ms": 2632.0,
+      "notes": [],
+      "output_tokens": 190,
+      "passed": true,
+      "score": {
+        "answer_type": "no_answer",
+        "dimensions": {
+          "communication": 0,
+          "depth_accuracy": 0,
+          "technical_relevance": 0
+        },
+        "follow_up_recommended": false,
+        "overall": 0
+      },
+      "tags": [
+        "off-topic",
+        "no_answer"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": [
+            2,
+            5
+          ],
+          "depth_accuracy": [
+            7,
+            9
+          ]
+        },
+        "overall_range": [
+          5,
+          7
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-comm-poor-but-correct",
+      "input_tokens": 1992,
+      "latency_ms": 4287.7,
+      "notes": [
+        "depth_accuracy=6 outside [7, 9]"
+      ],
+      "output_tokens": 302,
+      "passed": false,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 4,
+          "depth_accuracy": 6,
+          "technical_relevance": 8
+        },
+        "follow_up_recommended": true,
+        "overall": 6
+      },
+      "tags": [
+        "diagnostic",
+        "dimensions-diverge"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": [
+            6,
+            9
+          ],
+          "depth_accuracy": [
+            2,
+            4
+          ]
+        },
+        "overall_range": [
+          3,
+          5
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-comm-great-but-shallow",
+      "input_tokens": 1993,
+      "latency_ms": 4362.7,
+      "notes": [],
+      "output_tokens": 222,
+      "passed": true,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 6,
+          "depth_accuracy": 2,
+          "technical_relevance": 2
+        },
+        "follow_up_recommended": true,
+        "overall": 3
+      },
+      "tags": [
+        "diagnostic",
+        "dimensions-diverge"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "partial",
+        "follow_up_recommended": true,
+        "overall_range": [
+          1,
+          3
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-oneword-minimal",
+      "input_tokens": 1933,
+      "latency_ms": 2215.1,
+      "notes": [],
+      "output_tokens": 167,
+      "passed": true,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 1,
+          "depth_accuracy": 2,
+          "technical_relevance": 2
+        },
+        "follow_up_recommended": true,
+        "overall": 2
+      },
+      "tags": [
+        "one-word"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "partial",
+        "dimensions": {
+          "depth_accuracy": [
+            2,
+            5
+          ]
+        },
+        "overall_range": [
+          3,
+          5
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-injection-explicit",
+      "input_tokens": 1978,
+      "latency_ms": 2904.8,
+      "notes": [],
+      "output_tokens": 199,
+      "passed": true,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 6,
+          "depth_accuracy": 4,
+          "technical_relevance": 5
+        },
+        "follow_up_recommended": true,
+        "overall": 5
+      },
+      "tags": [
+        "adversarial",
+        "prompt-injection"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "partial",
+        "overall_range": [
+          2,
+          4
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-injection-system-spoof",
+      "input_tokens": 1966,
+      "latency_ms": 3921.3,
+      "notes": [],
+      "output_tokens": 234,
+      "passed": true,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 5,
+          "depth_accuracy": 2,
+          "technical_relevance": 3
+        },
+        "follow_up_recommended": true,
+        "overall": 3
+      },
+      "tags": [
+        "adversarial",
+        "prompt-injection",
+        "fake-system"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "no_answer",
+        "overall_range": [
+          0,
+          0
+        ]
+      },
+      "hard_fail": false,
+      "id": "ml-idk-noanswer",
+      "input_tokens": 1942,
+      "latency_ms": 2799.6,
+      "notes": [],
+      "output_tokens": 174,
+      "passed": true,
+      "score": {
+        "answer_type": "no_answer",
+        "dimensions": {
+          "communication": 0,
+          "depth_accuracy": 0,
+          "technical_relevance": 0
+        },
+        "follow_up_recommended": false,
+        "overall": 0
+      },
+      "tags": [
+        "no_answer",
+        "idk"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "no_answer",
+        "overall_range": [
+          0,
+          0
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-skip-noanswer",
+      "input_tokens": 1940,
+      "latency_ms": 2122.2,
+      "notes": [],
+      "output_tokens": 122,
+      "passed": true,
+      "score": {
+        "answer_type": "no_answer",
+        "dimensions": {
+          "communication": 0,
+          "depth_accuracy": 0,
+          "technical_relevance": 0
+        },
+        "follow_up_recommended": false,
+        "overall": 0
+      },
+      "tags": [
+        "no_answer",
+        "skip"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "no_answer",
+        "overall_range": [
+          0,
+          0
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-blank-noanswer",
+      "input_tokens": 1926,
+      "latency_ms": 2080.2,
+      "notes": [],
+      "output_tokens": 142,
+      "passed": true,
+      "score": {
+        "answer_type": "no_answer",
+        "dimensions": {
+          "communication": 0,
+          "depth_accuracy": 0,
+          "technical_relevance": 0
+        },
+        "follow_up_recommended": false,
+        "overall": 0
+      },
+      "tags": [
+        "no_answer",
+        "empty"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "no_answer",
+        "overall_range": [
+          0,
+          0
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-offtopic-noanswer",
+      "input_tokens": 1954,
+      "latency_ms": 2474.0,
+      "notes": [],
+      "output_tokens": 157,
+      "passed": true,
+      "score": {
+        "answer_type": "no_answer",
+        "dimensions": {
+          "communication": 0,
+          "depth_accuracy": 0,
+          "technical_relevance": 0
+        },
+        "follow_up_recommended": false,
+        "overall": 0
+      },
+      "tags": [
+        "no_answer",
+        "off-topic-no-content"
+      ]
+    },
+    {
+      "abs_error": 0.5,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            2,
+            5
+          ],
+          "technical_relevance": [
+            1,
+            4
+          ]
+        },
+        "follow_up_recommended": true,
+        "overall_range": [
+          2,
+          5
+        ]
+      },
+      "hard_fail": false,
+      "id": "ml-overfitting-wrong-concept",
+      "input_tokens": 2001,
+      "latency_ms": 4390.8,
+      "notes": [],
+      "output_tokens": 269,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 7,
+          "depth_accuracy": 2,
+          "technical_relevance": 3
+        },
+        "follow_up_recommended": true,
+        "overall": 4
+      },
+      "tags": [
+        "diagnostic",
+        "relevance-only"
+      ]
+    },
+    {
+      "abs_error": 1.5,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            2,
+            5
+          ],
+          "technical_relevance": [
+            1,
+            4
+          ]
+        },
+        "follow_up_recommended": true,
+        "overall_range": [
+          2,
+          5
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-caching-wrong-concept",
+      "input_tokens": 1997,
+      "latency_ms": 4206.5,
+      "notes": [],
+      "output_tokens": 290,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 7,
+          "depth_accuracy": 5,
+          "technical_relevance": 2
+        },
+        "follow_up_recommended": true,
+        "overall": 5
+      },
+      "tags": [
+        "diagnostic",
+        "relevance-only"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "no_answer",
+        "overall_range": [
+          0,
+          0
+        ]
+      },
+      "hard_fail": false,
+      "id": "fe-a11y-wrong-concept",
+      "input_tokens": 1984,
+      "latency_ms": 3346.1,
+      "notes": [],
+      "output_tokens": 221,
+      "passed": true,
+      "score": {
+        "answer_type": "no_answer",
+        "dimensions": {
+          "communication": 0,
+          "depth_accuracy": 0,
+          "technical_relevance": 0
+        },
+        "follow_up_recommended": true,
+        "overall": 0
+      },
+      "tags": [
+        "diagnostic",
+        "relevance-only",
+        "no_answer"
+      ]
+    },
+    {
+      "abs_error": 0.5,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            2,
+            5
+          ],
+          "technical_relevance": [
+            1,
+            4
+          ]
+        },
+        "follow_up_recommended": true,
+        "overall_range": [
+          2,
+          5
+        ]
+      },
+      "hard_fail": false,
+      "id": "de-schema-wrong-concept",
+      "input_tokens": 1977,
+      "latency_ms": 3265.4,
+      "notes": [],
+      "output_tokens": 217,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 6,
+          "depth_accuracy": 2,
+          "technical_relevance": 2
+        },
+        "follow_up_recommended": true,
+        "overall": 3
+      },
+      "tags": [
+        "diagnostic",
+        "relevance-only"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [
+          6,
+          8
+        ]
+      },
+      "hard_fail": false,
+      "id": "fe-css-good",
+      "input_tokens": 2047,
+      "latency_ms": 4057.6,
+      "notes": [],
+      "output_tokens": 312,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 7,
+          "technical_relevance": 8
+        },
+        "follow_up_recommended": true,
+        "overall": 8
+      },
+      "tags": [
+        "good",
+        "frontend"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "substantive",
+        "follow_up_recommended": true,
+        "overall_range": [
+          4,
+          6
+        ]
+      },
+      "hard_fail": false,
+      "id": "fe-state-partial",
+      "input_tokens": 1976,
+      "latency_ms": 4017.0,
+      "notes": [],
+      "output_tokens": 240,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 7,
+          "depth_accuracy": 5,
+          "technical_relevance": 6
+        },
+        "follow_up_recommended": true,
+        "overall": 6
+      },
+      "tags": [
+        "incomplete",
+        "frontend"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            7,
+            10
+          ]
+        },
+        "follow_up_recommended": false,
+        "overall_range": [
+          8,
+          10
+        ]
+      },
+      "hard_fail": false,
+      "id": "fe-lcp-excellent",
+      "input_tokens": 2066,
+      "latency_ms": 4733.5,
+      "notes": [
+        "follow_up True != False (soft)"
+      ],
+      "output_tokens": 335,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 7,
+          "technical_relevance": 8
+        },
+        "follow_up_recommended": true,
+        "overall": 8
+      },
+      "tags": [
+        "strong",
+        "frontend",
+        "performance"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            7,
+            9
+          ],
+          "technical_relevance": [
+            7,
+            10
+          ]
+        },
+        "overall_range": [
+          7,
+          9
+        ]
+      },
+      "hard_fail": false,
+      "id": "de-partitioning-good",
+      "input_tokens": 2043,
+      "latency_ms": 5023.1,
+      "notes": [],
+      "output_tokens": 306,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 7,
+          "technical_relevance": 8
+        },
+        "follow_up_recommended": true,
+        "overall": 8
+      },
+      "tags": [
+        "good",
+        "data-engineering"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "partial",
+        "follow_up_recommended": true,
+        "overall_range": [
+          3,
+          5
+        ]
+      },
+      "hard_fail": false,
+      "id": "de-batch-vs-stream-partial",
+      "input_tokens": 1956,
+      "latency_ms": 3558.8,
+      "notes": [],
+      "output_tokens": 233,
+      "passed": true,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 6,
+          "depth_accuracy": 4,
+          "technical_relevance": 5
+        },
+        "follow_up_recommended": true,
+        "overall": 5
+      },
+      "tags": [
+        "incomplete",
+        "data-engineering"
+      ]
+    },
+    {
+      "abs_error": 0.0,
+      "expected": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "depth_accuracy": [
+            7,
+            9
+          ]
+        },
+        "overall_range": [
+          7,
+          9
+        ]
+      },
+      "hard_fail": false,
+      "id": "de-poison-message-good",
+      "input_tokens": 2044,
+      "latency_ms": 3673.3,
+      "notes": [],
+      "output_tokens": 274,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 7,
+          "technical_relevance": 8
+        },
+        "follow_up_recommended": true,
+        "overall": 8
+      },
+      "tags": [
+        "good",
+        "data-engineering"
+      ]
+    },
+    {
+      "abs_error": 1.5,
+      "expected": {
+        "answer_type": "substantive",
+        "overall_range": [
+          4,
+          7
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-boundary-substantive-thin",
+      "input_tokens": 1971,
+      "latency_ms": 4988.8,
+      "notes": [],
+      "output_tokens": 290,
+      "passed": true,
+      "score": {
+        "answer_type": "substantive",
+        "dimensions": {
+          "communication": 8,
+          "depth_accuracy": 6,
+          "technical_relevance": 7
+        },
+        "follow_up_recommended": true,
+        "overall": 7
+      },
+      "tags": [
+        "boundary",
+        "answer-type-edge"
+      ]
+    },
+    {
+      "abs_error": 1.0,
+      "expected": {
+        "answer_type": "partial",
+        "follow_up_recommended": true,
+        "overall_range": [
+          3,
+          5
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-boundary-partial-cutoff",
+      "input_tokens": 1967,
+      "latency_ms": 3597.3,
+      "notes": [],
+      "output_tokens": 225,
+      "passed": true,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 4,
+          "depth_accuracy": 5,
+          "technical_relevance": 6
+        },
+        "follow_up_recommended": true,
+        "overall": 5
+      },
+      "tags": [
+        "boundary",
+        "answer-type-edge"
+      ]
+    },
+    {
+      "abs_error": 2.0,
+      "expected": {
+        "answer_type": "partial",
+        "follow_up_recommended": true,
+        "overall_range": [
+          1,
+          3
+        ]
+      },
+      "hard_fail": false,
+      "id": "be-boundary-fragment-noanswer",
+      "input_tokens": 1938,
+      "latency_ms": 2667.0,
+      "notes": [
+        "overall 0 outside [1, 3]",
+        "answer_type 'no_answer' != expected 'partial'"
+      ],
+      "output_tokens": 150,
+      "passed": false,
+      "score": {
+        "answer_type": "no_answer",
+        "dimensions": {
+          "communication": 0,
+          "depth_accuracy": 0,
+          "technical_relevance": 0
+        },
+        "follow_up_recommended": true,
+        "overall": 0
+      },
+      "tags": [
+        "boundary",
+        "answer-type-edge",
+        "one-word"
+      ]
+    },
+    {
+      "abs_error": 2.0,
+      "expected": {
+        "answer_type": "partial",
+        "follow_up_recommended": true,
+        "overall_range": [
+          3,
+          5
+        ]
+      },
+      "hard_fail": false,
+      "id": "ml-boundary-mixed",
+      "input_tokens": 1956,
+      "latency_ms": 3761.9,
+      "notes": [
+        "overall 6 outside [3, 5]"
+      ],
+      "output_tokens": 260,
+      "passed": false,
+      "score": {
+        "answer_type": "partial",
+        "dimensions": {
+          "communication": 7,
+          "depth_accuracy": 4,
+          "technical_relevance": 6
+        },
+        "follow_up_recommended": true,
+        "overall": 6
+      },
+      "tags": [
+        "boundary",
+        "answer-type-edge"
+      ]
+    }
+  ],
+  "meta": {
+    "generated_at": "2026-07-29T02:00:01Z",
+    "ground_truth": "human-reviewed golden set (scorer_golden_set.json)",
+    "model": "claude-haiku-4-5-20251001",
+    "prompt_version": "4fc0dc938982",
+    "provider": "anthropic",
+    "reference_key_points": "none (not used in eval scoring)",
+    "rubric_version": "b2f0f99f9811"
+  }
+}
