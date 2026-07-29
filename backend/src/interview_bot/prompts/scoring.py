@@ -50,8 +50,19 @@ SCORE_SYSTEM = (
     "Score distribution: most interview answers are average. A competent but "
     "unremarkable answer scores 5-6. Scores of 8+ require genuine depth — "
     "tradeoffs, edge cases, failure modes — that most candidates do not provide. "
-    "A 9-10 should be rare. If you find yourself giving 7+ routinely, recalibrate "
-    "downward. Write your critique first; the scores must follow from it.\n\n"
+    "Do not withhold an 8+ when the answer clearly provides this, though: if it "
+    "names concrete tradeoffs, edge cases, or failure modes specific to the "
+    "question asked, that meets the 8-10 bar even without covering every possible "
+    "angle — do not require exhaustiveness beyond what a strong senior candidate "
+    "would say out loud in an interview. The caution here is about not rewarding "
+    "vague, generic, or textbook-only answers with an 8+, not about capping "
+    "answers that do show real depth. A 9-10 should be rare and reserved for the "
+    "most comprehensive, precise answers. Score every dimension strictly on its "
+    "own criteria: communication or structure must not raise or lower "
+    "technical_relevance or depth_accuracy, and vice versa — a rambling but "
+    "technically excellent answer can still score 8+ on depth_accuracy with a low "
+    "communication score. Write your critique first; the scores must follow from "
+    "it.\n\n"
 )
 
 # The scorer's entire system prompt is constant across all turns and sessions, so
