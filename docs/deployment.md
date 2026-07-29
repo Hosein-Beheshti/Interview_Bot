@@ -35,7 +35,11 @@ Comma-separate for more than one origin. If you later add a custom domain, it
 goes here too.
 
 > If the UI starts showing "Cannot reach the server" after this deploy, this is
-> the cause — it is a CORS rejection, not a backend outage.
+> a likely cause. Confirm it before acting on it: a browser reports a genuine
+> backend outage with the same missing-`Access-Control-Allow-Origin` message,
+> because a request that never reached the app has no CORS header on it either.
+> `curl -i https://YOUR-BACKEND.up.railway.app/health` settles which one it is —
+> fix the backend first if that isn't a 200.
 
 ### `TRUST_PROXY_HEADERS` — required, or rate limits collapse
 
@@ -81,9 +85,27 @@ working default (`RATE_LIMIT_ENABLED`, the per-IP quotas, `SESSION_RETENTION_DAY
 `AUDIO_MAX_BYTES`). Override them only if you want different numbers — see
 `.env.example` for the full list.
 
-**Port binding.** The container now binds `$PORT` rather than a hard-coded 8000.
-Railway injects `PORT` and routes to it, so this is strictly more correct than
-before and needs no configuration.
+**Port binding — verify this one, it is not automatic.** The container binds
+`$PORT` (falling back to 8000), which is portable across platforms. But Railway
+tracks the *target port* for the public domain separately, in **Settings →
+Networking**, and it does not follow the `PORT` it injects. If the injected
+`PORT` is 8080 while the target port is still 8000, every request returns a
+`502 Application failed to respond` from `railway-hikari` while the container
+logs look perfectly healthy — and because nothing answers, no CORS header is
+attached either, so the browser blames CORS. Do not chase that; check the port.
+
+The container's log line states the port it actually bound:
+
+```
+INFO:     Uvicorn running on http://0.0.0.0:8000
+```
+
+Make that number equal the target port. Pinning `PORT` on the service is the
+tidier of the two fixes, since it also matches the Dockerfile's `EXPOSE 8000`:
+
+```
+PORT = 8000
+```
 
 **Schema migrations run themselves** on boot, inside one advisory-locked
 transaction (`persistence/schema.py`). This deploy adds a `usage_counters` table
@@ -138,4 +160,3 @@ Then in the browser:
       finishes writing
 - [ ] Upload a CV, confirm questions reference it, then use **Delete my
       transcript and CV** and confirm it is gone
-- [ ] Update the demo link at the top of `README.md`

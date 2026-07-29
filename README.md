@@ -2,8 +2,6 @@
 
 A full-stack AI mock-interview platform. Paste a job description (and optionally a CV), then run a voice or text interview with an adaptive interviewer that asks role-specific questions, probes shallow answers with follow-ups, and scores every response in real time.
 
-> **Live demo:** _https://your-frontend.up.railway.app_ &nbsp;(update with your deployment URL)
-
 ---
 
 ## Features
@@ -113,7 +111,12 @@ make dev         # run the API (needs DATABASE_URL + a provider key)
 
 ## Configuration
 
-Backend settings are read from `backend/.env`:
+Backend settings are read from `backend/.env`. Every key maps to a field on
+`Settings` in [`config.py`](backend/src/interview_bot/config.py) — the only place
+in the codebase that reads the environment. See [`.env.example`](.env.example)
+for a copy-paste starting point.
+
+**Providers and storage**
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
@@ -125,24 +128,58 @@ Backend settings are read from `backend/.env`:
 | `DEEPGRAM_API_KEY` | For voice | — | Speech-to-text and text-to-speech |
 | `VOYAGE_API_KEY` | For CV | — | Embeddings for CV retrieval |
 | `DATABASE_URL` | No | `postgresql://postgres:postgres@db:5432/interview_bot` | Postgres + pgvector connection |
+
+**Interview behavior**
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
 | `MAX_QUESTIONS` | No | `5` | Main questions per interview |
 | `MAX_FOLLOWUPS_PER_QUESTION` | No | `1` | Follow-up turns allowed per question |
-| `GENERATION_TEMPERATURE` | No | `0.7` | Sampling temperature for interviewer replies |
+| `GENERATION_TEMPERATURE` | No | `0.7` | Sampling temperature for interviewer replies (scoring is pinned to 0) |
+
+**Public deployment** — the defaults are local-development defaults. A deployed
+instance **must** set the first two or it will not work correctly.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `CORS_ORIGINS` | **Yes, when deployed** | `http://localhost:5173,http://localhost:3000` | Comma-separated browser origins allowed to call the API. Must be the frontend's exact origin — scheme included, no trailing slash |
+| `TRUST_PROXY_HEADERS` | **Yes, behind a proxy** | `false` | Read the client IP from `X-Forwarded-For`. Required on Railway/Render/Fly or every visitor shares one rate-limit bucket. Must stay `false` when the app is directly reachable |
+| `DAILY_TOKEN_CEILING` | No | `150000` | Instance-wide daily token cap; returns 503 once reached. `0` disables. ~$0.20/day on Haiku 4.5 |
+| `SESSION_RETENTION_DAYS` | No | `30` | Days before a session and its CV are erased by `scripts/purge_expired.py` |
+| `RATE_LIMIT_ENABLED` | No | `true` | Master switch for the per-IP quotas below |
+| `SESSIONS_PER_HOUR_PER_IP` | No | `5` | New interviews per IP per hour |
+| `TURNS_PER_HOUR_PER_IP` | No | `60` | Interview turns per IP per hour |
+| `CV_UPLOADS_PER_HOUR_PER_IP` | No | `5` | CV uploads per IP per hour |
+| `TRANSCRIPTIONS_PER_HOUR_PER_IP` | No | `60` | Speech-to-text calls per IP per hour |
+| `TTS_CHARS_PER_DAY_PER_IP` | No | `20000` | Text-to-speech characters per IP per day |
+| `LANGFUSE_ENABLED` | No | `false` | Tracing to a Langfuse instance; a no-op when off |
+
+The frontend takes one build-time variable, `VITE_API_URL` — the backend's public
+origin, **without** a trailing `/api` (the client appends it). Left unset, the app
+calls a relative `/api`, which is what the local Vite proxy and the production
+nginx config expect.
 
 ## API Reference
 
-All application routes are under `/api`.
+All application routes are under `/api`; the health probes deliberately are not.
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/api/sessions` | Create an interview from a job description |
+| `DELETE` | `/api/sessions/{session_id}` | Erase a session: transcript, scores, and CV |
 | `POST` | `/api/chat` | Send a message; returns the next turn, score, and (on completion) summary |
-| `POST` | `/api/cv/upload` | Upload and index a CV |
+| `POST` | `/api/chat/stream` | Same turn, streamed token by token — what the UI uses |
+| `POST` | `/api/cv/upload` | Upload and index a CV (multipart; max 5 MB) |
 | `GET` | `/api/cv/{session_id}` | CV indexing status |
 | `DELETE` | `/api/cv/{session_id}` | Remove an indexed CV |
 | `POST` | `/api/transcribe` | Speech-to-text (Deepgram) |
 | `POST` | `/api/speak` | Text-to-speech (Deepgram) |
-| `GET` | `/health` | Health check |
+| `GET` | `/health` | Liveness — dependency-free, never touches the database |
+| `GET` | `/health/ready` | Readiness — verifies Postgres; point uptime monitors here |
+
+Every `/api` route above is unauthenticated by design and spends money per call,
+so the rate limits and token ceiling under [Configuration](#configuration) are
+what make the URL safe to publish.
 
 ## Determinism & measurement
 
@@ -200,3 +237,23 @@ the calibration metrics, and known limits.
 ## Deployment
 
 Deployed on Railway as three services — PostgreSQL (pgvector), backend, and frontend. See **[docs/deployment.md](docs/deployment.md)** for the required environment variables and the post-deploy checks. ([QUICKSTART.md](QUICKSTART.md) covers running it locally.)
+
+### Troubleshooting a deployment
+
+The browser reports most of these identically as `Failed to fetch`, so diagnose
+from the backend outward rather than from the console message:
+
+```sh
+curl -i https://YOUR-BACKEND.up.railway.app/health
+```
+
+| What you see | Cause | Fix |
+|---|---|---|
+| `502` with `x-railway-fallback: true`, even though the container logs look healthy | The platform routes to a different port than uvicorn bound. The logs print the real one (`Uvicorn running on http://0.0.0.0:PORT`) | Make the service's target port and the bound port match — pin `PORT` to the target port, or repoint the target port |
+| `No 'Access-Control-Allow-Origin' header is present` | `CORS_ORIGINS` doesn't contain the frontend's exact origin — **or** the backend never responded, so there was no header to attach | Confirm `/health` returns 200 first, then check `CORS_ORIGINS`. Settings load once at startup, so redeploy after changing it |
+| Requests go to `https://frontend.example/backend.example/api/...` | `VITE_API_URL` is missing its `https://` scheme, so the browser resolves it as a relative path | Include the scheme, drop any trailing `/api`, then **rebuild** — it's baked in at build time |
+| `405 Method Not Allowed` from `railway-hikari` | The request never reached the app; the edge answered a path it doesn't route | Usually the malformed-URL case above |
+
+`/health` is dependency-free by design, so a database blip can't cause the
+platform to restart a container that is otherwise serving. Point uptime monitors
+at `/health/ready`, which actually checks Postgres.
