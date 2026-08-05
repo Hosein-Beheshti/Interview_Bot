@@ -23,7 +23,27 @@ _TTS_URL = "https://api.deepgram.com/v1/speak"    # text-to-speech endpoint
 _STT_MODEL = "nova-3"                             # Deepgram STT model
 _TTS_VOICE = "aura-2-thalia-en"                   # Deepgram Aura-2 voice
 
+# Content types a browser MediaRecorder or a normal audio file upload actually
+# produces. Audio has no reliable filename to key off (unlike CV uploads), so
+# this checks Content-Type instead.
+SUPPORTED_CONTENT_TYPES = {
+    "audio/webm",
+    "audio/ogg",
+    "audio/wav",
+    "audio/x-wav",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/m4a",
+    "audio/x-m4a",
+}
+
 _client: httpx.AsyncClient | None = None
+
+
+def is_supported_content_type(content_type: str | None) -> bool:
+    if not content_type:
+        return False
+    return content_type.split(";")[0].strip().lower() in SUPPORTED_CONTENT_TYPES
 
 
 def _get_client() -> httpx.AsyncClient:

@@ -31,6 +31,8 @@ async def transcribe(audio: UploadFile = File(...)) -> dict[str, str]:
     if len(audio_bytes) > settings.audio_max_bytes:
         limit_mb = settings.audio_max_bytes // (1024 * 1024)
         raise HTTPException(status_code=413, detail=f"Audio exceeds {limit_mb}MB limit")
+    if not speech.is_supported_content_type(audio.content_type):
+        raise HTTPException(status_code=415, detail="Unsupported audio type.")
 
     try:
         transcript = await speech.transcribe(audio_bytes, audio.content_type or "audio/webm")
