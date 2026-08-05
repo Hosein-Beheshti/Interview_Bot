@@ -195,6 +195,33 @@ yours to make, not something this doc can decide for you.
 
 ---
 
+## Rollback
+
+Railway dashboard → the **backend** or **frontend** service → **Deployments** →
+pick a prior successful build → **Redeploy**.
+
+This only rolls back the container image — **not the database schema.**
+`persistence/migrations.py` is forward-only (idempotent `ALTER TABLE ... IF NOT
+EXISTS`, no down-migrations), so redeploying an older image after a newer one's
+migrations have already run against production data is not generally safe: the
+older code may not understand columns/tables the newer migration added, and
+there's no path to undo them. Treat rollback as safe for a bad *code* deploy
+that shipped no schema change; anything else needs a restore (see above) rather
+than a redeploy.
+
+## Secrets rotation
+
+Live keys, all set as env vars per-service in the Railway dashboard:
+`ANTHROPIC_API_KEY` / `GEMINI_API_KEY`, `DEEPGRAM_API_KEY`, `VOYAGE_API_KEY`,
+`LANGFUSE_SECRET_KEY`, `DATABASE_URL`.
+
+Rotate in the provider's console first, then update the Railway variable —
+in that order, so there's no gap where the old key is already revoked but the
+new one isn't live yet. No key is logged anywhere in the codebase (spot-checked
+every `logger.*` call site) — a rotated key doesn't need any log scrubbing.
+
+---
+
 ## Cost note
 
 Three always-on services (Postgres, backend, frontend) all bill continuously on
