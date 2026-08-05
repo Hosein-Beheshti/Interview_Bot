@@ -4,8 +4,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from interview_bot.api.routes.chat import router as chat_router
 from interview_bot.api.routes.cv import router as cv_router
@@ -54,3 +55,15 @@ app.include_router(chat_router, prefix="/api")
 app.include_router(voice_router, prefix="/api")
 app.include_router(cv_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Sanitize anything that escapes a route's own try/except.
+
+    FastAPI/Starlette dispatch by the most specific matching handler in the
+    exception's MRO, so this never intercepts `HTTPException` — routes that
+    raise it deliberately keep their real status code and detail untouched.
+    """
+    logger.error(f"Unhandled exception | path={request.url.path} | error={exc}")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
