@@ -127,6 +127,11 @@ class Settings(BaseSettings):
     # frontend origin. "*" is accepted but disables the protection entirely.
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
+    # Railway auto-injects this on every deploy (e.g. "production"); empty when
+    # running locally or in CI. Used only to decide whether a still-default
+    # CORS config is worth a loud startup warning — not a general env-name flag.
+    railway_environment: str = ""
+
     # `extra="ignore"`: tolerate unknown keys in .env (typos, vars for other
     # tools) instead of crashing at startup.
     model_config = {"env_file": ".env", "extra": "ignore"}
@@ -137,6 +142,15 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+_DEV_CORS_DEFAULT = "http://localhost:5173,http://localhost:3000"
+
+
+def is_dev_cors_in_production(s: Settings) -> bool:
+    """True if a Railway deploy is still running the dev CORS default or a wildcard."""
+    if not s.railway_environment:
+        return False
+    return s.cors_origins.strip() == _DEV_CORS_DEFAULT or "*" in s.cors_origin_list
 
 
 def _enable_system_trust_store() -> None:

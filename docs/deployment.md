@@ -41,6 +41,12 @@ goes here too.
 > `curl -i https://YOUR-BACKEND.up.railway.app/health` settles which one it is —
 > fix the backend first if that isn't a 200.
 
+Railway auto-injects `RAILWAY_ENVIRONMENT` into every deploy. On boot, the app
+checks that variable and logs a `CRITICAL` line (without refusing to start) if
+`CORS_ORIGINS` is still the localhost default or `*` while it's set — a safety
+net for exactly this "forgot to set it" case. Watch the deploy logs for that
+line after a fresh deploy.
+
 ### `TRUST_PROXY_HEADERS` — required, or rate limits collapse
 
 Railway terminates TLS in front of your container, so every request arrives with
