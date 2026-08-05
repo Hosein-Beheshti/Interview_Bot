@@ -141,6 +141,60 @@ retention-sweep → Run workflow, leaving "dry run" checked.
 
 ---
 
+## Backup and restore
+
+Session transcripts, per-answer scores, and uploaded CV text/embeddings live in
+one Postgres instance with no automatic redundancy beyond Railway's own volume.
+Check what your plan actually provides before assuming a safety net exists:
+**Postgres service → Settings → Backups** in the Railway dashboard. If that
+tier doesn't include backups, the manual procedure below is your only recovery
+path, not a supplement to one.
+
+**Backup** — `pg_dump` against the same `DATABASE_URL` already used as the
+GitHub Actions secret for the retention workflow, so there's no new credential
+to manage:
+
+```sh
+pg_dump "$DATABASE_URL" --format=custom --file="backup-$(date +%F).dump"
+```
+
+`--format=custom` captures `pgvector` *usage* (the `vector` columns and their
+data) but not the extension's *installation*. Restoring into a fresh database
+needs the extension created first — the same step `persistence/schema.py`
+already performs on every boot, so this only matters if you restore outside
+that boot path:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+**Restore**:
+
+```sh
+pg_restore --clean --if-exists --dbname="$DATABASE_URL" backup-2026-08-05.dump
+```
+
+Point the backend's `DATABASE_URL` at the restored database and redeploy so
+`persistence/migrations.py` runs its forward-only migrations against whatever
+schema state the dump captured. Verify with `curl .../health/ready` returning
+200 as the acceptance check — it's the endpoint that actually queries Postgres.
+
+**Interaction with `SESSION_RETENTION_DAYS`.** A restore can reintroduce
+personal data — CVs, transcripts — that the retention sweep already purged, if
+the backup predates that purge. Run `scripts/purge_expired.py` again
+immediately after any restore to reconcile. For the same reason, don't keep
+backup dumps around much longer than `SESSION_RETENTION_DAYS` — otherwise the
+backup archive quietly becomes the real data-retention boundary, undermining
+the number configured everywhere else.
+
+**Where dumps live.** Not this repo, and not a long-lived GitHub Actions
+artifact — these are personal data from people trying a public demo. Use a
+private, access-controlled store (encrypted local disk, a private bucket) and
+apply the same retention discipline to it as above; the specific choice is
+yours to make, not something this doc can decide for you.
+
+---
+
 ## Cost note
 
 Three always-on services (Postgres, backend, frontend) all bill continuously on
