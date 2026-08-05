@@ -110,6 +110,11 @@ class Settings(BaseSettings):
     # bill, not an unbounded one — raise it once you know what real traffic costs.
     daily_token_ceiling: int = 150_000
 
+    # Optional webhook (Slack incoming webhook, Discord, or anything accepting a
+    # JSON {"text": ...} POST) notified the first time the daily token ceiling is
+    # reached each day. Empty disables it — best-effort, never blocks a request.
+    alert_webhook_url: str = ""
+
     # Whether to read the client IP from X-Forwarded-For. Required behind a proxy
     # or load balancer (Railway, Render, Fly, nginx), where the socket address is
     # the proxy's. Must stay false when the app is directly reachable: the header

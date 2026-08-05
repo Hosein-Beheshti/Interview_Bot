@@ -136,3 +136,37 @@ def test_recording_token_usage_never_raises(monkeypatch):
 
 def _boom(*args, **kwargs):
     raise RuntimeError("database unavailable")
+
+
+# --------------------------------------------------------------------------- #
+# Ceiling-breach alert webhook
+# --------------------------------------------------------------------------- #
+def test_alert_is_a_no_op_when_webhook_url_is_unset(monkeypatch):
+    monkeypatch.setattr(settings, "alert_webhook_url", "")
+    monkeypatch.setattr(limits.httpx, "post", _unreachable)
+    limits._send_alert("daily ceiling reached")
+
+
+def test_alert_webhook_failure_is_swallowed(monkeypatch):
+    monkeypatch.setattr(settings, "alert_webhook_url", "https://example.com/hook")
+    monkeypatch.setattr(limits.httpx, "post", _boom)
+    limits._send_alert("daily ceiling reached")  # must not raise
+
+
+def test_ceiling_breach_sends_exactly_one_alert_per_day(monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "daily_token_ceiling", 1000)
+    monkeypatch.setattr(settings, "alert_webhook_url", "https://example.com/hook")
+    monkeypatch.setattr(usage, "current", lambda *a, **k: 1000)
+
+    alert_bucket_totals = iter([1, 2])
+    monkeypatch.setattr(usage, "consume", lambda *a, **k: next(alert_bucket_totals))
+
+    sent: list[str] = []
+    monkeypatch.setattr(limits, "_send_alert", sent.append)
+
+    for _ in range(2):
+        with pytest.raises(limits.HTTPException):
+            limits.require_token_budget()
+
+    assert len(sent) == 1

@@ -82,6 +82,12 @@ anything else on the same API key is invisible to it, and a bug in the metering
 path would be invisible too. Two independent backstops, one of which does not
 depend on your own code being correct.
 
+Optionally, set `ALERT_WEBHOOK_URL` to a Slack incoming-webhook (or Discord, or
+anything accepting a JSON `{"text": ...}` POST) to get notified the first time
+the ceiling is actually hit on a given day, instead of finding out from the
+console at the end of the week. It fires at most once per UTC day and never
+blocks a request — a failed or unconfigured webhook is logged and ignored.
+
 ---
 
 ## Everything else

@@ -22,6 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+import httpx
 from fastapi import HTTPException, Request, status
 
 from interview_bot.config import settings
@@ -33,6 +34,7 @@ DAY = timedelta(days=1)
 
 _GLOBAL = "global"
 _TOKENS_BUCKET = "model_tokens"
+_ALERT_BUCKET = "ceiling_alert_sent"
 
 
 @dataclass(frozen=True)
@@ -100,11 +102,27 @@ def require_token_budget() -> None:
             f"Daily token ceiling reached | spent={spent} | "
             f"ceiling={settings.daily_token_ceiling}"
         )
+        if settings.alert_webhook_url and usage.consume(_ALERT_BUCKET, _GLOBAL, DAY) == 1:
+            _send_alert(
+                f"Interview Bot: daily token ceiling reached "
+                f"({spent}/{settings.daily_token_ceiling})."
+            )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="The demo has reached its daily usage limit. Please try again tomorrow.",
             headers={"Retry-After": str(_seconds_until_window_end(DAY))},
         )
+
+
+def _send_alert(message: str) -> None:
+    """POST `message` to the configured webhook. Best-effort: a failed or
+    unconfigured alert must never affect the request that triggered it."""
+    if not settings.alert_webhook_url:
+        return
+    try:
+        httpx.post(settings.alert_webhook_url, json={"text": message}, timeout=5.0)
+    except Exception as e:
+        logger.warning(f"Alert webhook failed | error={e}")
 
 
 def record_tokens(totals: dict[str, int]) -> None:
