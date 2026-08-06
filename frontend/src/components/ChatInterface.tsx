@@ -4,12 +4,21 @@ import { useVoice } from '../hooks/useVoice'
 import { useCV } from '../hooks/useCV'
 import { CVUpload } from './CVUpload'
 import { EXAMPLE_ROLES } from '../data/examples'
-import { InterviewSummary, ScoreResult } from '../types'
+import { InterviewSummary, ScoreResult, User } from '../types'
 import '../styles/chat.css'
 
 const AUTO_SEND_DELAY_MS = 6000
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  user: User
+  onLogout: () => void
+  /** Called whenever a new session may have been created, so the caller can
+   * refetch the credit balance (session creation is the only thing that
+   * spends credits). */
+  onCreditsChanged: () => void
+}
+
+export function ChatInterface({ user, onLogout, onCreditsChanged }: ChatInterfaceProps) {
   const { messages, session_id, question_number, num_questions, is_complete, summary, loading, streaming, error, send, reset, forget, adoptSession, dismissError } = useChat()
   const {
     isListening, transcript, interimText, isSpeaking, micError,
@@ -35,6 +44,20 @@ export function ChatInterface() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Session creation is the only thing that spends credits, so re-check the
+  // balance whenever the active session changes.
+  useEffect(() => {
+    if (session_id) onCreditsChanged()
+  }, [session_id, onCreditsChanged])
+
+  const handleSignOut = () => {
+    stopSpeaking()
+    stopListening()
+    cv.clear()
+    reset()
+    onLogout()
+  }
 
   // Speak each assistant message exactly once, identified by index. Waits for
   // the stream to finish: reading a half-written question aloud would cut off
@@ -121,6 +144,19 @@ export function ChatInterface() {
             <span className="q-label">Q {question_number} / {num_questions}</span>
           </div>
         )}
+        <div className="header-user">
+          <span className={`credits-badge${user.credits <= 0 ? ' low' : ''}`}>
+            {user.credits} credit{user.credits === 1 ? '' : 's'}
+          </span>
+          {user.picture_url ? (
+            <img className="user-avatar" src={user.picture_url} alt="" referrerPolicy="no-referrer" />
+          ) : (
+            <span className="user-avatar-fallback">
+              {(user.display_name || user.email)[0]?.toUpperCase()}
+            </span>
+          )}
+          <button className="sign-out-btn" onClick={handleSignOut}>Sign out</button>
+        </div>
       </header>
 
       {/* ── Messages ── */}

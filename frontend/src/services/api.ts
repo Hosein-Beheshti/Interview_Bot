@@ -1,4 +1,4 @@
-import { ChatResponse, CVUploadResponse, ScoreResult } from '../types'
+import { ChatResponse, CVUploadResponse, ScoreResult, User } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
@@ -15,6 +15,8 @@ export class ApiError extends Error {
 /** Turns any failure into the sentence a candidate should actually read. */
 export function describeError(err: unknown): string {
   if (err instanceof ApiError) {
+    if (err.status === 401) return 'Please sign in to continue.'
+    if (err.status === 402) return "You're out of credits."
     if (err.status === 429) {
       return 'Too many requests from your connection. Please wait a minute and try again.'
     }
@@ -59,6 +61,7 @@ export async function streamMessage(
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       message,
@@ -136,6 +139,7 @@ export async function uploadCV(
 
   const response = await fetch(`${API_BASE}/cv/upload`, {
     method: 'POST',
+    credentials: 'include',
     body: form,
   })
 
@@ -145,7 +149,10 @@ export async function uploadCV(
 }
 
 export async function deleteCV(sessionId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/cv/${sessionId}`, { method: 'DELETE' })
+  const response = await fetch(`${API_BASE}/cv/${sessionId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
   if (!response.ok && response.status !== 404) {
     throw new ApiError('Failed to remove CV', response.status)
   }
@@ -153,8 +160,37 @@ export async function deleteCV(sessionId: string): Promise<void> {
 
 /** Erase a session, its transcript, and any uploaded CV. */
 export async function deleteSession(sessionId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, { method: 'DELETE' })
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
   if (!response.ok && response.status !== 404) {
     throw new ApiError('Failed to delete session', response.status)
   }
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+
+/** The logged-in user, or `null` if no session cookie is present/valid. */
+export async function fetchMe(): Promise<User | null> {
+  const response = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' })
+  if (response.status === 401) return null
+  if (!response.ok) throw await toApiError(response, 'Failed to load your account')
+  return response.json()
+}
+
+/** Exchange a Google ID token for a session cookie. */
+export async function loginWithGoogle(idToken: string): Promise<User> {
+  const response = await fetch(`${API_BASE}/auth/google`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id_token: idToken }),
+  })
+  if (!response.ok) throw await toApiError(response, 'Sign-in failed')
+  return response.json()
+}
+
+export async function logoutRequest(): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' })
 }

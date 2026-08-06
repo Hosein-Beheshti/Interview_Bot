@@ -1,5 +1,13 @@
 export type TurnMode = 'main_question' | 'follow_up' | 'closing'
 
+export interface User {
+  id: string
+  email: string
+  display_name: string | null
+  picture_url: string | null
+  credits: number
+}
+
 export interface Message {
   role: 'user' | 'assistant'
   content: string
