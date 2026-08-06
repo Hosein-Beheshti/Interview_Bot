@@ -62,6 +62,14 @@ STATEMENTS: tuple[str, ...] = (
     # The retention purge selects by age; without this it is a full table scan.
     "CREATE INDEX IF NOT EXISTS ix_interview_sessions_created_at "
     "ON interview_sessions (created_at)",
+    # Owner column for accounts/credits. `users` is created by `create_all()`
+    # (it runs before this module) so the column exists by the time any row
+    # sets it, even though no FK constraint is added retroactively here —
+    # same trade-off already accepted for `cv_chunks.session_id` before its
+    # constraint existed.
+    "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS user_id VARCHAR",
+    "CREATE INDEX IF NOT EXISTS ix_interview_sessions_user_id "
+    "ON interview_sessions (user_id)",
 )
 
 

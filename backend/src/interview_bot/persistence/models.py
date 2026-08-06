@@ -60,6 +60,13 @@ class InterviewSession(Base):
     # domain/plan.py). Null for sessions created before planning existed or when
     # generation failed — the interviewer self-selects topics then.
     interview_plan: Mapped[Any | None] = mapped_column(JSON, default=None)
+    # Owner. Nullable so rows created before accounts existed stay reachable
+    # (unchanged status quo) — only sessions with a recorded owner become
+    # access-controlled. SET NULL, not CASCADE: deleting an account should not
+    # destroy transcripts; the retention sweep erases them on its own schedule.
+    user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True, default=None
+    )
 
     @property
     def has_cv(self) -> bool:
@@ -85,6 +92,45 @@ class UsageCounter(Base):
     window_start: Mapped[datetime] = mapped_column(_UTC_TIMESTAMP, primary_key=True)
     # Tokens overflow a 32-bit counter within a day of ordinary traffic.
     amount: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    # String UUID PK, matching InterviewSession's convention (not CVChunk's
+    # autoincrement-int style, which is reserved for pure child rows never
+    # referenced externally).
+    id: Mapped[str] = mapped_column(primary_key=True)
+    # Google's stable per-account id (the `sub` claim) — the real identity.
+    # Email is not the identity: Google lets it change.
+    google_sub: Mapped[str] = mapped_column(unique=True, index=True)
+    email: Mapped[str] = mapped_column(index=True)
+    display_name: Mapped[str | None] = mapped_column(default=None)
+    picture_url: Mapped[str | None] = mapped_column(default=None)
+    credits: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(_UTC_TIMESTAMP, default=_now)
+    last_login_at: Mapped[datetime] = mapped_column(_UTC_TIMESTAMP, default=_now)
+
+
+class UserSession(Base):
+    """A logged-in browser session — what the cookie actually names.
+
+    Not folded into User: one account may hold several concurrent
+    UserSessions (multiple browsers/devices), each independently revocable by
+    deleting its row.
+    """
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # SHA-256 of the raw bearer token — never the token itself. A DB dump,
+    # backup, or stray read must not hand out a usable session; verifying a
+    # presented cookie is just re-hashing and an indexed lookup, so this costs
+    # nothing at runtime.
+    token_hash: Mapped[str] = mapped_column(unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(_UTC_TIMESTAMP, default=_now)
+    expires_at: Mapped[datetime] = mapped_column(_UTC_TIMESTAMP)
 
 
 class CVChunk(Base):
