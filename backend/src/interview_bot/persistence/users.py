@@ -11,9 +11,15 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from interview_bot.persistence.models import User
+
+_DEBIT = text(
+    "UPDATE users SET credits = credits - :cost WHERE id = :id AND credits >= :cost "
+    "RETURNING credits"
+)
 
 
 def get_by_google_sub(db: Session, google_sub: str) -> User | None:
@@ -51,3 +57,23 @@ def get_or_create(
     )
     db.add(user)
     return user, True
+
+
+def debit_credits(db: Session, user_id: str, cost: int) -> int | None:
+    """Atomically deduct `cost` credits. Returns the new balance, or `None` if
+    the balance was insufficient; the HTTP-facing 402 mapping is the caller's
+    job, not this module's — this is plain persistence, no HTTP concerns.
+
+    A single guarded UPDATE is race-safe on its own: Postgres holds an
+    implicit per-row lock for the statement's duration, and `credits >= :cost`
+    is evaluated against that locked row, so two concurrent debits against the
+    same account serialize correctly with no extra round trip. This differs
+    from `persistence.sessions.get(..., lock=True)`'s SELECT-then-UPDATE
+    pattern, which needs an explicit lock because there's a gap between the
+    read and a later, separate write — a debit has no such gap.
+    """
+    if cost <= 0:
+        return -1
+    result = db.execute(_DEBIT, {"id": user_id, "cost": cost}).first()
+    db.commit()
+    return result[0] if result is not None else None

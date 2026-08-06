@@ -1,5 +1,8 @@
-"""Tests for per-user credit debits (api/credits.py). No real database —
-matches test_limits.py's monkeypatch-heavy, no-DB style."""
+"""Tests for the HTTP-facing credit dependency (api/credits.py) — the 402
+mapping and the FastAPI dependency factory. The underlying atomic debit
+itself is `persistence.users.debit_credits`, tested in test_users.py; this
+file exercises the thin wrapper end to end (mocked db, same as
+test_limits.py's no-DB style) so both layers stay covered."""
 from unittest.mock import MagicMock
 
 import pytest

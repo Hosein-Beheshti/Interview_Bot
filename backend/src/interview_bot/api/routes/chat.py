@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from interview_bot.api import limits
+from interview_bot.api.auth import get_current_user
 from interview_bot.api.schemas import (
     ChatRequest,
     ChatResponse,
@@ -29,6 +30,7 @@ from interview_bot.domain.scoring import ScoreData
 from interview_bot.logger import logger
 from interview_bot.persistence import sessions as session_store
 from interview_bot.persistence.database import SessionLocal, get_db
+from interview_bot.persistence.models import User
 from interview_bot.pipeline import interview
 from interview_bot.pipeline import session as session_flow
 from interview_bot.pipeline.interview import InterviewError
@@ -45,8 +47,12 @@ router = APIRouter()
         Depends(limits.require_token_budget),
     ],
 )
-async def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
-    session = await _resolve_session(request, db)
+async def chat(
+    request: ChatRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ChatResponse:
+    session = await _resolve_session(request, db, user.id)
     logger.info(f"Chat | session={session.session_id} | status={session.status}")
 
     if session.status == "complete":
@@ -89,7 +95,9 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
         Depends(limits.require_token_budget),
     ],
 )
-async def chat_stream(request: ChatRequest) -> StreamingResponse:
+async def chat_stream(
+    request: ChatRequest, user: User = Depends(get_current_user)
+) -> StreamingResponse:
     """The same turn as `/chat`, delivered as server-sent events.
 
     Event sequence: `score` (the grade for the previous answer, available before
@@ -102,7 +110,7 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     client must treat a stream that ends without `done` as a failure.
     """
     return StreamingResponse(
-        _turn_events(request),
+        _turn_events(request, user.id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -113,7 +121,7 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     )
 
 
-async def _turn_events(request: ChatRequest) -> AsyncIterator[str]:
+async def _turn_events(request: ChatRequest, user_id: str) -> AsyncIterator[str]:
     """Run one streamed turn, owning its own database session.
 
     The session is opened here rather than injected: a `Depends(get_db)` session
@@ -124,7 +132,7 @@ async def _turn_events(request: ChatRequest) -> AsyncIterator[str]:
     tokens: dict[str, int] = {}
     with SessionLocal() as db:
         try:
-            session = await _resolve_session(request, db)
+            session = await _resolve_session(request, db, user_id)
             if session.status == "complete":
                 yield _event("error", {"detail": "Interview already completed"})
                 return
@@ -194,19 +202,26 @@ def _to_chat_response(session, result: interview.TurnResult) -> ChatResponse:
     )
 
 
-async def _resolve_session(request: ChatRequest, db: Session):
-    """Existing session (locked, 404 if missing) or a lazily-created one."""
+async def _resolve_session(request: ChatRequest, db: Session, user_id: str):
+    """Existing session (locked, 404 if missing, 403 if not the caller's) or a
+    lazily-created one, owned by `user_id` and debited for its credit cost."""
     if request.session_id:
         session = session_store.get(db, request.session_id, lock=True)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
+        if session.user_id is not None and session.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not your session")
         return session
-    return await session_flow.create_from_context(
-        db,
-        job_context=request.job_context,
-        role=request.role,
-        num_questions=request.num_questions or settings.max_questions,
-    )
+    try:
+        return await session_flow.create_from_context(
+            db,
+            job_context=request.job_context,
+            role=request.role,
+            num_questions=request.num_questions or settings.max_questions,
+            user_id=user_id,
+        )
+    except session_flow.InsufficientCreditsError as e:
+        raise HTTPException(status_code=402, detail="Insufficient credits.") from e
 
 
 def _to_score_result(score_data: ScoreData) -> ScoreResult:

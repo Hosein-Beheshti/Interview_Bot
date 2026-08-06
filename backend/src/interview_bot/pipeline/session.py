@@ -13,10 +13,15 @@ from sqlalchemy.orm import Session
 from interview_bot.config import settings
 from interview_bot.domain.profile import minimal
 from interview_bot.persistence import sessions as store
+from interview_bot.persistence import users as user_store
 from interview_bot.persistence.models import InterviewSession
 from interview_bot.pipeline.plan import build_plan
 from interview_bot.pipeline.profile import build_profile
 from interview_bot.telemetry import observe_turn, set_session
+
+
+class InsufficientCreditsError(RuntimeError):
+    """Raised when the caller does not have enough credits to start a session."""
 
 
 async def create_from_context(
@@ -24,13 +29,25 @@ async def create_from_context(
     *,
     job_context: str | None,
     role: str | None,
+    user_id: str,
     num_questions: int | None = None,
 ) -> InterviewSession:
     """Create a session from a pasted job description, or a role-only fallback.
 
     Wrapped in a trace so the setup-time LLM calls (profile extraction, plan
     generation) are grouped and, once the session id exists, tagged onto it.
+
+    Debits the session-creation credit cost before doing any LLM work: this is
+    the same choke point `POST /sessions` uses via `credits.require(...)`, but
+    `/chat` and `/cv/upload` only create a session *sometimes* (when no
+    `session_id` was supplied), so they can't use a blanket route dependency
+    without wrongly charging every ordinary turn — this function is the one
+    place both of those lazy-create paths funnel through.
     """
+    cost = settings.interview_session_credit_cost
+    if user_store.debit_credits(db, user_id, cost) is None:
+        raise InsufficientCreditsError(f"user={user_id} needs {cost} credits")
+
     resolved_questions = num_questions or settings.max_questions
     async with observe_turn("session_create", metadata={"has_job_context": bool(job_context)}):
         if job_context:
@@ -44,6 +61,7 @@ async def create_from_context(
             num_questions=resolved_questions,
             job_context=job_context,
             interview_plan=interview_plan,
+            user_id=user_id,
         )
         set_session(session.session_id)
         return session
