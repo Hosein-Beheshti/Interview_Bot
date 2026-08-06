@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from interview_bot.api import credits, limits
-from interview_bot.api.auth import get_current_user
+from interview_bot.api.auth import get_current_user, require_owner
 from interview_bot.api.schemas import (
     JobProfileSchema,
     PlanSlotSchema,
@@ -82,7 +82,6 @@ async def delete_session(
     session = session_store.get(db, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id is not None and session.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not your session")
+    require_owner(session, user.id)
     session_store.delete(db, session_id)
     return Response(status_code=204)

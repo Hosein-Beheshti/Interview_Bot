@@ -133,3 +133,23 @@ def test_delete_current_session_is_a_no_op_without_a_cookie():
     db = _db()
     db.query.side_effect = _unreachable
     auth.delete_current_session(request, db)  # must not raise
+
+
+# --------------------------------------------------------------------------- #
+# require_owner
+# --------------------------------------------------------------------------- #
+def test_require_owner_allows_the_actual_owner():
+    session = SimpleNamespace(user_id="u1")
+    auth.require_owner(session, "u1")  # must not raise
+
+
+def test_require_owner_rejects_a_different_user():
+    session = SimpleNamespace(user_id="u1")
+    with pytest.raises(auth.HTTPException) as excinfo:
+        auth.require_owner(session, "u2")
+    assert excinfo.value.status_code == 403
+
+
+def test_require_owner_allows_anyone_for_a_legacy_ownerless_session():
+    session = SimpleNamespace(user_id=None)
+    auth.require_owner(session, "u2")  # must not raise — unchanged status quo

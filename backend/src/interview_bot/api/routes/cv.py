@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from sqlalchemy.orm import Session
 
 from interview_bot.api import limits
-from interview_bot.api.auth import get_current_user
+from interview_bot.api.auth import get_current_user, require_owner
 from interview_bot.api.schemas import CVStatusResponse, CVUploadResponse
 from interview_bot.config import settings
 from interview_bot.integrations import cv_parser
@@ -77,8 +77,7 @@ async def cv_status(
     session = session_store.get(db, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id is not None and session.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not your session")
+    require_owner(session, user.id)
     return CVStatusResponse(
         session_id=session.session_id,
         has_cv=session.has_cv,
@@ -94,8 +93,7 @@ async def delete_cv(
     session = session_store.get(db, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id is not None and session.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not your session")
+    require_owner(session, user.id)
 
     rag.delete_index(session_id)
     session.cv_filename = None
@@ -130,8 +128,7 @@ async def _resolve_session(
     if session_id:
         session = session_store.get(db, session_id)
         if session:
-            if session.user_id is not None and session.user_id != user_id:
-                raise HTTPException(status_code=403, detail="Not your session")
+            require_owner(session, user_id)
             return session
     try:
         return await session_flow.create_from_context(

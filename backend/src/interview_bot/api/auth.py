@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from interview_bot.config import settings
 from interview_bot.persistence.database import get_db
-from interview_bot.persistence.models import User, UserSession
+from interview_bot.persistence.models import InterviewSession, User, UserSession
 
 
 def hash_token(token: str) -> str:
@@ -97,6 +97,21 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in")
     return user
+
+
+def require_owner(session: InterviewSession, user_id: str) -> None:
+    """403 unless `session` belongs to `user_id`.
+
+    Takes a bare id rather than a `User` so callers that only have the id on
+    hand (e.g. `pipeline.session`'s lazy-create threading) don't need to load
+    a full `User` just to check ownership.
+
+    A session with no recorded owner (`user_id is None` — created before
+    accounts existed) stays reachable by anyone, unchanged from before
+    accounts were added; only sessions with a recorded owner are checked.
+    """
+    if session.user_id is not None and session.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your session")
 
 
 def delete_current_session(request: Request, db: Session) -> None:

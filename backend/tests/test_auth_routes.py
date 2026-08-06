@@ -101,6 +101,43 @@ def test_logout_then_me_is_unauthorized(client, monkeypatch):
     assert response.status_code == 401
 
 
+def test_concurrent_first_login_recovers_instead_of_500ing(client, monkeypatch):
+    """Two racing first-logins for the same brand-new Google account both try
+    to insert the same google_sub; the DB's unique constraint lets only one
+    win. The loser must recover to the winner's row, not surface a 500."""
+    _mock_identity(monkeypatch, sub="racer", email="racer@example.com")
+
+    first = client.post("/api/auth/google", json={"id_token": "whatever"})
+    assert first.status_code == 200
+
+    # Simulate a second concurrent "new user" insert for the same google_sub
+    # arriving after the first already committed — get_or_create's own
+    # lookup would normally catch this, but forcing it closed exercises the
+    # IntegrityError recovery path the same race would actually hit.
+    import uuid
+
+    from interview_bot.api.routes import auth as auth_routes
+    from interview_bot.persistence.models import User
+
+    def fake_get_or_create(db, **kwargs):
+        user = User(
+            id=str(uuid.uuid4()),
+            google_sub="racer",
+            email="racer@example.com",
+            display_name=None,
+            picture_url=None,
+        )
+        db.add(user)
+        return user, True
+
+    monkeypatch.setattr(auth_routes.user_store, "get_or_create", fake_get_or_create)
+
+    second = client.post("/api/auth/google", json={"id_token": "whatever"})
+
+    assert second.status_code == 200
+    assert second.json()["email"] == "racer@example.com"
+
+
 def test_invalid_google_token_is_rejected(client, monkeypatch):
     def _reject(token):
         raise google_auth.GoogleTokenError("bad token")

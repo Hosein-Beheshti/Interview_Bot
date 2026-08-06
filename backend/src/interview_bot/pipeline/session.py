@@ -43,10 +43,15 @@ async def create_from_context(
     `session_id` was supplied), so they can't use a blanket route dependency
     without wrongly charging every ordinary turn — this function is the one
     place both of those lazy-create paths funnel through.
+
+    Respects `require_credits_to_start_session` the same way `credits.require`
+    does, so the kill switch turns off metering everywhere a session can be
+    created, not just at `POST /sessions`.
     """
-    cost = settings.interview_session_credit_cost
-    if user_store.debit_credits(db, user_id, cost) is None:
-        raise InsufficientCreditsError(f"user={user_id} needs {cost} credits")
+    if settings.require_credits_to_start_session:
+        cost = settings.interview_session_credit_cost
+        if user_store.debit_credits(db, user_id, cost) is None:
+            raise InsufficientCreditsError(f"user={user_id} needs {cost} credits")
 
     resolved_questions = num_questions or settings.max_questions
     async with observe_turn("session_create", metadata={"has_job_context": bool(job_context)}):

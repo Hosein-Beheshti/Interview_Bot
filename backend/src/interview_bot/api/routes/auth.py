@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from interview_bot.api import auth
@@ -33,7 +34,18 @@ async def login_with_google(
     )
     if is_new:
         credits_module.grant_signup_credits(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two concurrent first-logins for the same brand-new Google account
+        # (double-click, two tabs) both tried to insert the same google_sub;
+        # the DB's unique constraint let exactly one win. Fall back to the
+        # winner's row instead of surfacing this as a request failure.
+        db.rollback()
+        existing = user_store.get_by_google_sub(db, identity.sub)
+        if existing is None:
+            raise
+        user, is_new = existing, False
     db.refresh(user)
 
     token = auth.create_user_session(db, user)

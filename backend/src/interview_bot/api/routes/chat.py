@@ -16,7 +16,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from interview_bot.api import limits
-from interview_bot.api.auth import get_current_user
+from interview_bot.api.auth import get_current_user, require_owner
 from interview_bot.api.schemas import (
     ChatRequest,
     ChatResponse,
@@ -209,8 +209,7 @@ async def _resolve_session(request: ChatRequest, db: Session, user_id: str):
         session = session_store.get(db, request.session_id, lock=True)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
-        if session.user_id is not None and session.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Not your session")
+        require_owner(session, user_id)
         return session
     try:
         return await session_flow.create_from_context(
