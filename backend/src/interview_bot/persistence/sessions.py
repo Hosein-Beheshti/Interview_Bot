@@ -34,6 +34,7 @@ def create(
     num_questions: int | None = None,
     job_context: str | None = None,
     interview_plan: InterviewPlan | None = None,
+    user_id: str | None = None,
 ) -> InterviewSession:
     """Persist a new session for the given profile (num_questions: model default if None)."""
     session = InterviewSession(
@@ -42,6 +43,7 @@ def create(
         messages=[],
         job_context=job_context,
         job_profile=profile.to_dict(),
+        user_id=user_id,
     )
     if num_questions is not None:
         session.num_questions = num_questions
