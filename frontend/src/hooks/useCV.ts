@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { CVInfo } from '../types'
-import { deleteCV, uploadCV } from '../services/api'
+import { ApiError, deleteCV, uploadCV } from '../services/api'
 
 export const ACCEPTED_CV_TYPES = '.pdf,.docx,.txt'
 const MAX_BYTES = 5 * 1024 * 1024
@@ -13,7 +13,7 @@ interface CVState {
 
 const initial: CVState = { info: null, uploading: false, error: null }
 
-export function useCV() {
+export function useCV(onUnauthorized?: () => void) {
   const [state, setState] = useState<CVState>(initial)
 
   const upload = useCallback(
@@ -38,12 +38,16 @@ export function useCV() {
         })
         return result.session_id
       } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          onUnauthorized?.()
+          return null
+        }
         const message = err instanceof Error ? err.message : 'Upload failed'
         setState({ info: null, uploading: false, error: message })
         return null
       }
     },
-    [],
+    [onUnauthorized],
   )
 
   const remove = useCallback(async (sessionId: string) => {

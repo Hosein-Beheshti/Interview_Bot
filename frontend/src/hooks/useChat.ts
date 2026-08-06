@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { ChatState, Message, ScoreResult } from '../types'
-import { deleteSession, describeError, streamMessage } from '../services/api'
+import { ApiError, deleteSession, describeError, streamMessage } from '../services/api'
 
 const SESSION_STORAGE_KEY = 'interview_session_id'
 
@@ -29,7 +29,7 @@ function updateStreamingMessage(
   return { ...state, messages }
 }
 
-export function useChat() {
+export function useChat(onUnauthorized?: () => void) {
   const [state, setState] = useState<ChatState>(initialState)
 
   useEffect(() => {
@@ -95,6 +95,13 @@ export function useChat() {
           },
         })
       } catch (err) {
+        // A 401 means the session cookie expired or was revoked mid-use —
+        // no amount of retrying fixes that, so send the user back to the
+        // login screen instead of leaving them stuck on a dead error.
+        if (err instanceof ApiError && err.status === 401) {
+          onUnauthorized?.()
+          return
+        }
         // The turn did not commit server-side, so drop both messages rather than
         // leaving a half-turn the candidate cannot act on.
         setState((prev) => ({
@@ -106,7 +113,7 @@ export function useChat() {
         }))
       }
     },
-    [state.session_id],
+    [state.session_id, onUnauthorized],
   )
 
   const reset = useCallback(() => {

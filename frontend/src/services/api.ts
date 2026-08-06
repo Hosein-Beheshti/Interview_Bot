@@ -140,6 +140,14 @@ export async function uploadCV(
   const response = await fetch(`${API_BASE}/cv/upload`, {
     method: 'POST',
     credentials: 'include',
+    // A multipart body is a CORS "simple request" that browsers send without
+    // a preflight check, so the server's origin whitelist is never consulted
+    // before it's sent — a plain auto-submitting HTML form on another site
+    // could otherwise trigger this while a victim is logged in (cookies are
+    // SameSite=None in production, since frontend/backend are cross-site).
+    // A custom header can't be set by a plain form, so adding one forces a
+    // real preflight, and CORS then blocks any origin not on the whitelist.
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
     body: form,
   })
 

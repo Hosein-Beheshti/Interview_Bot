@@ -19,13 +19,13 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ user, onLogout, onCreditsChanged }: ChatInterfaceProps) {
-  const { messages, session_id, question_number, num_questions, is_complete, summary, loading, streaming, error, send, reset, forget, adoptSession, dismissError } = useChat()
+  const { messages, session_id, question_number, num_questions, is_complete, summary, loading, streaming, error, send, reset, forget, adoptSession, dismissError } = useChat(onLogout)
   const {
     isListening, transcript, interimText, isSpeaking, micError,
     unlockAudio, startListening, stopListening, resetTranscript,
     speak, stopSpeaking,
   } = useVoice()
-  const cv = useCV()
+  const cv = useCV(onLogout)
   const [input, setInput] = useState('')
   const [role, setRole] = useState('Software Engineer')
   const [jobDescription, setJobDescription] = useState('')
