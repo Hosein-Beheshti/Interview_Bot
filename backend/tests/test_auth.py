@@ -70,6 +70,20 @@ def test_hash_token_never_returns_the_raw_token():
 
 
 # --------------------------------------------------------------------------- #
+# Naive-datetime defense (SQLite doesn't round-trip tzinfo the way Postgres's
+# timestamptz columns do)
+# --------------------------------------------------------------------------- #
+def test_as_aware_utc_leaves_an_aware_datetime_unchanged():
+    dt = datetime(2026, 1, 1, tzinfo=UTC)
+    assert auth._as_aware_utc(dt) == dt
+
+
+def test_as_aware_utc_attaches_utc_to_a_naive_datetime():
+    dt = datetime(2026, 1, 1)
+    assert auth._as_aware_utc(dt) == datetime(2026, 1, 1, tzinfo=UTC)
+
+
+# --------------------------------------------------------------------------- #
 # get_current_user
 # --------------------------------------------------------------------------- #
 def test_get_current_user_rejects_a_missing_cookie():

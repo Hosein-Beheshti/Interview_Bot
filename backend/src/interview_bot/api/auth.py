@@ -25,6 +25,13 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def _as_aware_utc(dt: datetime) -> datetime:
+    """Treat a naive datetime as UTC. Postgres's timestamptz columns are always
+    tz-aware in production; this only guards a comparison that would otherwise
+    raise if a session is ever read back naive."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 def _in_production() -> bool:
     return bool(settings.railway_environment)
 
@@ -83,7 +90,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     user_session = (
         db.query(UserSession).filter(UserSession.token_hash == hash_token(token)).first()
     )
-    if user_session is None or user_session.expires_at < datetime.now(UTC):
+    if user_session is None or _as_aware_utc(user_session.expires_at) < datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in")
 
     user = db.query(User).filter(User.id == user_session.user_id).first()

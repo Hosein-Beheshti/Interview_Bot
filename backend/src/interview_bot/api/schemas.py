@@ -100,3 +100,15 @@ class CVStatusResponse(BaseModel):
     has_cv: bool
     filename: str | None = None
     sections: list[str] | None = None
+
+
+class GoogleLoginRequest(BaseModel):
+    id_token: str = Field(..., min_length=1)
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    display_name: str | None = None
+    picture_url: str | None = None
+    credits: int
