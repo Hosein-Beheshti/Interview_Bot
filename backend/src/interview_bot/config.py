@@ -11,6 +11,22 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     model: str = "claude-haiku-4-5-20251001"
 
+    # Model for interviewer turn generation (main questions and follow-ups).
+    # Empty means "use `model`", which is the default and keeps one model for
+    # everything.
+    #
+    # Generation is worth splitting out from the rest: it is the only output the
+    # candidate reads, it is where a small model's drift shows up (unlabelled
+    # questions, follow-ups that wander off topic), and it runs once per turn
+    # rather than once per answer plus once per judgement. Scoring, judging, and
+    # extraction stay on `model` — they are schema-constrained, so they are far
+    # less sensitive to model strength, and they are the higher-volume calls.
+    #
+    # Set to e.g. "claude-sonnet-4-5" to interview on Sonnet while grading on
+    # Haiku. The model name is part of a request's replay identity, so changing
+    # it invalidates the interviewer cassettes and needs `make record`.
+    generator_model: str = ""
+
     # Google Gemini. Required only when llm_provider == "gemini". A free key is
     # available from https://aistudio.google.com/apikey.
     gemini_api_key: str = ""
@@ -136,6 +152,36 @@ class Settings(BaseSettings):
     # running locally or in CI. Used only to decide whether a still-default
     # CORS config is worth a loud startup warning — not a general env-name flag.
     railway_environment: str = ""
+
+    # ---- Auth & credits ---------------------------------------------------
+    # Google OAuth client id (Google Cloud Console → Credentials → OAuth client
+    # ID). Checked as the ID token's audience — a token minted for a different
+    # app is rejected even if otherwise genuine.
+    google_client_id: str = ""
+
+    # Credits granted once, at first login. 0 disables the free allowance.
+    signup_credit_grant: int = 20
+
+    # Credits debited to start one interview session.
+    interview_session_credit_cost: int = 5
+
+    # Credits debited per transcription request.
+    transcription_credit_cost: int = 1
+
+    # Credits debited per 1,000 characters of text-to-speech synthesized.
+    tts_credit_cost_per_1k_chars: int = 1
+
+    # Kill switch: false skips every credit check (per-IP and global-token
+    # limits still apply) — lets metering be turned off via env var alone, no
+    # redeploy.
+    require_credits_to_start_session: bool = True
+
+    # Name of the HttpOnly cookie carrying the (hashed, server-side) session
+    # token. Changing it invalidates every existing login at once.
+    session_cookie_name: str = "interview_bot_session"
+
+    # Days a login stays valid before the browser must sign in again.
+    session_max_age_days: int = 30
 
     # `extra="ignore"`: tolerate unknown keys in .env (typos, vars for other
     # tools) instead of crashing at startup.
