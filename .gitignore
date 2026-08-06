@@ -4,8 +4,9 @@ backend/.env
 frontend/.env.local
 frontend/.env
 
-# Claude Code
+# Local editor/assistant tooling config, not part of the published repo
 .claude/
+CLAUDE.md
 
 # Python
 __pycache__/
