@@ -15,13 +15,15 @@ never the other way.
 """
 from __future__ import annotations
 
-from collections.abc import Callable
+import contextlib
+from collections.abc import Callable, Iterator
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from interview_bot.api.auth import get_current_user
 from interview_bot.config import settings
+from interview_bot.logger import logger
 from interview_bot.persistence import users as user_store
 from interview_bot.persistence.database import get_db
 from interview_bot.persistence.models import User
@@ -35,6 +37,36 @@ def debit(db: Session, user_id: str, cost: int) -> int:
             status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Insufficient credits."
         )
     return result
+
+
+@contextlib.contextmanager
+def charged(db: Session, user_id: str, cost: int) -> Iterator[None]:
+    """Debit `cost` up front, giving it back if the wrapped work fails.
+
+    A debit cannot share a transaction with the work it pays for — that work is
+    a call to a third party, and holding the user row locked across it would
+    serialize all of that user's requests behind the slowest one. So the debit
+    commits first and a failure is compensated rather than rolled back. Raises
+    402 before the block runs if the balance is short, and is a no-op when the
+    credit kill switch is off or the cost is zero.
+    """
+    if not settings.require_credits_to_start_session or cost <= 0:
+        yield
+        return
+
+    debit(db, user_id, cost)
+    try:
+        yield
+    except Exception:
+        # Best-effort: a failed refund must not replace the original error, which
+        # is the one that explains what actually broke.
+        try:
+            user_store.refund_credits(db, user_id, cost)
+        except Exception as refund_error:
+            logger.error(
+                f"Credit refund failed | user={user_id} | credits={cost} | error={refund_error}"
+            )
+        raise
 
 
 def require(cost: int) -> Callable[..., None]:

@@ -36,6 +36,23 @@ def test_debit_credits_is_a_no_op_for_a_non_positive_cost():
     assert user_store.debit_credits(db, "u1", 0) == -1
 
 
+def test_refund_credits_returns_the_new_balance():
+    db = _db(returns=(20,))
+    assert user_store.refund_credits(db, "u1", 5) == 20
+    db.commit.assert_called_once()
+
+
+def test_refund_credits_returns_none_for_a_missing_user():
+    db = _db(returns=None)
+    assert user_store.refund_credits(db, "u1", 5) is None
+
+
+def test_refund_credits_is_a_no_op_for_a_non_positive_cost():
+    db = MagicMock()
+    db.execute = _unreachable
+    assert user_store.refund_credits(db, "u1", 0) == -1
+
+
 def test_get_or_create_creates_a_new_user_for_an_unknown_google_sub():
     db = MagicMock()
     db.query.return_value.filter.return_value.first.return_value = None

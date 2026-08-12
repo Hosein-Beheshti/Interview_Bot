@@ -21,6 +21,8 @@ _DEBIT = text(
     "RETURNING credits"
 )
 
+_REFUND = text("UPDATE users SET credits = credits + :cost WHERE id = :id RETURNING credits")
+
 
 def get_by_google_sub(db: Session, google_sub: str) -> User | None:
     return db.query(User).filter(User.google_sub == google_sub).first()
@@ -75,5 +77,24 @@ def debit_credits(db: Session, user_id: str, cost: int) -> int | None:
     if cost <= 0:
         return -1
     result = db.execute(_DEBIT, {"id": user_id, "cost": cost}).first()
+    db.commit()
+    return result[0] if result is not None else None
+
+
+def refund_credits(db: Session, user_id: str, cost: int) -> int | None:
+    """Give back `cost` credits previously taken by `debit_credits`.
+
+    The compensating half of the debit. A debit cannot share a transaction with
+    the work it pays for: that work is several seconds of provider calls, and
+    holding the user row locked across them would serialize every one of that
+    user's requests behind the slowest one. So the debit commits immediately and
+    a failure afterwards is repaired here instead.
+
+    Unconditional — unlike a debit there is no balance to check, so the only way
+    this returns `None` is a user row that no longer exists.
+    """
+    if cost <= 0:
+        return -1
+    result = db.execute(_REFUND, {"id": user_id, "cost": cost}).first()
     db.commit()
     return result[0] if result is not None else None

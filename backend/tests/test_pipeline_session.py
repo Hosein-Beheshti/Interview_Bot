@@ -51,6 +51,53 @@ def test_create_from_context_skips_the_credit_check_when_disabled(monkeypatch):
     )
 
 
+def test_failed_setup_refunds_the_debited_credits(monkeypatch):
+    # The debit commits before the paid-for work starts (it cannot hold the user
+    # row locked across several seconds of provider calls), so a failure after it
+    # would otherwise bill the caller for a session that does not exist.
+    monkeypatch.setattr(settings, "require_credits_to_start_session", True)
+    monkeypatch.setattr(settings, "interview_session_credit_cost", 5)
+    monkeypatch.setattr(
+        session_flow.user_store, "debit_credits", lambda db, user_id, cost: 10
+    )
+    refunds: list[tuple[str, int]] = []
+    monkeypatch.setattr(
+        session_flow.user_store,
+        "refund_credits",
+        lambda db, user_id, cost: refunds.append((user_id, cost)),
+    )
+
+    async def _explode(job_context):
+        raise RuntimeError("profile extraction failed")
+
+    monkeypatch.setattr(session_flow, "build_profile", _explode, raising=False)
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(
+            session_flow.create_from_context(
+                db=object(), job_context="Backend role.", role=None, user_id="u1"
+            )
+        )
+    assert refunds == [("u1", 5)]
+
+
+def test_no_refund_when_credits_were_never_charged(monkeypatch):
+    monkeypatch.setattr(settings, "require_credits_to_start_session", False)
+    monkeypatch.setattr(session_flow.user_store, "refund_credits", _unreachable)
+
+    async def _explode(job_context):
+        raise RuntimeError("profile extraction failed")
+
+    monkeypatch.setattr(session_flow, "build_profile", _explode, raising=False)
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(
+            session_flow.create_from_context(
+                db=object(), job_context="Backend role.", role=None, user_id="u1"
+            )
+        )
+
+
 def _unreachable(*args, **kwargs):
     raise AssertionError("the credit check must not run when it's disabled")
 

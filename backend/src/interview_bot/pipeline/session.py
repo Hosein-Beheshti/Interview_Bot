@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from interview_bot.config import settings
 from interview_bot.domain.profile import minimal
+from interview_bot.logger import logger
 from interview_bot.persistence import sessions as store
 from interview_bot.persistence import users as user_store
 from interview_bot.persistence.models import InterviewSession
@@ -48,11 +49,48 @@ async def create_from_context(
     does, so the kill switch turns off metering everywhere a session can be
     created, not just at `POST /sessions`.
     """
+    charged = 0
     if settings.require_credits_to_start_session:
         cost = settings.interview_session_credit_cost
         if user_store.debit_credits(db, user_id, cost) is None:
             raise InsufficientCreditsError(f"user={user_id} needs {cost} credits")
+        charged = cost
 
+    try:
+        return await _build_and_store(
+            db,
+            job_context=job_context,
+            role=role,
+            user_id=user_id,
+            num_questions=num_questions,
+        )
+    except Exception:
+        # The debit committed before this work started (it has to — see
+        # `users.refund_credits`), so a failure here would otherwise bill the
+        # caller for a session that does not exist. Give the credits back before
+        # the error propagates. Best-effort: a failed refund must not replace the
+        # original error, which is the one that explains what actually broke.
+        if charged:
+            try:
+                user_store.refund_credits(db, user_id, charged)
+            except Exception as refund_error:
+                logger.error(
+                    f"Credit refund failed | user={user_id} | credits={charged} | "
+                    f"error={refund_error}"
+                )
+        raise
+
+
+async def _build_and_store(
+    db: Session,
+    *,
+    job_context: str | None,
+    role: str | None,
+    user_id: str,
+    num_questions: int | None,
+) -> InterviewSession:
+    """The paid-for work itself: extract, plan, persist. Split out so the credit
+    refund above wraps every failure path in one place."""
     resolved_questions = num_questions or settings.max_questions
     async with observe_turn("session_create", metadata={"has_job_context": bool(job_context)}):
         if job_context:
