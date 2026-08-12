@@ -4,15 +4,27 @@ Both wrap a third-party vendor (Deepgram). Vendor failures are logged with their
 detail and reported to the caller as a bare 502: an upstream error body can carry
 request ids, quota figures, or fragments of our own request, and these endpoints
 are reachable by anyone.
+
+Both spend vendor money per call, so both require a signed-in user and debit
+credits, the same way session creation does. Without that, `/speak` is an open
+text-to-speech proxy for anyone who can reach the URL and `/transcribe` an open
+transcription one — the per-IP quotas alone only bound how fast a single address
+can spend, not who is allowed to.
 """
+import math
+
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from interview_bot.api import limits
+from interview_bot.api import credits, limits
+from interview_bot.api.auth import get_current_user
 from interview_bot.config import settings
 from interview_bot.integrations import speech
 from interview_bot.logger import logger
+from interview_bot.persistence.database import get_db
+from interview_bot.persistence.models import User
 
 router = APIRouter(tags=["voice"])
 
@@ -24,8 +36,14 @@ class SpeakRequest(BaseModel):
 
 
 @router.post("/transcribe", dependencies=[Depends(limits.enforce(limits.TRANSCRIPTION))])
-async def transcribe(audio: UploadFile = File(...)) -> dict[str, str]:
+async def transcribe(
+    audio: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict[str, str]:
     audio_bytes = await audio.read()
+    # Validate before charging: a malformed upload never reaches the vendor, so
+    # it must not cost the caller anything.
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Empty audio upload")
     if len(audio_bytes) > settings.audio_max_bytes:
@@ -34,24 +52,41 @@ async def transcribe(audio: UploadFile = File(...)) -> dict[str, str]:
     if not speech.is_supported_content_type(audio.content_type):
         raise HTTPException(status_code=415, detail="Unsupported audio type.")
 
-    try:
-        transcript = await speech.transcribe(audio_bytes, audio.content_type or "audio/webm")
-    except Exception as e:
-        logger.error(f"Transcription failed | bytes={len(audio_bytes)} | error={e}")
-        raise HTTPException(status_code=502, detail="Transcription unavailable") from e
+    with credits.charged(db, user.id, settings.transcription_credit_cost):
+        try:
+            transcript = await speech.transcribe(audio_bytes, audio.content_type or "audio/webm")
+        except Exception as e:
+            logger.error(f"Transcription failed | bytes={len(audio_bytes)} | error={e}")
+            raise HTTPException(status_code=502, detail="Transcription unavailable") from e
     return {"transcript": transcript}
 
 
 @router.post("/speak")
-async def speak(request: SpeakRequest, http_request: Request) -> Response:
+async def speak(
+    request: SpeakRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Response:
     # Charged per character, not per call: synthesis is billed by length, so a
     # handful of maximum-length requests costs the same as many short ones.
     limits.charge(
         limits.TTS_CHARACTERS, limits.client_ip(http_request), amount=len(request.text)
     )
-    try:
-        audio_bytes = await speech.synthesize(request.text)
-    except Exception as e:
-        logger.error(f"Speech synthesis failed | chars={len(request.text)} | error={e}")
-        raise HTTPException(status_code=502, detail="Speech synthesis unavailable") from e
+    with credits.charged(db, user.id, _tts_credit_cost(len(request.text))):
+        try:
+            audio_bytes = await speech.synthesize(request.text)
+        except Exception as e:
+            logger.error(f"Speech synthesis failed | chars={len(request.text)} | error={e}")
+            raise HTTPException(status_code=502, detail="Speech synthesis unavailable") from e
     return Response(content=audio_bytes, media_type="audio/mpeg")
+
+
+def _tts_credit_cost(chars: int) -> int:
+    """Credits for synthesizing `chars`, rounded up to the next 1,000.
+
+    Rounding up rather than down so that many short requests cannot be cheaper
+    than one long one carrying the same total — the split is exactly the way to
+    game a per-1k charge that truncates.
+    """
+    return math.ceil(chars / 1000) * settings.tts_credit_cost_per_1k_chars
