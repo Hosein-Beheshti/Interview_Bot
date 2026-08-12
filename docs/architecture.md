@@ -77,8 +77,17 @@ bytes are themselves outputs.**
 3. **Contract tests** (`tests/contract/`) run everything under replay and assert:
    golden outputs (profile, plan, per-competency scores, summary) equal the
    committed recordings; exact assembled prompt bytes match snapshots; FSM
-   trajectories and per-turn decisions match. All offline, in seconds. A prompt
-   change misses its cassette *and* fails the snapshot — loudly, on purpose.
+   trajectories and per-turn decisions match. All offline, in seconds.
+4. **Two tiers, since the restructure landed.** Exact-hash replay makes one
+   reworded line of interviewer guidance miss every cassette and demand a paid
+   `make record` — the right price while proving a refactor changed nothing, the
+   wrong one while tuning prompts. `settings.cassette_fallback` (on in `make
+   test`, off in `make test-strict`) lets a missed `llm.generate` replay the
+   cassette recorded for the same *conversation*, keyed on the fields a prompt
+   edit doesn't touch. Structured calls (`llm.parse`,
+   `llm.generate_structured`) never fall back: their recorded shape is the thing
+   under test. So `make test` proves the server-owned logic, `make test-strict`
+   proves the freeze.
 
 ## Measuring the system on real traffic
 
@@ -164,9 +173,10 @@ partial result that says so beats a whole-looking one that isn't.
   closing turn is rendered rather than generated — so the worst case is an odd
   question, not a hijacked interview. Fixing it means adding a line to
   `prompts/interviewer.py` telling the model to treat that text as reference data
-  and never as instructions, which is a deliberate prompt change: it alters the
-  assembled bytes, so it needs its own commit, updated snapshots, and re-recorded
-  cassettes (`make record`, requires API keys). Not something to slip in.
+  and never as instructions — a deliberate prompt change needing its own commit
+  and updated snapshots (`make snapshots`). Since the two-tier split above, this
+  no longer requires `make record`, so it is now a cheap fix rather than a
+  deferred one. Still its own commit, not something to slip in.
 - **A follow-up answer is graded against the main question's key points.**
   `pipeline/interview` looks up the answered question's blueprint slot regardless
   of whether the turn answered was a follow-up, and follow-ups have no slot of

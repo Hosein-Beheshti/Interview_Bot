@@ -15,6 +15,13 @@ the hash is the cassette's identity. Any change to the assembled request — one
 byte of prompt text included — therefore misses its cassette and fails loudly
 under replay, which is exactly the property the behavior-freeze tests rely on.
 
+That strictness prices every prompt edit at a paid re-record, which is the right
+trade while proving a refactor changed nothing and the wrong one while tuning the
+interviewer. `settings.cassette_fallback` relaxes it for free-text generation
+only: on a miss, replay the cassette for the same conversation. See
+`_replay_fallback` — the exact-hash path is untouched, so a run with the fallback
+off still proves the strict property.
+
 Cassettes are versioned fixture files (JSON, one per request) meant to be
 committed. Callers whose live result isn't JSON (a Pydantic model, raw audio
 bytes) pass `encode`/`decode` to map between the result and its cassette form;
@@ -26,6 +33,7 @@ import hashlib
 import json
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +74,72 @@ def canonical_request(request: dict) -> str:
 
 def request_hash(request: dict) -> str:
     return hashlib.sha256(canonical_request(request).encode("utf-8")).hexdigest()
+
+
+# --- The prompt-iteration escape hatch ------------------------------------
+# Exact-hash replay is what freezes behavior, but it also means one edited word
+# of interviewer guidance misses every cassette and demands a paid re-record.
+# When `settings.cassette_fallback` is on, a missed `llm.generate` falls back to
+# the cassette recorded for the same *conversation*, so prompt wording can move
+# freely while the offline suite still exercises everything downstream of the
+# reply. Narrow on purpose — see the `cassette_fallback` note in `config.py`.
+
+_FALLBACK_KINDS = frozenset({"llm.generate"})
+
+# The request fields a prompt edit rewrites. Everything else — provider, model,
+# messages, sampling params — must still match exactly for a cassette to be a
+# candidate at all.
+_PROMPT_FIELDS = frozenset({"system", "cache_prefix"})
+
+# Matching on the non-prompt fields alone is not enough: on the opening turn every
+# fixture has the same (empty) message list, and what distinguishes them — role,
+# job context, CV — lives entirely in the prompt. So candidates are ranked by how
+# similar their prompt text is to the one being replayed. A reworded rule leaves
+# it near-identical; a different role scores nowhere close. Below this ratio the
+# best candidate is a different conversation, and missing loudly beats replaying
+# someone else's interview.
+_FALLBACK_MIN_RATIO = 0.75
+
+
+def _replay_identity(request: dict) -> str:
+    """The part of a request that must match exactly for a fallback candidate."""
+    return canonical_request({k: v for k, v in request.items() if k not in _PROMPT_FIELDS})
+
+
+def _prompt_text(request: dict) -> str:
+    """The prompt-bearing text of a request, as one comparable string."""
+    return "\n".join(str(request.get(field) or "") for field in sorted(_PROMPT_FIELDS))
+
+
+def _nearest_cassette(kind: str, request: dict) -> tuple[Path | None, float]:
+    """The recorded cassette whose prompt most resembles this request's.
+
+    Scanned fresh on every miss rather than cached: the dir is a few dozen small
+    files, this runs only on a miss, and a cache left stale by `make record`
+    would be a genuinely confusing thing to debug.
+    """
+    identity = _replay_identity(request)
+    prompt = _prompt_text(request)
+    best: Path | None = None
+    best_ratio = 0.0
+
+    # Sorted so that equally-similar candidates resolve the same way every run —
+    # the fallback must not make replay depend on directory order.
+    for path in sorted(cassette_dir().glob("*.json")):
+        try:
+            entry = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        candidate = entry.get("request")
+        if entry.get("kind") != kind or not isinstance(candidate, dict):
+            continue
+        if _replay_identity(candidate) != identity:
+            continue
+        ratio = SequenceMatcher(None, prompt, _prompt_text(candidate)).ratio()
+        if ratio > best_ratio:
+            best, best_ratio = path, ratio
+
+    return best, best_ratio
 
 
 async def call(
@@ -168,15 +242,55 @@ def _cassette_path(hash_: str) -> Path:
     return cassette_dir() / f"{hash_[:16]}.json"
 
 
+def _miss(kind: str, hash_: str, extra: str = "") -> CassetteMiss:
+    return CassetteMiss(
+        f"No cassette for {kind} request (hash {hash_[:16]}) in {cassette_dir()}. "
+        f"The assembled request differs from every recorded one — either record "
+        f"it (transport_mode=record) or find what changed the request bytes.{extra}"
+    )
+
+
+def _replay_fallback(kind: str, request: dict, hash_: str) -> Path:
+    """Resolve a missed request to a same-conversation cassette, or raise.
+
+    Only reached on an exact-hash miss, and only yields a path when the fallback
+    is enabled for this kind — otherwise a miss stays the hard error it is.
+    """
+    if not settings.cassette_fallback or kind not in _FALLBACK_KINDS:
+        hint = (
+            ""
+            if kind in _FALLBACK_KINDS
+            else f" ({kind} never falls back — its recorded shape is under test.)"
+        )
+        raise _miss(kind, hash_, hint)
+
+    path, ratio = _nearest_cassette(kind, request)
+    if path is None or ratio < _FALLBACK_MIN_RATIO:
+        raise _miss(
+            kind,
+            hash_,
+            f" The closest recording for this conversation scores {ratio:.2f} "
+            f"prompt similarity (need {_FALLBACK_MIN_RATIO}), so the inputs "
+            f"changed, not just the prompt wording.",
+        )
+
+    # Loud on purpose: this reply was recorded against different prompt bytes, so
+    # assertions on the reply *text* no longer mean anything — only the logic
+    # downstream of it does.
+    logger.warning(
+        f"Cassette fallback: {kind} request {hash_[:16]} missed; replaying "
+        f"{path.name} ({ratio:.2f} prompt similarity), recorded for the same "
+        f"conversation under different prompt bytes. Run `make record` before "
+        f"trusting generated text."
+    )
+    return path
+
+
 def _replay(kind: str, request: dict) -> Any:
     hash_ = request_hash(request)
     path = _cassette_path(hash_)
     if not path.is_file():
-        raise CassetteMiss(
-            f"No cassette for {kind} request (hash {hash_[:16]}) in {cassette_dir()}. "
-            f"The assembled request differs from every recorded one — either record "
-            f"it (transport_mode=record) or find what changed the request bytes."
-        )
+        path = _replay_fallback(kind, request, hash_)
     entry = json.loads(path.read_text(encoding="utf-8"))
     if entry["kind"] != kind:
         raise CassetteMiss(

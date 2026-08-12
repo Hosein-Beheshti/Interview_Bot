@@ -105,6 +105,20 @@ class Settings(BaseSettings):
     # Where cassettes live. A relative path is anchored at the backend root so
     # the same value works from any working directory.
     cassette_dir: str = "cassettes"
+    # Under replay, let a free-text generation (`llm.generate`) fall back to the
+    # cassette recorded for the same *conversation* when its exact request hash
+    # misses. Editing interviewer prompt wording changes the request bytes and so
+    # would otherwise miss every cassette, making a one-word prompt tweak cost a
+    # full `make record` against the live APIs. The fallback keys on the fields a
+    # prompt edit does not touch (provider, model, messages, sampling), so the
+    # offline suite keeps exercising the server-owned logic — progression, label
+    # repair, scoring, summary — while the prompt is in flux.
+    #
+    # Deliberately narrow: only `llm.generate`, whose recorded reply is just
+    # plausible English. `llm.parse` and `llm.generate_structured` never fall back
+    # — their recorded *shape* is the thing under test, so a miss there is a real
+    # error. Off by default; the offline gate turns it on (see the Makefile).
+    cassette_fallback: bool = False
 
     # Observability (self-hosted Langfuse). Tracing is best-effort: when disabled
     # (the default) or misconfigured it is a no-op and never affects a request, so
