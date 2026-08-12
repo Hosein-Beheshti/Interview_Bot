@@ -150,6 +150,12 @@ def test_require_owner_rejects_a_different_user():
     assert excinfo.value.status_code == 403
 
 
-def test_require_owner_allows_anyone_for_a_legacy_ownerless_session():
+def test_require_owner_denies_a_legacy_ownerless_session():
+    # Rows created before accounts existed have no owner and can still hold a CV
+    # and a full transcript. They are denied to everyone rather than granted to
+    # everyone: nothing can ever claim them, so an allow rule would stay open for
+    # the rest of the retention window.
     session = SimpleNamespace(user_id=None)
-    auth.require_owner(session, "u2")  # must not raise — unchanged status quo
+    with pytest.raises(auth.HTTPException) as excinfo:
+        auth.require_owner(session, "u2")
+    assert excinfo.value.status_code == 403

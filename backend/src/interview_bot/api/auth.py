@@ -106,11 +106,14 @@ def require_owner(session: InterviewSession, user_id: str) -> None:
     hand (e.g. `pipeline.session`'s lazy-create threading) don't need to load
     a full `User` just to check ownership.
 
-    A session with no recorded owner (`user_id is None` — created before
-    accounts existed) stays reachable by anyone, unchanged from before
-    accounts were added; only sessions with a recorded owner are checked.
+    An unowned session (`user_id is None` — created before accounts existed) is
+    denied to everyone rather than allowed to everyone. Those rows predate
+    sign-in and can hold an uploaded CV and a full transcript, so leaving them
+    world-readable is an open door that never closes on its own: it stays open
+    for whatever remains of `session_retention_days`. Every path that creates a
+    session now records an owner, so this only affects legacy rows.
     """
-    if session.user_id is not None and session.user_id != user_id:
+    if session.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your session")
 
 
