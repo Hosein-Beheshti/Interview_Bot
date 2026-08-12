@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # Log straight through rather than buffering output a crash would then discard.
 ENV PYTHONUNBUFFERED=1 \
