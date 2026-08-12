@@ -235,9 +235,16 @@ export function useVoice() {
         credentials: 'include',
         body: JSON.stringify({ text }),
       })
-      if (!res.ok) return null
+      // Every failure here degrades to the browser voice, which is silent and
+      // permanent-looking from the outside — 402 (out of credits) and 429 (the
+      // per-IP character quota) in particular are exhaustion, not an outage.
+      if (!res.ok) {
+        console.warn(`/speak failed with ${res.status} — falling back to the browser voice`)
+        return null
+      }
       return await res.blob()
-    } catch {
+    } catch (err) {
+      console.warn('/speak did not complete — falling back to the browser voice', err)
       return null
     }
   }, [])
@@ -323,6 +330,7 @@ export function useVoice() {
         const played = blob ? await playBlob(blob, myId) : false
         if (speakSeqRef.current !== myId) return
         if (!played) {
+          if (blob) console.warn('Synthesized audio would not play — falling back to the browser voice')
           await speakViaBrowser(chunk.text, myId)
           if (speakSeqRef.current !== myId) return
         }
