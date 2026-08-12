@@ -15,6 +15,7 @@ from interview_bot.api.routes.health import router as health_router
 from interview_bot.api.routes.sessions import router as sessions_router
 from interview_bot.api.routes.voice import router as voice_router
 from interview_bot.config import is_dev_cors_in_production, settings
+from interview_bot.integrations import speech
 from interview_bot.logger import logger
 from interview_bot.persistence import schema
 from interview_bot.telemetry import shutdown as observability_shutdown
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await speech.close()
         observability_shutdown()
 
 

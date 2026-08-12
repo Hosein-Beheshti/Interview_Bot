@@ -40,8 +40,11 @@ def upsert(
                 content=content,
                 embedding=embedding,
             )
+            # strict=True: the three lists were just checked to be the same
+            # length, so a mismatch here is a bug that should surface rather than
+            # silently drop the tail of the CV.
             for i, (content, embedding, section) in enumerate(
-                zip(chunks, embeddings, sections, strict=False)
+                zip(chunks, embeddings, sections, strict=True)
             )
         )
         db.commit()

@@ -53,6 +53,20 @@ def _get_client() -> httpx.AsyncClient:
     return _client
 
 
+async def close() -> None:
+    """Release the shared client's connection pool. Called on app shutdown.
+
+    The client is process-lived and holds keep-alive sockets, so without this the
+    pool is torn down by interpreter exit rather than closed — noisy under an
+    orderly restart, and a warning under any test that runs an event loop to
+    completion. Safe to call when no client was ever created.
+    """
+    global _client
+    if _client is not None:
+        await _client.aclose()
+        _client = None
+
+
 def _auth_headers(content_type: str) -> dict[str, str]:
     if not settings.deepgram_api_key:
         raise RuntimeError("DEEPGRAM_API_KEY is not set — required for voice features")

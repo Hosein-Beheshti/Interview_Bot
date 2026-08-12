@@ -39,6 +39,22 @@ python_version = "3.12"
 ignore_missing_imports = true
 files = ["src"]
 
+# Without `check_untyped_defs`, mypy skips the *bodies* of functions that lack
+# annotations — which here meant the interview engine's hot path was silently
+# unchecked, because `session` is an unannotated parameter throughout it.
+check_untyped_defs = true
+# Keeps the `# type: ignore` comments around the provider SDKs honest: an ignore
+# that stops being necessary becomes an error instead of quiet cruft.
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+warn_unreachable = true
+# Next ratchet: `disallow_incomplete_defs`. It reports 30 errors today, almost
+# all of them the untyped `session` parameter threaded through
+# pipeline/interview.py, domain/plan.py and retrieval/cv_context.py. Turning it
+# on requires giving that object a type first — see the session-Protocol note in
+# docs/architecture.md.
+
 # The dependency rule, enforced mechanically (run: lint-imports).
 [tool.importlinter]
 root_package = "interview_bot"

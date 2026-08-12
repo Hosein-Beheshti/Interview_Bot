@@ -26,7 +26,7 @@ class Handle(ABC):
 
 
 class _NullHandle(Handle):
-    def set_output(self, output: Any) -> None:  # noqa: D102 - no-op
+    def set_output(self, output: Any) -> None:
         pass
 
 
@@ -71,7 +71,7 @@ class NoopBackend(TracingBackend):
 
 
 def _build_backend() -> TracingBackend:
-    if not getattr(settings, "langfuse_enabled", False):
+    if not settings.langfuse_enabled:
         return NoopBackend()
     try:
         from .langfuse_backend import LangfuseBackend

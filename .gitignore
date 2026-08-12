@@ -33,6 +33,7 @@ Thumbs.db
 *.egg-info/
 
 # Generated eval reports (the *_golden_set.json fixtures are the only tracked evals JSON)
+backend/report.json
 backend/evals/*.json
 !backend/evals/scorer_golden_set.json
 !backend/evals/generator_golden_set.json
