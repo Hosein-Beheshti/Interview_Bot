@@ -153,6 +153,14 @@ class Settings(BaseSettings):
     # is caller-supplied, so trusting it lets anyone reset their own rate limit.
     trust_proxy_headers: bool = False
 
+    # How many proxies sit in front of this app. X-Forwarded-For is append-only,
+    # so only the rightmost entries were written by infrastructure we control —
+    # everything to the left of them is whatever the caller sent. Reading the
+    # leftmost entry (the usual mistake) lets anyone mint a fresh rate-limit
+    # identity per request by sending the header themselves. 1 is correct for a
+    # single edge proxy such as Railway; raise it only if you add another hop.
+    trusted_proxy_hops: int = 1
+
     # How long an interview session — transcript, scores, and the uploaded CV's
     # text and embeddings — is retained before the sweep erases it. Uploaded CVs
     # are personal data from people trying a public demo; keep the window short.

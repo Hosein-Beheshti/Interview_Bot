@@ -56,10 +56,34 @@ def test_client_ip_uses_socket_address_by_default(monkeypatch):
     assert limits.client_ip(request) == "10.0.0.1"
 
 
-def test_client_ip_reads_forwarded_header_when_behind_a_proxy(monkeypatch):
+def test_client_ip_reads_the_hop_the_trusted_proxy_appended(monkeypatch):
     monkeypatch.setattr(settings, "trust_proxy_headers", True)
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
+    # One trusted proxy: it appended the address it saw, so the real caller is
+    # the last entry. Everything to its left is unverified.
     request = _request({"x-forwarded-for": "1.2.3.4, 10.0.0.9"}, host="10.0.0.1")
-    assert limits.client_ip(request) == "1.2.3.4"
+    assert limits.client_ip(request) == "10.0.0.9"
+
+
+def test_client_ip_ignores_a_forged_prefix(monkeypatch):
+    # The bypass this parsing exists to stop: a caller sends their own
+    # X-Forwarded-For, the edge appends the real address, and reading the
+    # leftmost entry would hand the caller a fresh rate-limit identity per
+    # request just by varying what they send.
+    monkeypatch.setattr(settings, "trust_proxy_headers", True)
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
+    forged = _request({"x-forwarded-for": "9.9.9.9, 203.0.113.7"}, host="10.0.0.1")
+    other = _request({"x-forwarded-for": "8.8.8.8, 203.0.113.7"}, host="10.0.0.1")
+    assert limits.client_ip(forged) == limits.client_ip(other) == "203.0.113.7"
+
+
+def test_client_ip_falls_back_when_the_chain_is_shorter_than_expected(monkeypatch):
+    # Two trusted hops configured but only one entry present means the request
+    # did not arrive through the assumed chain, so the header proves nothing.
+    monkeypatch.setattr(settings, "trust_proxy_headers", True)
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 2)
+    request = _request({"x-forwarded-for": "1.2.3.4"}, host="10.0.0.1")
+    assert limits.client_ip(request) == "10.0.0.1"
 
 
 def test_client_ip_falls_back_when_there_is_no_peer(monkeypatch):

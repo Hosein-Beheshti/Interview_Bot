@@ -49,14 +49,25 @@ class Quota:
 def client_ip(request: Request) -> str:
     """The caller's address, as the rate limiter should attribute it.
 
-    X-Forwarded-For is caller-supplied and trivially spoofed, so it is honoured
-    only when `trust_proxy_headers` says a proxy is definitely in front of us and
-    therefore rewriting it. Otherwise the socket address is the only fact.
+    X-Forwarded-For is caller-supplied, so it is honoured only when
+    `trust_proxy_headers` says a proxy is definitely in front of us. Even then
+    the header is not trustworthy end to end: proxies *append*, so a caller can
+    send `X-Forwarded-For: 1.2.3.4` and the edge will simply add the real address
+    after it. Only the last `trusted_proxy_hops` entries were written by
+    infrastructure we control, so the caller's address is the one that many
+    places from the right — taking the leftmost entry instead would let anyone
+    reset their own rate limit on every request.
+
+    A header with fewer entries than expected means the request did not arrive
+    through the assumed chain, so the socket address is the only fact left.
     """
     if settings.trust_proxy_headers:
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
-            return forwarded.split(",")[0].strip()
+            hops = [part.strip() for part in forwarded.split(",") if part.strip()]
+            index = len(hops) - settings.trusted_proxy_hops
+            if 0 <= index < len(hops):
+                return hops[index]
     return request.client.host if request.client else "unknown"
 
 
