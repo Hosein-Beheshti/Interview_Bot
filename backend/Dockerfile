@@ -27,4 +27,8 @@ EXPOSE 8000
 # Bind whatever port the platform assigns. Render, Fly, and Cloud Run all inject
 # $PORT and route to it; a hard-coded port makes the container unreachable there.
 # Shell form so the variable is expanded at runtime, with a local-dev default.
-CMD ["sh", "-c", "exec uvicorn interview_bot.api.app:app --host 0.0.0.0 --port ${PORT:-8000}"]
+#
+# `::` rather than 0.0.0.0: Railway's private network is IPv6-only, so the
+# frontend's nginx proxy cannot reach an IPv4-only listener. A dual-stack socket
+# still accepts IPv4 (as IPv4-mapped), so docker-compose is unaffected.
+CMD ["sh", "-c", "exec uvicorn interview_bot.api.app:app --host :: --port ${PORT:-8000}"]

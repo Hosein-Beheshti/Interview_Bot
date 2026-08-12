@@ -11,6 +11,14 @@ RUN npm run build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY templates/ /etc/nginx/templates/
+# Restrict envsubst to our own names so nginx's $host, $remote_addr, $upstream
+# and friends are left alone by the image's template step.
+ENV NGINX_ENVSUBST_FILTER=API_
+# Defaults are the docker-compose topology. A deployment that puts the backend
+# elsewhere (Railway private networking, say) overrides these at runtime; both
+# must be set, since an unset name would render as an empty directive.
+ENV API_UPSTREAM=http://backend:8000
+ENV API_RESOLVER=8.8.8.8
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

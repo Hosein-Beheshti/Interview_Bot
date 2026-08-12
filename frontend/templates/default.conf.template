@@ -1,0 +1,40 @@
+# Rendered to /etc/nginx/conf.d/default.conf at container start by the nginx
+# image's envsubst step. Only ${API_*} names are substituted (NGINX_ENVSUBST_FILTER
+# in the Dockerfile) so nginx's own $host / $remote_addr survive untouched.
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # The API is proxied through this origin rather than called directly by the
+    # browser, so the session cookie is first-party. Safari blocks all
+    # third-party cookie storage, which silently broke sign-in on iOS when the
+    # frontend and backend were served from different Railway subdomains.
+    location /api/ {
+        resolver ${API_RESOLVER} valid=10s;
+        # Kept in a variable so nginx resolves it per-request instead of at
+        # startup: a backend that is briefly down must not stop the whole
+        # frontend from booting.
+        set $upstream ${API_UPSTREAM};
+        proxy_pass $upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        # Rate limiting attributes requests to a client IP, which behind this
+        # proxy is only visible here. Requires TRUST_PROXY_HEADERS=true.
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        # Above the backend's own 10MB audio cap, so its JSON 413 is what the
+        # user sees rather than nginx's HTML error page.
+        client_max_body_size 12m;
+        # Server-sent events: no buffering, and no idle timeout mid-interview.
+        proxy_buffering off;
+        proxy_read_timeout 300s;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
