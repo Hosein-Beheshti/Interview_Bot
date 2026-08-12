@@ -23,7 +23,7 @@ export function ChatInterface({ user, onLogout, onCreditsChanged }: ChatInterfac
   const {
     isListening, transcript, interimText, isSpeaking, micError,
     unlockAudio, startListening, stopListening, resetTranscript,
-    speak, stopSpeaking,
+    beginSpeech, pushSpeech, endSpeech, stopSpeaking,
   } = useVoice()
   const cv = useCV(onLogout)
   const [input, setInput] = useState('')
@@ -32,6 +32,7 @@ export function ChatInterface({ user, onLogout, onCreditsChanged }: ChatInterfac
   const [copied, setCopied] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastSpokenIdxRef = useRef(-1)
+  const speechEndedRef = useRef(false)
   const autoSendTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const sendRef = useRef(send)
   const stopListeningRef = useRef(stopListening)
@@ -59,18 +60,41 @@ export function ChatInterface({ user, onLogout, onCreditsChanged }: ChatInterfac
     onLogout()
   }
 
-  // Speak each assistant message exactly once, identified by index. Waits for
-  // the stream to finish: reading a half-written question aloud would cut off
-  // mid-sentence, and the text is only final once `streaming` clears.
+  // Speak each assistant message exactly once, identified by index. The text is
+  // fed in as it streams rather than after `streaming` clears: synthesis of the
+  // first sentence then overlaps generation of the rest, instead of the whole
+  // generation time sitting in front of the first sound. `useVoice` cuts the
+  // text at sentence boundaries and plays the pieces in order, so nothing is
+  // read out half-written.
   useEffect(() => {
-    if (loading || streaming || messages.length === 0) return
+    if (messages.length === 0) return
     const lastIdx = messages.length - 1
     const last = messages[lastIdx]
-    if (last.role === 'assistant' && last.content && lastIdx !== lastSpokenIdxRef.current) {
-      lastSpokenIdxRef.current = lastIdx
-      speak(last.content, is_complete ? undefined : () => startListening())
+    if (last.role !== 'assistant') {
+      // A failed send drops both messages of the turn; stop reading out a reply
+      // the candidate can no longer act on.
+      if (lastSpokenIdxRef.current > lastIdx) {
+        lastSpokenIdxRef.current = -1
+        stopSpeaking()
+      }
+      return
     }
-  }, [messages, loading, streaming, is_complete, speak, startListening])
+
+    if (lastIdx !== lastSpokenIdxRef.current) {
+      lastSpokenIdxRef.current = lastIdx
+      speechEndedRef.current = false
+      beginSpeech()
+    }
+    if (speechEndedRef.current) return
+
+    pushSpeech(last.content)
+    if (!loading && !streaming) {
+      speechEndedRef.current = true
+      // Handed over at the end, not the start: whether this was the last
+      // question is only known once the turn lands.
+      endSpeech(is_complete ? undefined : () => startListening())
+    }
+  }, [messages, loading, streaming, is_complete, beginSpeech, pushSpeech, endSpeech, stopSpeaking, startListening])
 
   // Mirror live transcript into the input box for visibility (interim takes priority while user is talking)
   useEffect(() => {
