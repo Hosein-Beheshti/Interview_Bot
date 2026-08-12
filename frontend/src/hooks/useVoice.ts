@@ -201,6 +201,10 @@ export function useVoice() {
       const res = await fetch(`${apiBase}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // /speak requires a signed-in user and debits credits, so the session
+        // cookie has to ride along. Without this the request 401s and the
+        // browser-TTS fallback below silently takes over.
+        credentials: 'include',
         body: JSON.stringify({ text }),
       })
 
