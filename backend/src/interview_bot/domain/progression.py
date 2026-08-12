@@ -18,6 +18,11 @@ The state machine:
 
 Follow-ups never consume a main-question slot; `max_followups` caps how long the
 interview can dwell on one topic.
+
+An answer the scorer could not grade is a third input, distinct from "no answer
+yet": the interview must still advance (and still be able to end), it just has no
+signal to base a follow-up on. Conflating the two would let an evaluator outage
+push the interview past its last question — see `decide_next_turn`.
 """
 from __future__ import annotations
 
@@ -50,18 +55,32 @@ class InterviewState(Protocol):
 
 
 def decide_next_turn(
-    state: InterviewState, score: ScoreData | None, max_followups: int
+    state: InterviewState,
+    score: ScoreData | None,
+    max_followups: int,
+    *,
+    answered: bool,
 ) -> tuple[str, str | None]:
     """Choose the next interviewer turn.
 
     Returns ``(mode, follow_up_kind)`` where ``mode`` is one of ``MODE_*`` and
-    ``follow_up_kind`` is set only for follow-ups. ``score is None`` means the
-    candidate has not answered yet (the opening turn). ``max_followups`` is the
-    cap on follow-up turns per main question.
+    ``follow_up_kind`` is set only for follow-ups. ``max_followups`` is the cap on
+    follow-up turns per main question.
+
+    ``answered`` says whether the candidate has just answered a question;
+    ``score`` is the grade for that answer, or None when grading failed. The two
+    are separate on purpose — ``answered=False`` is the opening turn and always
+    yields the first main question, whereas an ungraded answer still consumed a
+    question and must still be able to end the interview.
     """
     # Opening turn: no answer to react to — pose the first main question.
-    if score is None:
+    if not answered:
         return MODE_MAIN, None
+
+    # The answer stands, but the evaluator failed to grade it. There is no signal
+    # to justify a follow-up, so advance as if the topic were covered.
+    if score is None:
+        return _advance(state)
 
     can_follow_up = state.followups_on_current < max_followups
     if can_follow_up:
@@ -73,8 +92,15 @@ def decide_next_turn(
         if score.follow_up_recommended:
             return MODE_FOLLOW_UP, FOLLOW_UP_DEEPEN
 
-    # Moving on from the current topic. If the last main question has already
-    # been asked, the interview is over; otherwise pose the next main question.
+    return _advance(state)
+
+
+def _advance(state: InterviewState) -> tuple[str, str | None]:
+    """Move on from the current topic: the next main question, or the close.
+
+    The single exit from a finished topic, so every path that stops dwelling on
+    one question is bound by the same question budget.
+    """
     if state.questions_asked >= state.num_questions:
         return MODE_CLOSING, None
     return MODE_MAIN, None

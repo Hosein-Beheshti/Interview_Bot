@@ -1,0 +1,133 @@
+{
+  "cassette_version": 1,
+  "kind": "llm.parse",
+  "request_hash": "5371c1bf615cda84705364c3615fdca33563bc11e7e3a41b406bad9741ab9de6",
+  "request": {
+    "kind": "llm.parse",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "system": "You design a structured interview blueprint. Given a job profile and a target number of main questions, produce exactly that many question slots that together give broad, non-overlapping coverage of the role's most important skills and focus areas. Order them to flow naturally — foundational topics before advanced ones. Calibrate each difficulty to the stated seniority. Each slot names the specific skill to test, the intent (what to assess), a difficulty, and the key points a strong answer should cover — the concepts, tradeoffs, and edge cases later used to grade the candidate's answer.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Job context:\n- Company: Meridian Commerce\n- Target role: Data Engineer, Streaming Platform\n- Seniority: mid\n- Key skills to assess: Kafka, Flink, Iceberg, S3, SQL, Python, stream processing, lakehouse, data contracts, exactly-once semantics, dbt, AWS\n- Focus areas: event pipeline architecture, stream processing, data quality and contracts, cost optimization, analytics infrastructure, ML data pipelines\n\nDesign exactly 2 interview question slots for this role."
+      }
+    ],
+    "output_model": "PlanExtraction",
+    "output_schema": {
+      "$defs": {
+        "PlanSlotExtraction": {
+          "properties": {
+            "skill": {
+              "description": "The specific skill or topic this question tests, e.g. 'Kubernetes networking'.",
+              "title": "Skill",
+              "type": "string"
+            },
+            "intent": {
+              "description": "What the question should assess about that skill — the angle to probe.",
+              "title": "Intent",
+              "type": "string"
+            },
+            "difficulty": {
+              "description": "One of: foundational, intermediate, advanced — calibrated to the role's seniority.",
+              "title": "Difficulty",
+              "type": "string"
+            },
+            "key_points": {
+              "description": "3-5 specific things a strong answer should cover: the core concepts, tradeoffs, edge cases, or facts that distinguish real depth from a surface-level reply. Each a short phrase. Used later to grade answers, so be concrete and answer-focused, not a restatement of the question.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Key Points",
+              "type": "array"
+            }
+          },
+          "required": [
+            "skill",
+            "intent",
+            "difficulty"
+          ],
+          "title": "PlanSlotExtraction",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "slots": {
+          "description": "One slot per main question, ordered, giving non-overlapping coverage of the role.",
+          "items": {
+            "$ref": "#/$defs/PlanSlotExtraction"
+          },
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "title": "PlanExtraction",
+      "type": "object"
+    },
+    "max_tokens": 1500
+  },
+  "response": {
+    "slots": [
+      {
+        "skill": "Kafka and event pipeline architecture",
+        "intent": "Assess ability to design and troubleshoot production event pipelines, including topic design, partitioning strategy, and handling of backpressure and failure modes",
+        "difficulty": "intermediate",
+        "key_points": [
+          "partition key selection and its impact on ordering and load distribution",
+          "consumer group semantics and lag management in streaming context",
+          "rebalancing behavior and its operational implications",
+          "handling poison pills and malformed messages without blocking the pipeline",
+          "trade-offs between throughput, latency, and resource consumption"
+        ]
+      },
+      {
+        "skill": "Stream processing with Flink and exactly-once semantics",
+        "intent": "Evaluate understanding of stateful stream processing, checkpointing strategies, and guarantees needed for accurate lakehouse data ingestion and analytics",
+        "difficulty": "intermediate",
+        "key_points": [
+          "difference between at-least-once, exactly-once, and idempotence; when each is appropriate",
+          "checkpoint and savepoint mechanics and recovery guarantees",
+          "state backend choices (RocksDB vs in-memory) and their cost/performance trade-offs",
+          "windowing operations and late-arriving data handling",
+          "integration with Iceberg for exactly-once writes and atomicity"
+        ]
+      },
+      {
+        "skill": "Data contracts and quality in streaming pipelines",
+        "intent": "Assess ability to define and enforce data quality standards, schema evolution, and alerting in continuous data flows to prevent downstream analytics failures",
+        "difficulty": "intermediate",
+        "key_points": [
+          "schema registry role and schema evolution strategies (backward, forward, full compatibility)",
+          "data quality metrics and assertions that catch issues early (nullability, range, cardinality, freshness)",
+          "alert thresholds and observability instrumentation for streaming jobs",
+          "handling breaking schema changes and versioning in multi-consumer environments",
+          "trade-off between strict validation (latency cost) and permissive ingestion (downstream cost)"
+        ]
+      },
+      {
+        "skill": "Lakehouse architecture and cost optimization",
+        "intent": "Evaluate design decisions around Iceberg table format, partitioning, compaction, and S3 access patterns to balance query performance, operational complexity, and cloud costs",
+        "difficulty": "intermediate",
+        "key_points": [
+          "Iceberg hidden partitioning and partition evolution advantages over Hive-style partitioning",
+          "file sizing and compaction frequency impact on small-file problem and query latency",
+          "time-travel and schema evolution capabilities and their operational value",
+          "S3 request costs and optimization through intelligent partitioning and caching strategies",
+          "trade-offs between real-time ingestion frequency and batch compaction windows"
+        ]
+      }
+    ]
+  },
+  "latency_ms": 7457.5,
+  "usage": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "input_tokens": 796,
+    "output_tokens": 537,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "request_id": "req_011Cdwey8kq3mpdYwmqTvkmR",
+    "stop_reason": "end_turn"
+  },
+  "recorded_at": "2026-08-11T21:16:36Z"
+}

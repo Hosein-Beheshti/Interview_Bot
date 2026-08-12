@@ -1,5 +1,6 @@
 """Tests for interviewer prompt rendering (prompts/interviewer.py)."""
 from interview_bot.domain.plan import PlanSlot
+from interview_bot.domain.profile import JobProfile
 from interview_bot.prompts import interviewer as prompt
 
 
@@ -70,3 +71,20 @@ def test_follow_up_ignores_slot():
         prompt.MODE_FOLLOW_UP, question_number=2, follow_up_kind=prompt.FOLLOW_UP_DEEPEN, slot=slot
     )
     assert "Redis" not in text
+
+
+def test_cv_block_matches_what_the_stable_prompt_embeds():
+    """The two CV paths must render identical bytes.
+
+    A stable (full-text) CV rides in the cached prefix; a retrieved one rides
+    with the turn instruction. Only the cache breakpoint may differ between them
+    — if these ever diverge, the same session would send different prompt text
+    depending on how long the candidate's CV happens to be.
+    """
+    profile = JobProfile(role="ML Engineer")
+    excerpt = "Relevant excerpts from the candidate's CV:\n[1] (Skills) Kafka, Redis."
+
+    with_cv = prompt.build_stable_prompt(profile, num_questions=3, cv_context=excerpt)
+    without_cv = prompt.build_stable_prompt(profile, num_questions=3, cv_context="")
+
+    assert with_cv == f"{without_cv}\n\n{prompt.cv_block(excerpt)}"

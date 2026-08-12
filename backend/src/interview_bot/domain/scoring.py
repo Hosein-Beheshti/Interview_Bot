@@ -53,7 +53,9 @@ def parse_score(
     critique = str(raw.get("critique", ""))
 
     # A non-answer earns no credit: force the overall to 0 and drop strengths,
-    # regardless of how the model scored the individual dimensions.
+    # regardless of how the model scored the individual dimensions. 0 is the
+    # bottom of the rubric scale (see `rubric.MIN_SCORE`), so this stays a real
+    # score rather than a sentinel sitting below the range it is averaged into.
     if answer_type == "no_answer":
         overall = 0
         strengths = []

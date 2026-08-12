@@ -12,7 +12,13 @@ from dataclasses import dataclass
 
 # Score bounds for every dimension. Centralized so the schema, validation, and
 # prompt all agree.
-MIN_SCORE = 1
+#
+# The floor is 0, not 1, because an unanswered question already scores 0: a
+# `no_answer` forces the overall to zero (see `domain.scoring.parse_score`), and
+# a floor of 1 put that value outside the scale it was averaged into. Zero now
+# means what it is used for — nothing to assess — rather than acting as an
+# out-of-band sentinel.
+MIN_SCORE = 0
 MAX_SCORE = 10
 
 
@@ -162,8 +168,9 @@ def build_score_format(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> dict:
 def describe_rubric(rubric: tuple[Dimension, ...] = DEFAULT_RUBRIC) -> str:
     """Human-readable rubric block for the evaluator's system prompt."""
     lines = [
-        f"Score each dimension from {MIN_SCORE} (poor) to {MAX_SCORE} (excellent). "
-        "Calibrate against the whole scale and reserve the top band:",
+        f"Score each dimension from {MIN_SCORE} (nothing to assess) to {MAX_SCORE} "
+        "(excellent). Calibrate against the whole scale and reserve the top band:",
+        "- 0: no usable content for this question - nothing to assess on this dimension.",
         "- 1-3: incorrect, irrelevant, or barely addresses the dimension.",
         "- 4-6: partially correct or shallow - the basic idea with little depth.",
         "- 7-8: correct and solid, but missing nuance, tradeoffs, or edge cases.",

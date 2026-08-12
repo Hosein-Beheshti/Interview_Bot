@@ -14,7 +14,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from interview_bot import llm
 from interview_bot.config import settings
-from interview_bot.domain import plan, progression, summary
+from interview_bot.domain import plan, progression, summary, turn_quality
 from interview_bot.domain.plan import PlanSlot
 from interview_bot.domain.profile import JobProfile
 from interview_bot.domain.scoring import ScoreData
@@ -22,7 +22,7 @@ from interview_bot.domain.transcript import last_assistant
 from interview_bot.logger import logger
 from interview_bot.pipeline.scoring import score_answer
 from interview_bot.prompts import interviewer
-from interview_bot.retrieval.cv_context import build_cv_context
+from interview_bot.retrieval.cv_context import CVContext, build_cv_context
 
 
 class InterviewError(RuntimeError):
@@ -35,6 +35,11 @@ class TurnResult:
     mode: str
     score_data: ScoreData | None
     summary: dict | None
+    # Which answer `score_data` grades: the main question it belongs to, and
+    # whether it was a follow-up. The route needs both to persist the score for
+    # later calibration (see `persistence.models.AnswerScore`).
+    answered_question: int | None = None
+    answered_follow_up: bool = False
 
 
 @dataclass
@@ -53,6 +58,11 @@ class _PendingTurn:
     summary: dict | None
     reply: str | None
     prompt: _TurnPrompt | None
+    # The main-question number this turn carries, for the label contract enforced
+    # in `_finish_turn`. Meaningless for a follow-up or the closing turn.
+    question_number: int = 0
+    answered_question: int | None = None
+    answered_follow_up: bool = False
 
 
 @dataclass
@@ -71,7 +81,7 @@ def build_turn_prompt(
     slot: PlanSlot | None,
     current_topic: str | None,
     candidate_name: str | None,
-    cv_context: str,
+    cv_context: CVContext,
     question_number: int,
     num_questions: int,
 ) -> _TurnPrompt:
@@ -79,9 +89,15 @@ def build_turn_prompt(
 
     Shared by `_decide_turn` (live turns) and the generator eval harness, so the
     eval measures exactly the prompt bytes production sends to the model.
+
+    A stable CV context (the full-text path) joins the cacheable prefix; a
+    volatile one (per-question retrieval) leads the turn instruction instead. The
+    assembled text is the same in both cases — only the cache breakpoint moves.
     """
     stable = interviewer.build_stable_prompt(
-        profile, num_questions=num_questions, cv_context=cv_context
+        profile,
+        num_questions=num_questions,
+        cv_context=cv_context.text if cv_context.stable else "",
     )
     turn = interviewer.turn_instruction(
         mode,
@@ -91,6 +107,8 @@ def build_turn_prompt(
         slot=slot,
         candidate_name=candidate_name,
     )
+    if cv_context and not cv_context.stable:
+        turn = f"{interviewer.cv_block(cv_context.text)}\n\n{turn}"
     return _TurnPrompt(instruction=turn, cache_prefix=stable)
 
 
@@ -178,14 +196,21 @@ async def _decide_turn(session, message: str, profile: JobProfile) -> _PendingTu
         score_data = await score_answer(session, profile, slot=answered_slot)
 
     mode, follow_up_kind = progression.decide_next_turn(
-        session, score_data, settings.max_followups_per_question
+        session,
+        score_data,
+        settings.max_followups_per_question,
+        answered=not is_first_message,
     )
 
-    score_record = (
-        _score_record(answered_q, answered_follow_up, score_data)
-        if score_data is not None
-        else None
-    )
+    score_record = None
+    if not is_first_message:
+        # An answer the evaluator could not grade is still recorded, as a gap.
+        # Dropping it would quietly shrink the denominator of the final score.
+        score_record = (
+            _score_record(answered_q, answered_follow_up, score_data)
+            if score_data is not None
+            else _unscored_record(answered_q, answered_follow_up)
+        )
 
     if mode == progression.MODE_CLOSING:
         # The closing turn is server-owned and deterministic — rendered from the
@@ -200,13 +225,11 @@ async def _decide_turn(session, message: str, profile: JobProfile) -> _PendingTu
             summary=summary_data,
             reply=summary.closing_message(summary_data),
             prompt=None,
+            answered_question=answered_q,
+            answered_follow_up=bool(answered_follow_up),
         )
 
     try:
-        # The role/rules/CV guidance is identical every turn — send it as a
-        # cached prefix so re-sending a full CV each turn is nearly free. Only
-        # the turn instruction (which question, follow-up) varies.
-        cv_context = await build_cv_context(session)
         # For a main question, pin the topic to its blueprint slot (if planned);
         # a follow-up ignores the slot and stays on the current topic.
         next_question_number = session.questions_asked + 1
@@ -215,12 +238,17 @@ async def _decide_turn(session, message: str, profile: JobProfile) -> _PendingTu
             if interview_plan and mode == interviewer.MODE_MAIN
             else None
         )
+        current_topic = last_assistant(session.messages)
+        # The role/rules guidance is identical every turn — send it as a cached
+        # prefix so re-sending a full CV each turn is nearly free. Only the turn
+        # instruction (which question, follow-up) varies.
+        cv_context = await build_cv_context(session, _retrieval_topic(mode, slot, current_topic))
         prompt = build_turn_prompt(
             profile,
             mode,
             follow_up_kind,
             slot=slot,
-            current_topic=last_assistant(session.messages),
+            current_topic=current_topic,
             candidate_name=session.candidate_name,
             cv_context=cv_context,
             question_number=next_question_number,
@@ -237,11 +265,37 @@ async def _decide_turn(session, message: str, profile: JobProfile) -> _PendingTu
         summary=None,
         reply=None,
         prompt=prompt,
+        question_number=next_question_number,
+        answered_question=answered_q,
+        answered_follow_up=bool(answered_follow_up),
     )
 
 
+def _retrieval_topic(mode: str, slot: PlanSlot | None, current_topic: str | None) -> str | None:
+    """What the CV should be searched against for the turn about to be generated.
+
+    A main question moves to a NEW topic, so the query is its planned slot, not
+    the question just asked — searching the CV for the topic being left behind
+    retrieves the wrong excerpts. A follow-up genuinely stays put, so there the
+    previous question is the right query.
+    """
+    if mode == interviewer.MODE_MAIN:
+        return f"{slot.skill} {slot.intent}".strip() if slot else None
+    return current_topic
+
+
 def _finish_turn(session, pending: _PendingTurn, reply: str) -> TurnResult:
-    """Record the interviewer's reply and advance the session's counters."""
+    """Record the interviewer's reply and advance the session's counters.
+
+    The reply is forced to satisfy the label contract first. The FSM is
+    server-authoritative, but the candidate reads the model's text — so if the
+    model numbers a question differently from the server, or answers a follow-up
+    with a fresh numbered question, what the candidate sees desynchronises from
+    the interview the server is running. The repair is deterministic and costs
+    nothing (see `turn_quality.repair`).
+    """
+    reply = _enforce_format(session, pending, reply)
+
     session.messages.append({"role": "assistant", "content": reply})
     flag_modified(session, "messages")
 
@@ -266,7 +320,24 @@ def _finish_turn(session, pending: _PendingTurn, reply: str) -> TurnResult:
         mode=pending.mode,
         score_data=pending.score_data,
         summary=pending.summary,
+        answered_question=pending.answered_question,
+        answered_follow_up=pending.answered_follow_up,
     )
+
+
+def _enforce_format(session, pending: _PendingTurn, reply: str) -> str:
+    """Apply the label contract to a generated reply, logging any repair.
+
+    A repair means the model drifted from an explicit instruction, which is worth
+    seeing in the logs even though the turn itself is now correct.
+    """
+    repaired, kind = turn_quality.repair(pending.mode, pending.question_number, reply)
+    if kind:
+        logger.warning(
+            f"Turn format repaired | session={session.session_id} | "
+            f"mode={pending.mode} | q={pending.question_number} | repair={kind}"
+        )
+    return repaired
 
 
 def _score_record(q: int | None, follow_up: bool | None, score_data: ScoreData) -> dict:
@@ -278,3 +349,8 @@ def _score_record(q: int | None, follow_up: bool | None, score_data: ScoreData) 
         "strengths": score_data.strengths,
         "improvements": score_data.improvements,
     }
+
+
+def _unscored_record(q: int | None, follow_up: bool | None) -> dict:
+    """The record for an answer the evaluator could not grade."""
+    return {"q": q, "follow_up": follow_up, "unscored": True}

@@ -9,6 +9,15 @@ A score record (one per answered turn, persisted on the session) has the shape::
 
     {"q": int, "follow_up": bool, "score": int,
      "strengths": list[str], "improvements": list[str]}
+
+An answer the evaluator could not grade is recorded instead as::
+
+    {"q": int, "follow_up": bool, "unscored": True}
+
+so it is visible as a gap in the result rather than vanishing from it. Only
+graded records contribute to the overall score and the breakdown; the count of
+ungraded ones is reported alongside, because an average over 4 of 5 answers
+presented as if it were the whole interview is a misleading result.
 """
 from __future__ import annotations
 
@@ -27,12 +36,19 @@ def _dedup(values: list[str], limit: int = 4) -> list[str]:
     return list(seen)[:limit]
 
 
+def graded(scores: list[dict]) -> list[dict]:
+    """The records that carry a real grade (see the module docstring)."""
+    return [r for r in scores if not r.get("unscored")]
+
+
 def build_summary(role: str, scores: list[dict]) -> dict:
     """Aggregate per-answer score records into the interview result summary."""
-    overall = round(sum(r["score"] for r in scores) / len(scores), 1) if scores else 0.0
-    breakdown = [{"label": _label(r), "score": r["score"]} for r in scores]
-    strengths = _dedup([s for r in scores for s in r.get("strengths", [])])
-    improvements = _dedup([s for r in scores for s in r.get("improvements", [])])
+    scored = graded(scores)
+    unscored = len(scores) - len(scored)
+    overall = round(sum(r["score"] for r in scored) / len(scored), 1) if scored else 0.0
+    breakdown = [{"label": _label(r), "score": r["score"]} for r in scored]
+    strengths = _dedup([s for r in scored for s in r.get("strengths", [])])
+    improvements = _dedup([s for r in scored for s in r.get("improvements", [])])
 
     return {
         "role": role,
@@ -40,6 +56,7 @@ def build_summary(role: str, scores: list[dict]) -> dict:
         "breakdown": breakdown,
         "strengths": strengths,
         "improvements": improvements,
+        "unscored": unscored,
         "copy_text": _copy_text(role, overall, scores),
     }
 
@@ -56,6 +73,8 @@ def closing_message(summary: dict) -> str:
         f"for your time.",
         f"Your overall score was {summary['overall']}/10.",
     ]
+    if summary.get("unscored"):
+        parts.append(_unscored_note(summary["unscored"]))
     if summary["strengths"]:
         parts.append(f"A highlight: {_as_sentence(summary['strengths'][0])}")
     if summary["improvements"]:
@@ -70,6 +89,15 @@ def _as_sentence(text: str) -> str:
     return text if text[-1:] in ".?!" else text + "."
 
 
+def _unscored_note(count: int) -> str:
+    """Say plainly that the average does not cover every answer."""
+    answers = "answer" if count == 1 else "answers"
+    return (
+        f"Note: {count} {answers} could not be evaluated, so the score above "
+        f"reflects the rest of the interview."
+    )
+
+
 def _copy_text(role: str, overall: float, scores: list[dict]) -> str:
     lines = [
         f"AI Interview Results — {role}",
@@ -77,6 +105,9 @@ def _copy_text(role: str, overall: float, scores: list[dict]) -> str:
         "",
     ]
     for r in scores:
+        if r.get("unscored"):
+            lines.append(f"{_label(r)}: not evaluated")
+            continue
         lines.append(f"{_label(r)}: {r['score']}/10")
         if r.get("strengths"):
             lines.append(f"  + {', '.join(r['strengths'])}")

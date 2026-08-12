@@ -1,0 +1,121 @@
+{
+  "cassette_version": 1,
+  "kind": "llm.parse",
+  "request_hash": "3d390fcb715ecf509d5ff99a228b19fa0889c1aebae07f090e1a25c9c98ee804",
+  "request": {
+    "kind": "llm.parse",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "system": "You design a structured interview blueprint. Given a job profile and a target number of main questions, produce exactly that many question slots that together give broad, non-overlapping coverage of the role's most important skills and focus areas. Order them to flow naturally — foundational topics before advanced ones. Calibrate each difficulty to the stated seniority. Each slot names the specific skill to test, the intent (what to assess), a difficulty, and the key points a strong answer should cover — the concepts, tradeoffs, and edge cases later used to grade the candidate's answer.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Job context:\n- Company: Ledgerpoint\n- Target role: Backend Engineer, Payments\n- Seniority: mid\n- Key skills to assess: Python, Go, PostgreSQL, Kafka, event-driven architectures, idempotency, exactly-once semantics, payment processing, invoice systems, webhooks, reconciliation, observability\n- Focus areas: concurrent system design, distributed transactions, financial correctness, system reliability, database optimization, event streaming, strangler-fig migrations, property-based testing\n\nDesign exactly 3 interview question slots for this role."
+      }
+    ],
+    "output_model": "PlanExtraction",
+    "output_schema": {
+      "$defs": {
+        "PlanSlotExtraction": {
+          "properties": {
+            "skill": {
+              "description": "The specific skill or topic this question tests, e.g. 'Kubernetes networking'.",
+              "title": "Skill",
+              "type": "string"
+            },
+            "intent": {
+              "description": "What the question should assess about that skill — the angle to probe.",
+              "title": "Intent",
+              "type": "string"
+            },
+            "difficulty": {
+              "description": "One of: foundational, intermediate, advanced — calibrated to the role's seniority.",
+              "title": "Difficulty",
+              "type": "string"
+            },
+            "key_points": {
+              "description": "3-5 specific things a strong answer should cover: the core concepts, tradeoffs, edge cases, or facts that distinguish real depth from a surface-level reply. Each a short phrase. Used later to grade answers, so be concrete and answer-focused, not a restatement of the question.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Key Points",
+              "type": "array"
+            }
+          },
+          "required": [
+            "skill",
+            "intent",
+            "difficulty"
+          ],
+          "title": "PlanSlotExtraction",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "slots": {
+          "description": "One slot per main question, ordered, giving non-overlapping coverage of the role.",
+          "items": {
+            "$ref": "#/$defs/PlanSlotExtraction"
+          },
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "title": "PlanExtraction",
+      "type": "object"
+    },
+    "max_tokens": 1500
+  },
+  "response": {
+    "slots": [
+      {
+        "skill": "Idempotency and exactly-once semantics in payment processing",
+        "intent": "Assess how the candidate designs payment systems to prevent duplicate charges and ensure financial correctness in the face of retries, network failures, and concurrent requests.",
+        "difficulty": "intermediate",
+        "key_points": [
+          "Idempotency key patterns (client-generated, deterministic hashing, storage strategy)",
+          "Exactly-once vs. at-least-once delivery tradeoffs and when each applies",
+          "Handling duplicate detection across retries without race conditions",
+          "Reconciliation strategy when idempotency fails or keys are lost",
+          "Database constraints (unique indexes, optimistic locking) to enforce correctness"
+        ]
+      },
+      {
+        "skill": "Event-driven architecture with Kafka for financial workflows",
+        "intent": "Evaluate understanding of event streaming for payment and invoice systems, including ordering guarantees, failure modes, and maintaining consistency across distributed services.",
+        "difficulty": "intermediate",
+        "key_points": [
+          "Partitioning strategy (by payment ID, customer ID) to preserve ordering and enable parallelism",
+          "Handling out-of-order events and late-arriving corrections in financial workflows",
+          "Dead-letter queues and replay strategies for failed payment events",
+          "Consumer group rebalancing impact on exactly-once semantics and offset management",
+          "Coupling between event schema evolution and backward compatibility in payment pipelines"
+        ]
+      },
+      {
+        "skill": "PostgreSQL design and optimization for payment ledger systems",
+        "intent": "Test ability to model transactional financial data, optimize queries under high concurrency, and prevent common issues like lock contention and data consistency anomalies.",
+        "difficulty": "intermediate",
+        "key_points": [
+          "ACID properties and isolation levels (READ COMMITTED vs. SERIALIZABLE) for payment ledgers",
+          "Indexing strategy on payment/invoice tables (foreign keys, temporal filters, composite indexes)",
+          "Avoiding N+1 queries and hot row lock contention during high-throughput payment processing",
+          "Audit trail and immutability patterns (append-only ledger, soft deletes, temporal tables)",
+          "Connection pooling and prepared statements under concurrent load to maintain latency SLAs"
+        ]
+      }
+    ]
+  },
+  "latency_ms": 7242.0,
+  "usage": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "input_tokens": 807,
+    "output_tokens": 450,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "request_id": "req_011CdweryXnPzwczDpMqztUw",
+    "stop_reason": "end_turn"
+  },
+  "recorded_at": "2026-08-11T21:15:12Z"
+}

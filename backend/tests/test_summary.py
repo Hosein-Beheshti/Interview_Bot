@@ -73,3 +73,43 @@ def test_closing_message_handles_no_strengths_or_improvements():
     text = closing_message(s)
     assert "0" in text
     assert text.strip().endswith("Wishing you the best.")
+
+
+# --------------------------------------------------------------------------- #
+# Answers the evaluator could not grade. These are gaps in the result, not
+# absences from it — see the module docstring in domain/summary.py.
+# --------------------------------------------------------------------------- #
+def _ungraded(q, follow_up=False):
+    return {"q": q, "follow_up": follow_up, "unscored": True}
+
+
+def test_ungraded_answer_is_excluded_from_the_average():
+    """The mean must not silently treat an ungraded answer as if it never happened
+    at the denominator, nor as a zero at the numerator."""
+    s = build_summary("Engineer", [_rec(1, 8), _ungraded(2), _rec(3, 6)])
+    assert s["overall"] == 7.0  # mean of the two graded answers, not 4.7
+    assert s["unscored"] == 1
+
+
+def test_ungraded_answer_is_reported_rather_than_hidden():
+    s = build_summary("Engineer", [_rec(1, 8), _ungraded(2)])
+    assert [b["label"] for b in s["breakdown"]] == ["Q1"]
+    assert "Q2: not evaluated" in s["copy_text"]
+
+
+def test_fully_ungraded_interview_does_not_divide_by_zero():
+    s = build_summary("Engineer", [_ungraded(1), _ungraded(2)])
+    assert s["overall"] == 0.0
+    assert s["unscored"] == 2
+
+
+def test_closing_message_admits_an_incomplete_average():
+    s = build_summary("Engineer", [_rec(1, 8), _ungraded(2)])
+    text = closing_message(s)
+    assert "1 answer could not be evaluated" in text
+    assert text.strip().endswith("Wishing you the best.")
+
+
+def test_closing_message_is_silent_when_everything_was_graded():
+    text = closing_message(build_summary("Engineer", [_rec(1, 8)]))
+    assert "could not be evaluated" not in text

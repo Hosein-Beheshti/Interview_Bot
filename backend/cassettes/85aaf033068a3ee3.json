@@ -1,0 +1,129 @@
+{
+  "cassette_version": 1,
+  "kind": "llm.parse",
+  "request_hash": "85aaf033068a3ee324ae95c71b11cf931e3ce84ff2251067b910e461c524df0d",
+  "request": {
+    "kind": "llm.parse",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "system": "You design a structured interview blueprint. Given a job profile and a target number of main questions, produce exactly that many question slots that together give broad, non-overlapping coverage of the role's most important skills and focus areas. Order them to flow naturally — foundational topics before advanced ones. Calibrate each difficulty to the stated seniority. Each slot names the specific skill to test, the intent (what to assess), a difficulty, and the key points a strong answer should cover — the concepts, tradeoffs, and edge cases later used to grade the candidate's answer.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Job context:\n- Company: Streamside Media\n- Target role: Senior Machine Learning Engineer\n- Seniority: senior\n- Key skills to assess: Python, learning-to-rank, recommender systems, A/B testing, model serving, feature pipelines, model training, offline evaluation, online evaluation, deployment, monitoring, low-latency serving\n- Focus areas: machine learning systems design, production ML, ranking models, personalization, model evaluation, MLOps\n\nDesign exactly 3 interview question slots for this role."
+      }
+    ],
+    "output_model": "PlanExtraction",
+    "output_schema": {
+      "$defs": {
+        "PlanSlotExtraction": {
+          "properties": {
+            "skill": {
+              "description": "The specific skill or topic this question tests, e.g. 'Kubernetes networking'.",
+              "title": "Skill",
+              "type": "string"
+            },
+            "intent": {
+              "description": "What the question should assess about that skill — the angle to probe.",
+              "title": "Intent",
+              "type": "string"
+            },
+            "difficulty": {
+              "description": "One of: foundational, intermediate, advanced — calibrated to the role's seniority.",
+              "title": "Difficulty",
+              "type": "string"
+            },
+            "key_points": {
+              "description": "3-5 specific things a strong answer should cover: the core concepts, tradeoffs, edge cases, or facts that distinguish real depth from a surface-level reply. Each a short phrase. Used later to grade answers, so be concrete and answer-focused, not a restatement of the question.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Key Points",
+              "type": "array"
+            }
+          },
+          "required": [
+            "skill",
+            "intent",
+            "difficulty"
+          ],
+          "title": "PlanSlotExtraction",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "slots": {
+          "description": "One slot per main question, ordered, giving non-overlapping coverage of the role.",
+          "items": {
+            "$ref": "#/$defs/PlanSlotExtraction"
+          },
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "title": "PlanExtraction",
+      "type": "object"
+    },
+    "max_tokens": 1500
+  },
+  "response": {
+    "slots": [
+      {
+        "skill": "Learning-to-Rank fundamentals and ranking model architecture",
+        "intent": "Assess understanding of LTR problem formulation, loss functions, and how to design ranking systems that balance relevance, diversity, and business metrics in production",
+        "difficulty": "advanced",
+        "key_points": [
+          "Pointwise vs pairwise vs listwise loss functions and when to apply each",
+          "Position bias and how to account for it in training and evaluation",
+          "Relevance vs diversity tradeoffs and how to encode business constraints into the ranking objective",
+          "Online vs offline evaluation metrics for ranking (NDCG, MAP, MRR) and their limitations"
+        ]
+      },
+      {
+        "skill": "Recommender systems pipeline: feature engineering, model training, and serving at scale",
+        "intent": "Evaluate ability to design end-to-end recommender systems covering feature pipelines, training infrastructure, and real-time serving under latency constraints",
+        "difficulty": "advanced",
+        "key_points": [
+          "Feature pipeline architecture: batch vs streaming feature computation, feature freshness requirements, and handling cold-start problems",
+          "Training data construction for collaborative filtering vs content-based models, handling data imbalance and implicit feedback",
+          "Model serving trade-offs: batch scoring vs online inference, caching strategies, and latency budgets for personalization at scale",
+          "Scaling concerns: candidate generation vs ranking stages, how to reduce feature dimension and inference time without hurting quality"
+        ]
+      },
+      {
+        "skill": "A/B testing and online evaluation for ML systems",
+        "intent": "Test judgment on experimental design, statistical rigor, and how to measure true incremental impact while managing velocity and variance in production ML deployments",
+        "difficulty": "advanced",
+        "key_points": [
+          "Multiple comparisons, false discovery rate, and minimum detectable effect size given traffic and variance constraints",
+          "Variance reduction techniques (CUPED, stratification) and when to apply them",
+          "Metric selection and guardrails: primary metric alignment with business goals, detecting hidden failures and unintended consequences",
+          "Ramp-up strategy, early stopping rules, and when to terminate experiments with inconclusive results"
+        ]
+      },
+      {
+        "skill": "Model monitoring, debugging, and operational health in production",
+        "intent": "Assess ability to maintain ML system reliability, detect quality degradation, and systematically debug failures in production ranking and recommendation systems",
+        "difficulty": "intermediate",
+        "key_points": [
+          "Monitoring signals: data drift, prediction drift, and business metric divergence; distinguishing expected vs anomalous changes",
+          "Debugging workflows: identifying whether performance loss stems from data quality, feature staleness, model staleness, or infrastructure issues",
+          "Shadow traffic and canary deployments for safer model rollout and rapid rollback",
+          "Logging strategy for offline analysis: what to log for reproducibility and post-hoc investigation of failures"
+        ]
+      }
+    ]
+  },
+  "latency_ms": 10364.9,
+  "usage": {
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "input_tokens": 797,
+    "output_tokens": 578,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "request_id": "req_011CdwekA9K26847ZEMn5CLt",
+    "stop_reason": "end_turn"
+  },
+  "recorded_at": "2026-08-11T21:13:43Z"
+}

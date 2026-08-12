@@ -5,47 +5,52 @@
     "slots": [
       {
         "difficulty": "intermediate",
-        "intent": "Assess ability to design and troubleshoot high-throughput event pipelines, including partition strategy, consumer group management, and handling of late/out-of-order data.",
+        "intent": "Assess ability to design and troubleshoot production event pipelines, including topic design, partitioning strategy, and handling of backpressure and failure modes",
         "key_points": [
-          "Partition key selection and its impact on ordering and load balancing",
-          "Consumer group semantics and offset management for exactly-once semantics",
-          "Trade-offs between throughput, latency, and data ordering constraints",
-          "Strategies for handling late-arriving or duplicate events in production"
+          "partition key selection and its impact on ordering and load distribution",
+          "consumer group semantics and lag management in streaming context",
+          "rebalancing behavior and its operational implications",
+          "handling poison pills and malformed messages without blocking the pipeline",
+          "trade-offs between throughput, latency, and resource consumption"
         ],
-        "skill": "Kafka & Stream Processing Architecture"
+        "skill": "Kafka and event pipeline architecture"
       },
       {
         "difficulty": "intermediate",
-        "intent": "Evaluate understanding of modern data architecture using Apache Iceberg on S3, including schema evolution, data contracts, governance, and cost optimization in a streaming context.",
+        "intent": "Evaluate understanding of stateful stream processing, checkpointing strategies, and guarantees needed for accurate lakehouse data ingestion and analytics",
         "key_points": [
-          "Iceberg table format advantages over Parquet/Delta for versioning and schema changes",
-          "Data contract definition and enforcement between producers and consumers",
-          "Partitioning and file size optimization for query performance and S3 costs",
-          "Exactly-once semantics implementation from Kafka/Flink into Iceberg tables"
+          "difference between at-least-once, exactly-once, and idempotence; when each is appropriate",
+          "checkpoint and savepoint mechanics and recovery guarantees",
+          "state backend choices (RocksDB vs in-memory) and their cost/performance trade-offs",
+          "windowing operations and late-arriving data handling",
+          "integration with Iceberg for exactly-once writes and atomicity"
         ],
-        "skill": "Lakehouse Design with Iceberg & Data Quality"
+        "skill": "Stream processing with Flink and exactly-once semantics"
       }
     ]
   },
   "profile": {
     "company": "Meridian Commerce",
     "focus_areas": [
-      "Event Pipeline Architecture",
-      "Lakehouse Design",
-      "Data Quality & Governance",
-      "Distributed Systems",
-      "Cost Optimization"
+      "event pipeline architecture",
+      "stream processing",
+      "data quality and contracts",
+      "cost optimization",
+      "analytics infrastructure",
+      "ML data pipelines"
     ],
     "key_skills": [
       "Kafka",
       "Flink",
       "Iceberg",
       "S3",
-      "Python",
       "SQL",
-      "Stream Processing",
-      "Data Contracts",
-      "Exactly-Once Semantics",
+      "Python",
+      "stream processing",
+      "lakehouse",
+      "data contracts",
+      "exactly-once semantics",
+      "dbt",
       "AWS"
     ],
     "role": "Data Engineer, Streaming Platform",
@@ -56,38 +61,31 @@
     {
       "follow_up": false,
       "improvements": [
-        "Address partition key selection (e.g., order_id vs. customer_id vs. hash) and its impact on ordering guarantees and hot partitions",
-        "Specify consumer group sizing: parallelism = min(partition count, throughput requirement / per-task capacity)",
-        "Discuss late-event handling strategies: watermarks, allowed lateness windows, side outputs for dead-letter queues"
+        "Address the actual question: partition count calculation for 1.2B daily events, partition key selection strategy, and load distribution logic",
+        "Explain consumer group semantics, lag monitoring, and rebalancing behavior when a consumer crashes",
+        "Discuss handling of poison pills, malformed messages, and backpressure without blocking the pipeline"
       ],
       "q": 1,
-      "score": 6,
-      "strengths": [
-        "Correctly identifies two-phase commit as the mechanism for exactly-once in Flink with Iceberg",
-        "Recognizes the belt-and-braces pattern: transactional sink + idempotent consumers",
-        "Clear explanation of checkpoint-to-commit coupling"
-      ]
+      "score": 0,
+      "strengths": []
     },
     {
       "follow_up": true,
       "improvements": [
-        "Directly address Iceberg idempotency mechanisms: primary keys, merge-on-read, copy-on-write, or upsert logic",
-        "Explain late-event recovery: reprocessing, state stores, or time-windowed deduplication",
-        "Discuss exactly-once semantics and offset commit strategies in Flink-Kafka integration"
+        "Address the actual question: explain when to replay vs. skip ahead after a Flink task failure",
+        "Discuss recovery time objectives (RTO) and how checkpoint tuning affects them",
+        "Cover checkpoint interval, timeout, and state backend configuration trade-offs"
       ],
       "q": 1,
-      "score": 2,
-      "strengths": [
-        "Acknowledges schema as part of the solution (Protobuf is a valid serialization choice)",
-        "Shows awareness that schemas matter in data pipelines"
-      ]
+      "score": 0,
+      "strengths": []
     },
     {
       "follow_up": false,
       "improvements": [
-        "Must directly address the duplicate prevention mechanism: deduplication window in Flink, idempotent sink configuration, or Iceberg merge logic",
-        "Explain exactly-once semantics implementation (Kafka offsets, Flink state, idempotent writes to Iceberg)",
-        "Clarify whether relying on application-level deduplication or table-level constraints (e.g., unique key + merge-on-read)"
+        "Answer the question asked: explain Flink checkpoint/savepoint recovery mechanics and when to replay vs. skip corrupted checkpoints",
+        "Discuss checkpoint interval tuning: typical ranges (seconds to minutes), tradeoffs between recovery speed and processing overhead",
+        "Cover state backend choices (RocksDB vs in-memory) and their impact on recovery time and cost"
       ],
       "q": 2,
       "score": 0,
@@ -96,9 +94,9 @@
     {
       "follow_up": true,
       "improvements": [
-        "Directly answer the deduplication mechanism: does Flink deduplicate before sink, or does Iceberg use primary keys/upsert semantics?",
-        "Explain exactly-once semantics implementation—idempotent writes, deduplication windows, or Iceberg's merge-on-read behavior",
-        "Address the specific failure mode: what happens when the same event ID arrives twice, and how is it prevented from creating duplicate rows?"
+        "Directly answer the checkpoint behavior question: do you always recover from the last checkpoint or skip records?",
+        "Specify actual checkpoint intervals used in production (seconds, minutes, etc.)",
+        "Explain state backend choice and recovery guarantees (exactly-once vs at-least-once semantics)"
       ],
       "q": 2,
       "score": 0,
@@ -109,11 +107,11 @@
     "breakdown": [
       {
         "label": "Q1",
-        "score": 6
+        "score": 0
       },
       {
         "label": "Q1 follow-up",
-        "score": 2
+        "score": 0
       },
       {
         "label": "Q2",
@@ -124,21 +122,17 @@
         "score": 0
       }
     ],
-    "copy_text": "AI Interview Results — Data Engineer, Streaming Platform\nOverall Score: 2.0/10\n\nQ1: 6/10\n  + Correctly identifies two-phase commit as the mechanism for exactly-once in Flink with Iceberg, Recognizes the belt-and-braces pattern: transactional sink + idempotent consumers, Clear explanation of checkpoint-to-commit coupling\n  › Address partition key selection (e.g., order_id vs. customer_id vs. hash) and its impact on ordering guarantees and hot partitions, Specify consumer group sizing: parallelism = min(partition count, throughput requirement / per-task capacity), Discuss late-event handling strategies: watermarks, allowed lateness windows, side outputs for dead-letter queues\nQ1 follow-up: 2/10\n  + Acknowledges schema as part of the solution (Protobuf is a valid serialization choice), Shows awareness that schemas matter in data pipelines\n  › Directly address Iceberg idempotency mechanisms: primary keys, merge-on-read, copy-on-write, or upsert logic, Explain late-event recovery: reprocessing, state stores, or time-windowed deduplication, Discuss exactly-once semantics and offset commit strategies in Flink-Kafka integration\nQ2: 0/10\n  › Must directly address the duplicate prevention mechanism: deduplication window in Flink, idempotent sink configuration, or Iceberg merge logic, Explain exactly-once semantics implementation (Kafka offsets, Flink state, idempotent writes to Iceberg), Clarify whether relying on application-level deduplication or table-level constraints (e.g., unique key + merge-on-read)\nQ2 follow-up: 0/10\n  › Directly answer the deduplication mechanism: does Flink deduplicate before sink, or does Iceberg use primary keys/upsert semantics?, Explain exactly-once semantics implementation—idempotent writes, deduplication windows, or Iceberg's merge-on-read behavior, Address the specific failure mode: what happens when the same event ID arrives twice, and how is it prevented from creating duplicate rows?",
+    "copy_text": "AI Interview Results — Data Engineer, Streaming Platform\nOverall Score: 0.0/10\n\nQ1: 0/10\n  › Address the actual question: partition count calculation for 1.2B daily events, partition key selection strategy, and load distribution logic, Explain consumer group semantics, lag monitoring, and rebalancing behavior when a consumer crashes, Discuss handling of poison pills, malformed messages, and backpressure without blocking the pipeline\nQ1 follow-up: 0/10\n  › Address the actual question: explain when to replay vs. skip ahead after a Flink task failure, Discuss recovery time objectives (RTO) and how checkpoint tuning affects them, Cover checkpoint interval, timeout, and state backend configuration trade-offs\nQ2: 0/10\n  › Answer the question asked: explain Flink checkpoint/savepoint recovery mechanics and when to replay vs. skip corrupted checkpoints, Discuss checkpoint interval tuning: typical ranges (seconds to minutes), tradeoffs between recovery speed and processing overhead, Cover state backend choices (RocksDB vs in-memory) and their impact on recovery time and cost\nQ2 follow-up: 0/10\n  › Directly answer the checkpoint behavior question: do you always recover from the last checkpoint or skip records?, Specify actual checkpoint intervals used in production (seconds, minutes, etc.), Explain state backend choice and recovery guarantees (exactly-once vs at-least-once semantics)",
     "improvements": [
-      "Address partition key selection (e.g., order_id vs. customer_id vs. hash) and its impact on ordering guarantees and hot partitions",
-      "Specify consumer group sizing: parallelism = min(partition count, throughput requirement / per-task capacity)",
-      "Discuss late-event handling strategies: watermarks, allowed lateness windows, side outputs for dead-letter queues",
-      "Directly address Iceberg idempotency mechanisms: primary keys, merge-on-read, copy-on-write, or upsert logic"
+      "Address the actual question: partition count calculation for 1.2B daily events, partition key selection strategy, and load distribution logic",
+      "Explain consumer group semantics, lag monitoring, and rebalancing behavior when a consumer crashes",
+      "Discuss handling of poison pills, malformed messages, and backpressure without blocking the pipeline",
+      "Address the actual question: explain when to replay vs. skip ahead after a Flink task failure"
     ],
-    "overall": 2.0,
+    "overall": 0.0,
     "role": "Data Engineer, Streaming Platform",
-    "strengths": [
-      "Correctly identifies two-phase commit as the mechanism for exactly-once in Flink with Iceberg",
-      "Recognizes the belt-and-braces pattern: transactional sink + idempotent consumers",
-      "Clear explanation of checkpoint-to-commit coupling",
-      "Acknowledges schema as part of the solution (Protobuf is a valid serialization choice)"
-    ]
+    "strengths": [],
+    "unscored": 0
   },
   "trajectory": [
     "main_question",
@@ -154,63 +148,63 @@
       "critique": null,
       "dimensions": null,
       "follow_up_recommended": null,
-      "interviewer": "I'm your technical interviewer for the Data Engineer, Streaming Platform role at Meridian Commerce. Let's dive in.\n\nQuestion 1: You're handling 1.2B events per day in your order-events pipeline. Walk me through how you've partitioned the Kafka topic and sized your Flink consumer group. What trade-offs did you make, and how do you handle events that arrive out of order or late?",
+      "interviewer": "I'm your technical interviewer for the Data Engineer, Streaming Platform role at Meridian Commerce. Let's dive in.\n\nQuestion 1: You own the order-events pipeline handling 1.2B events daily. Walk me through how you'd design the Kafka topic partitioning strategy for that volume — what factors drive your partition count, and how do you handle scenarios where one partition falls behind or a consumer crashes mid-batch?",
       "mode": "main_question",
       "score": null
     },
     {
-      "answer_type": "partial",
+      "answer_type": "no_answer",
       "candidate": "Exactly-once in Flink is really exactly-once state plus transactional sinks: checkpointing gives you consistent state recovery, and the two-phase-commit sink ties the output commit to the checkpoint. The gotcha is that everything downstream must either participate in the transaction or tolerate duplicates — we made the Iceberg commit the transaction boundary and kept consumers idempotent as a belt-and-braces measure.",
-      "critique": "The candidate addresses exactly-once semantics and transactional sinks well, but entirely skips the core question: Kafka topic partitioning strategy, partition key selection, consumer group sizing, and load balancing for 1.2B events/day. Late/out-of-order handling is mentioned only as a downstream idempotency concern, not as an active strategy (windowing, watermarks, state TTL). Missing concrete partition count, consumer parallelism, and key selection rationale.",
+      "critique": "The candidate answered a different question entirely—they discussed exactly-once semantics and Flink checkpointing instead of addressing Kafka topic partitioning strategy, partition count drivers, or consumer failure handling. No mention of partition keys, load distribution, consumer lag, rebalancing, or poison pill handling.",
       "dimensions": {
-        "communication": 7,
-        "depth_accuracy": 6,
-        "technical_relevance": 4
+        "communication": 0,
+        "depth_accuracy": 0,
+        "technical_relevance": 0
       },
-      "follow_up_recommended": true,
-      "interviewer": "Following up on that — you mentioned keeping consumers idempotent as a safety net. In practice, how do you enforce idempotency at the Iceberg layer itself? Are you relying on primary keys, deduplication logic in your Flink job, or something else? And when a late event arrives after Iceberg has already committed, what's your recovery strategy?",
+      "follow_up_recommended": false,
+      "interviewer": "That's solid on the mechanics. Now let's ground this in your actual setup: when a Flink task fails mid-checkpoint, how do you decide whether to replay from the last checkpoint or skip ahead? What's your actual recovery time target, and have you had to tune checkpoint interval or timeout settings to hit it?",
       "mode": "follow_up",
-      "score": 6
-    },
-    {
-      "answer_type": "partial",
-      "candidate": "Mostly it's about schemas, I think. We used Protobuf.",
-      "critique": "The answer is severely incomplete. It mentions schemas and Protobuf but does not address the core question: how idempotency is enforced at the Iceberg layer (primary keys, deduplication, upserts), how late events are handled after commit, or any recovery strategy. No discussion of exactly-once semantics, offset management, or tradeoffs.",
-      "dimensions": {
-        "communication": 3,
-        "depth_accuracy": 2,
-        "technical_relevance": 2
-      },
-      "follow_up_recommended": true,
-      "interviewer": "That's a starting point, but schemas alone don't enforce idempotency in Iceberg. Let me be more direct: if the same order event arrives twice after a network hiccup, how does Iceberg prevent you from writing duplicate rows? Do you have a deduplication window in Flink, or are you relying on something like a unique constraint or merge logic in the table itself?",
-      "mode": "main_question",
-      "score": 2
+      "score": 0
     },
     {
       "answer_type": "no_answer",
-      "candidate": "To add detail: the contracts were Protobuf schemas checked in CI for backward compatibility, so a producer physically could not merge a breaking change without the analytics team's sign-off. Incidents went from monthly to zero in two quarters.",
-      "critique": "The candidate completely sidesteps the direct question about duplicate prevention in Iceberg. The answer pivots to schema governance (Protobuf CI checks) and incident reduction, which is tangential to the core technical challenge: how does the system prevent duplicate rows when the same event arrives twice? No mention of deduplication windows, idempotent writes, unique constraints, merge-on-read logic, or exactly-once semantics implementation.",
+      "candidate": "Mostly it's about schemas, I think. We used Protobuf.",
+      "critique": "The candidate's answer is entirely off-topic. The question asks about Flink checkpoint recovery strategy, RTO targets, and tuning parameters—core stream processing operational concerns. The response mentions Protobuf schemas, which is unrelated to checkpoint mechanics, recovery decisions, or performance tuning. No engagement with the actual question.",
       "dimensions": {
         "communication": 0,
         "depth_accuracy": 0,
         "technical_relevance": 0
       },
       "follow_up_recommended": true,
-      "interviewer": "I appreciate you clarifying the schema governance piece — that's real impact. But I want to stay focused on the deduplication question: when that same order event lands in Iceberg twice, what stops the duplicate row from being written? Is there logic in your Flink job that deduplicates based on event ID before the sink, or does Iceberg handle it through table constraints or upsert semantics?",
+      "interviewer": "Question 2: I'm asking about Flink recovery strategy and tuning, not schemas. When your pipeline crashes, do you replay from the last successful checkpoint every time, or do you have logic to skip corrupted checkpoints? And what's your checkpoint interval — seconds, minutes? Have you had to trade off between recovery speed and overhead?",
+      "mode": "main_question",
+      "score": 0
+    },
+    {
+      "answer_type": "no_answer",
+      "candidate": "To add detail: the contracts were Protobuf schemas checked in CI for backward compatibility, so a producer physically could not merge a breaking change without the analytics team's sign-off. Incidents went from monthly to zero in two quarters.",
+      "critique": "The candidate's answer is entirely off-topic. The question asks specifically about Flink recovery strategy, checkpoint intervals, and recovery speed vs. overhead tradeoffs. The candidate instead discusses Protobuf schema contracts and CI enforcement—a data contract topic from a previous question. No Flink recovery mechanics, checkpoint tuning, state backends, or recovery strategy are addressed.",
+      "dimensions": {
+        "communication": 0,
+        "depth_accuracy": 0,
+        "technical_relevance": 0
+      },
+      "follow_up_recommended": true,
+      "interviewer": "That's valuable context on preventing schema breaks upstream. But I need to understand your checkpoint behavior: when the pipeline restarts after a failure, what actually happens — do you always go back to the last checkpoint, or have you implemented any skip logic? And roughly how long is your checkpoint interval in practice?",
       "mode": "follow_up",
       "score": 0
     },
     {
       "answer_type": "no_answer",
       "candidate": "For cost we moved the batch layer to spot instances on EKS and scheduled Iceberg compaction and snapshot expiry; storage-level maintenance mattered as much as compute pricing.",
-      "critique": "The candidate completely ignores the specific deduplication question asked. The interviewer explicitly asks whether deduplication happens in Flink logic, Iceberg constraints, or upsert semantics—a core exactly-once semantics concern. Instead, the answer pivots to cost optimization (spot instances, compaction scheduling), which is off-topic and suggests either evasion or misunderstanding of the question.",
+      "critique": "The candidate completely pivots to cost optimization (spot instances, Iceberg compaction) without addressing the direct question about checkpoint behavior, recovery logic, or checkpoint intervals. No mention of exactly-once semantics, state backends, savepoint mechanics, or recovery guarantees—all core to the question asked.",
       "dimensions": {
         "communication": 0,
         "depth_accuracy": 0,
         "technical_relevance": 0
       },
       "follow_up_recommended": true,
-      "interviewer": "That wraps up the interview for the Data Engineer, Streaming Platform role — thank you for your time. Your overall score was 2.0/10. A highlight: Correctly identifies two-phase commit as the mechanism for exactly-once in Flink with Iceberg. Something to build on: Address partition key selection (e.g., order_id vs. customer_id vs. hash) and its impact on ordering guarantees and hot partitions. Wishing you the best.",
+      "interviewer": "That wraps up the interview for the Data Engineer, Streaming Platform role — thank you for your time. Your overall score was 0.0/10. Something to build on: Address the actual question: partition count calculation for 1.2B daily events, partition key selection strategy, and load distribution logic. Wishing you the best.",
       "mode": "closing",
       "score": 0
     }

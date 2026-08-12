@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from interview_bot import llm
 from interview_bot.api import limits
 from interview_bot.api.auth import get_current_user, require_owner
 from interview_bot.api.schemas import (
@@ -34,6 +35,7 @@ from interview_bot.persistence.models import User
 from interview_bot.pipeline import interview
 from interview_bot.pipeline import session as session_flow
 from interview_bot.pipeline.interview import InterviewError
+from interview_bot.prompts import scoring as scorer_prompt
 from interview_bot.telemetry import accumulate_token_usage, observe_turn
 
 router = APIRouter()
@@ -82,6 +84,7 @@ async def chat(
         limits.record_tokens(tokens)
 
     db.add(session)
+    _record_score(db, session.session_id, result)
     db.commit()
     db.refresh(session)
 
@@ -166,6 +169,7 @@ async def _turn_events(request: ChatRequest, user_id: str) -> AsyncIterator[str]
                             yield _event("delta", {"text": payload})
                         else:
                             db.add(session)
+                            _record_score(db, session.session_id, payload)
                             db.commit()
                             db.refresh(session)
                             yield _event(
@@ -185,6 +189,27 @@ async def _turn_events(request: ChatRequest, user_id: str) -> AsyncIterator[str]
 def _event(name: str, data: dict) -> str:
     """One server-sent event frame."""
     return f"event: {name}\ndata: {json.dumps(data)}\n\n"
+
+
+def _record_score(db: Session, session_id: str, result: interview.TurnResult) -> None:
+    """Stage the turn's full evaluator judgement, if it produced one.
+
+    Written here rather than in the engine because the engine deliberately owns
+    no transaction: the route is what decides a turn survived, and the judgement
+    must land in that same commit or not at all.
+    """
+    if result.score_data is None:
+        return
+    session_store.record_answer_score(
+        db,
+        session_id=session_id,
+        question_number=result.answered_question,
+        follow_up=result.answered_follow_up,
+        score=result.score_data,
+        prompt_version=scorer_prompt.PROMPT_VERSION,
+        rubric_version=rubric.RUBRIC_VERSION,
+        model=llm.active_model(),
+    )
 
 
 def _to_chat_response(session, result: interview.TurnResult) -> ChatResponse:

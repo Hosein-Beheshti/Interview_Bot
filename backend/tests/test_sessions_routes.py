@@ -17,7 +17,13 @@ from interview_bot.domain.profile import JobProfile
 from interview_bot.integrations import google_auth
 from interview_bot.persistence import database
 from interview_bot.persistence import schema as schema_module
-from interview_bot.persistence.models import Base, InterviewSession, User, UserSession
+from interview_bot.persistence.models import (
+    AnswerScore,
+    Base,
+    InterviewSession,
+    User,
+    UserSession,
+)
 
 
 @pytest.fixture
@@ -28,7 +34,14 @@ def client(monkeypatch) -> Iterator[TestClient]:
         poolclass=StaticPool,
     )
     Base.metadata.create_all(
-        engine, tables=[User.__table__, UserSession.__table__, InterviewSession.__table__]
+        engine,
+        tables=[
+            User.__table__,
+            UserSession.__table__,
+            InterviewSession.__table__,
+            # session_store.delete() erases recorded judgements too.
+            AnswerScore.__table__,
+        ],
     )
     # cv_chunks uses pgvector's Vector type, which SQLite can't create via
     # create_all; session_store.delete() touches this table too, so a plain

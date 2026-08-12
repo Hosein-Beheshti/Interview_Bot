@@ -65,6 +65,7 @@ from interview_bot.domain.turn_quality import CRITERIA_VERSION
 from interview_bot.pipeline import judge as judge_pipeline
 from interview_bot.pipeline.interview import build_turn_prompt
 from interview_bot.prompts.judge import JUDGE_PROMPT_VERSION
+from interview_bot.retrieval.cv_context import CVContext
 from interview_bot.telemetry import capture_generation_usage
 
 GOLDEN_SET = Path(__file__).parent / "generator_golden_set.json"
@@ -224,7 +225,9 @@ async def _run_item(item: dict, semaphore: asyncio.Semaphore, dry_run: bool) -> 
                     slot=slot,
                     current_topic=current_topic,
                     candidate_name=item["candidate_name"],
-                    cv_context=item["cv_context"],
+                    # Golden-set CV context is fixed text, i.e. the stable
+                    # (full-text) path — what a short-CV session sends.
+                    cv_context=CVContext(text=item["cv_context"], stable=True),
                     question_number=item["question_number"],
                     num_questions=item["num_questions"],
                 )

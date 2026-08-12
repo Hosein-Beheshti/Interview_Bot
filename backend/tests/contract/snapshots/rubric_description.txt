@@ -1,4 +1,5 @@
-Score each dimension from 1 (poor) to 10 (excellent). Calibrate against the whole scale and reserve the top band:
+Score each dimension from 0 (nothing to assess) to 10 (excellent). Calibrate against the whole scale and reserve the top band:
+- 0: no usable content for this question - nothing to assess on this dimension.
 - 1-3: incorrect, irrelevant, or barely addresses the dimension.
 - 4-6: partially correct or shallow - the basic idea with little depth.
 - 7-8: correct and solid, but missing nuance, tradeoffs, or edge cases.

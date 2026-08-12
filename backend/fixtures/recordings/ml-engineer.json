@@ -5,63 +5,62 @@
     "slots": [
       {
         "difficulty": "advanced",
-        "intent": "Assess ability to design and implement ranking models for personalization at scale, including understanding of loss functions, feature engineering, and real-world tradeoffs between relevance and diversity",
+        "intent": "Assess understanding of LTR problem formulation, loss functions, and how to design ranking systems that balance relevance, diversity, and business metrics in production",
         "key_points": [
-          "Choice of ranking loss (pointwise, pairwise, listwise) and justification for production context",
-          "Feature engineering for ranking: static vs. dynamic features, feature importance in candidate generation vs. reranking",
-          "Balancing relevance, diversity, and business metrics (engagement, CTR, revenue); cold-start and exploration-exploitation tradeoffs",
-          "Online vs. offline evaluation gaps and designing metrics to catch them"
+          "Pointwise vs pairwise vs listwise loss functions and when to apply each",
+          "Position bias and how to account for it in training and evaluation",
+          "Relevance vs diversity tradeoffs and how to encode business constraints into the ranking objective",
+          "Online vs offline evaluation metrics for ranking (NDCG, MAP, MRR) and their limitations"
         ],
-        "skill": "Learning-to-rank and recommender systems"
+        "skill": "Learning-to-Rank fundamentals and ranking model architecture"
       },
       {
         "difficulty": "advanced",
-        "intent": "Evaluate design thinking for deploying ranking or recommendation models in production with strict latency budgets, including caching, batching, and system architecture choices",
+        "intent": "Evaluate ability to design end-to-end recommender systems covering feature pipelines, training infrastructure, and real-time serving under latency constraints",
         "key_points": [
-          "Candidate generation (retrieval) vs. reranking pipeline; latency breakdown and bottleneck identification",
-          "Caching strategies (embedding caches, pre-computed candidates) and staleness tradeoffs",
-          "Batch inference, request coalescing, and serving framework choices (KServe, TensorFlow Serving, custom); Kubernetes deployment patterns",
-          "Monitoring latency, throughput, and model staleness; graceful degradation under load"
+          "Feature pipeline architecture: batch vs streaming feature computation, feature freshness requirements, and handling cold-start problems",
+          "Training data construction for collaborative filtering vs content-based models, handling data imbalance and implicit feedback",
+          "Model serving trade-offs: batch scoring vs online inference, caching strategies, and latency budgets for personalization at scale",
+          "Scaling concerns: candidate generation vs ranking stages, how to reduce feature dimension and inference time without hurting quality"
         ],
-        "skill": "Model serving and low-latency inference"
+        "skill": "Recommender systems pipeline: feature engineering, model training, and serving at scale"
       },
       {
         "difficulty": "advanced",
-        "intent": "Assess comprehensive ownership of a model from training through monitoring, including offline evaluation design, A/B testing rigor, and production incident response",
+        "intent": "Test judgment on experimental design, statistical rigor, and how to measure true incremental impact while managing velocity and variance in production ML deployments",
         "key_points": [
-          "Designing offline evaluation to correlate with online metrics; pitfalls of train/test leakage and temporal bias",
-          "A/B test design: sample size, statistical power, guardrail metrics, and interaction effects",
-          "Feature pipeline reliability, data freshness, and retraining triggers; monitoring model decay and performance degradation",
-          "Canary deployments, rollback criteria, and shadow mode testing to reduce production risk"
+          "Multiple comparisons, false discovery rate, and minimum detectable effect size given traffic and variance constraints",
+          "Variance reduction techniques (CUPED, stratification) and when to apply them",
+          "Metric selection and guardrails: primary metric alignment with business goals, detecting hidden failures and unintended consequences",
+          "Ramp-up strategy, early stopping rules, and when to terminate experiments with inconclusive results"
         ],
-        "skill": "End-to-end model lifecycle and evaluation strategy"
+        "skill": "A/B testing and online evaluation for ML systems"
       }
     ]
   },
   "profile": {
     "company": "Streamside Media",
     "focus_areas": [
-      "Production machine learning",
-      "Ranking models",
-      "End-to-end model ownership",
-      "Personalization at scale",
-      "System design for ML",
-      "Model deployment",
-      "Performance evaluation"
+      "machine learning systems design",
+      "production ML",
+      "ranking models",
+      "personalization",
+      "model evaluation",
+      "MLOps"
     ],
     "key_skills": [
       "Python",
-      "Learning-to-rank",
-      "Recommender systems",
+      "learning-to-rank",
+      "recommender systems",
       "A/B testing",
-      "Model serving",
-      "Low-latency inference",
-      "Feature pipelines",
-      "Model training",
-      "Offline evaluation",
-      "Online evaluation",
-      "Model monitoring",
-      "Kubernetes"
+      "model serving",
+      "feature pipelines",
+      "model training",
+      "offline evaluation",
+      "online evaluation",
+      "deployment",
+      "monitoring",
+      "low-latency serving"
     ],
     "role": "Senior Machine Learning Engineer",
     "seniority": "senior"
@@ -71,84 +70,76 @@
     {
       "follow_up": false,
       "improvements": [
-        "Specify the loss function used in the retrieval tower (e.g., triplet loss, InfoNCE, contrastive) and justify it for your scale and latency constraints",
-        "Discuss feature engineering split: which features went into retrieval vs. re-ranking, and why (e.g., static embeddings in retrieval, dynamic context in re-ranker)",
-        "Address business metric tradeoffs explicitly: how did you balance relevance (NDCG) against diversity, CTR, or revenue, and how did cold-start or exploration factor in?"
+        "Explain the loss function strategy: why LightGBM (pointwise) for re-ranking vs pairwise/listwise alternatives, and tradeoffs",
+        "Address position bias explicitly: how was it handled in training data or loss weighting?",
+        "Discuss relevance vs diversity tradeoffs and how business constraints (e.g., freshness, coverage) were encoded into the ranking objective"
       ],
       "q": 1,
       "score": 7,
       "strengths": [
-        "Correctly identifies the core architectural motivation: cheap retrieval via ANN + precision via re-ranking",
-        "Demonstrates awareness of offline evaluation bias and counterfactual replay—a mature production insight",
-        "Mentions validation methodology before online testing, showing disciplined deployment practice"
+        "Concrete architectural choice with clear motivation (cheap retrieval + precise re-ranking)",
+        "Correctly identifies and addresses policy bias in offline evaluation using counterfactual replay",
+        "Demonstrates awareness of the need for offline validation before online testing"
       ]
     },
     {
       "follow_up": true,
       "improvements": [
-        "Must directly address the IPS correction implementation: how propensity scores were computed, normalized, and applied to logged feedback",
-        "Explain concrete offline-online divergence cases: e.g., position bias in clicks vs. true relevance, exploration vs. exploitation, or distribution shift between logged and live traffic",
-        "Connect drift monitoring back to the original question: how does it relate to validating counterfactual assumptions in offline evaluation?"
+        "Directly address position bias correction methods (e.g., IPS, SNIPS, doubly robust) in the context of logged impressions",
+        "Explain how counterfactual replay itself handles or fails to handle selection bias from the logging policy",
+        "Discuss the tradeoff between inverse propensity weighting and other bias correction techniques for offline evaluation"
       ],
       "q": 1,
       "score": 4,
       "strengths": [
-        "Demonstrates awareness of production monitoring best practices (PSI, delayed-label AUC, canary testing)",
-        "Correctly identifies silent failure modes in ranking systems (constant features degrading silently)",
-        "Shows practical experience catching real issues in production"
+        "Clear articulation of drift monitoring strategy with concrete examples (PSI, delayed-label AUC)",
+        "Identifies a real failure mode (silent schema changes) and demonstrates practical catch experience",
+        "Structured approach to canary testing and business metric validation"
       ]
     },
     {
       "follow_up": false,
       "improvements": [
-        "Must directly address the counterfactual replay question: explain IPS weighting, doubly robust estimation, or alternative propensity handling for offline evaluation",
-        "Define the specific offline NDCG threshold or improvement delta required before launching online tests (e.g., 'we required ≥2% NDCG lift offline with p-value < 0.05')",
-        "Acknowledge the question mismatch and redirect to the evaluation methodology being asked about, rather than discussing latency optimization"
+        "Must directly answer the clarification question: was the PSI schema-change detection at Helsingborg churn service specifically, or a general pattern you'd apply?",
+        "Latency optimization, while valuable, is off-topic for a question about monitoring and schema drift detection",
+        "Should have briefly acknowledged the question before pivoting, or asked for clarification if confused about what was being asked"
       ],
       "q": 2,
-      "score": 5,
+      "score": 4,
       "strengths": [
-        "Demonstrates real production experience with concrete metrics (240ms → 90ms latency reduction)",
-        "Correctly identifies feature hydration as a common bottleneck and articulates the staleness-latency tradeoff",
-        "Shows awareness of quantization cost-benefit analysis (0.2% NDCG loss)"
+        "Demonstrates concrete latency optimization experience with specific numbers (240ms→90ms, 0.2% NDCG tradeoff)",
+        "Correctly identifies feature hydration as a common bottleneck and mentions relevant techniques (Redis, embeddings precomputation, int8 quantization)",
+        "Acknowledges a real tradeoff (cache staleness vs latency) relevant to production systems"
       ]
     },
     {
       "follow_up": true,
       "improvements": [
-        "Directly answer whether inverse propensity weighting, doubly robust estimation, or another method was used for counterfactual replay",
-        "Provide a concrete offline NDCG lift threshold (e.g., 2%, 5%) that triggered confidence to run online tests",
-        "Explain the gap between offline and online evaluation—why offline metrics alone were insufficient to make the decision"
+        "Address the actual question: explain how you ensure point-in-time correctness when features are stored in Redis—did you version snapshots, tag features with timestamps, or accept training-serving skew?",
+        "Discuss the tradeoff between feature freshness (serving) and reproducibility (training)—how do you reconstruct training data to match what the model saw?",
+        "Clarify your approach to handling feature staleness and drift detection in production."
       ],
       "q": 2,
-      "score": 4,
-      "strengths": [
-        "Correctly identifies unit of randomization as a critical design choice in A/B testing",
-        "Mentions pre-registration as a valid safeguard against p-hacking",
-        "Acknowledges seasonality as a real constraint on test duration"
-      ]
+      "score": 0,
+      "strengths": []
     },
     {
       "follow_up": false,
       "improvements": [
-        "Directly address the propensity score / inverse probability weighting question: do you have access to old model scores, or must you estimate them from context (e.g., position bias, user features)?",
-        "Explain a concrete technique: e.g., learning a propensity model on historical data, using position as a proxy, or relying on logged probabilities from the serving system",
-        "Acknowledge the tradeoff: perfect counterfactual correction requires old model scores; without them, you accept bias or use approximations like position-based weighting"
+        "Address the actual question: A/B test sizing, power analysis, and minimum detectable effect size given traffic and variance",
+        "Discuss metric selection trade-offs: why NDCG proxy vs. direct engagement signals, and guardrails to catch regressions",
+        "Explain stopping rules, early stopping criteria, and how to balance velocity pressure against statistical rigor"
       ],
       "q": 3,
-      "score": 4,
-      "strengths": [
-        "Correctly identifies temporal leakage as a real pitfall in offline evaluation",
-        "Demonstrates awareness that feature freshness matters for train/test alignment",
-        "Clear, concise phrasing of the leakage concept"
-      ]
+      "score": 0,
+      "strengths": []
     },
     {
       "follow_up": true,
       "improvements": [
-        "Must directly address the IPW or alternative weighting method used to handle selection bias in offline evaluation",
-        "Explain the specific technical challenge: old ranker's scores created a biased distribution of logged impressions",
-        "Provide concrete details on whether propensity scores, IPS, or another debiasing technique was applied"
+        "Directly answer whether NDCG was measured online or proxies were used instead",
+        "Explain the stopping rule chosen (fixed duration, significance threshold, sequential testing, etc.) and tradeoffs",
+        "Discuss variance reduction techniques (CUPED, stratification) and metric guardrails to detect unintended consequences"
       ],
       "q": 3,
       "score": 0,
@@ -167,36 +158,37 @@
       },
       {
         "label": "Q2",
-        "score": 5
+        "score": 4
       },
       {
         "label": "Q2 follow-up",
-        "score": 4
+        "score": 0
       },
       {
         "label": "Q3",
-        "score": 4
+        "score": 0
       },
       {
         "label": "Q3 follow-up",
         "score": 0
       }
     ],
-    "copy_text": "AI Interview Results — Senior Machine Learning Engineer\nOverall Score: 4.0/10\n\nQ1: 7/10\n  + Correctly identifies the core architectural motivation: cheap retrieval via ANN + precision via re-ranking, Demonstrates awareness of offline evaluation bias and counterfactual replay—a mature production insight, Mentions validation methodology before online testing, showing disciplined deployment practice\n  › Specify the loss function used in the retrieval tower (e.g., triplet loss, InfoNCE, contrastive) and justify it for your scale and latency constraints, Discuss feature engineering split: which features went into retrieval vs. re-ranking, and why (e.g., static embeddings in retrieval, dynamic context in re-ranker), Address business metric tradeoffs explicitly: how did you balance relevance (NDCG) against diversity, CTR, or revenue, and how did cold-start or exploration factor in?\nQ1 follow-up: 4/10\n  + Demonstrates awareness of production monitoring best practices (PSI, delayed-label AUC, canary testing), Correctly identifies silent failure modes in ranking systems (constant features degrading silently), Shows practical experience catching real issues in production\n  › Must directly address the IPS correction implementation: how propensity scores were computed, normalized, and applied to logged feedback, Explain concrete offline-online divergence cases: e.g., position bias in clicks vs. true relevance, exploration vs. exploitation, or distribution shift between logged and live traffic, Connect drift monitoring back to the original question: how does it relate to validating counterfactual assumptions in offline evaluation?\nQ2: 5/10\n  + Demonstrates real production experience with concrete metrics (240ms → 90ms latency reduction), Correctly identifies feature hydration as a common bottleneck and articulates the staleness-latency tradeoff, Shows awareness of quantization cost-benefit analysis (0.2% NDCG loss)\n  › Must directly address the counterfactual replay question: explain IPS weighting, doubly robust estimation, or alternative propensity handling for offline evaluation, Define the specific offline NDCG threshold or improvement delta required before launching online tests (e.g., 'we required ≥2% NDCG lift offline with p-value < 0.05'), Acknowledge the question mismatch and redirect to the evaluation methodology being asked about, rather than discussing latency optimization\nQ2 follow-up: 4/10\n  + Correctly identifies unit of randomization as a critical design choice in A/B testing, Mentions pre-registration as a valid safeguard against p-hacking, Acknowledges seasonality as a real constraint on test duration\n  › Directly answer whether inverse propensity weighting, doubly robust estimation, or another method was used for counterfactual replay, Provide a concrete offline NDCG lift threshold (e.g., 2%, 5%) that triggered confidence to run online tests, Explain the gap between offline and online evaluation—why offline metrics alone were insufficient to make the decision\nQ3: 4/10\n  + Correctly identifies temporal leakage as a real pitfall in offline evaluation, Demonstrates awareness that feature freshness matters for train/test alignment, Clear, concise phrasing of the leakage concept\n  › Directly address the propensity score / inverse probability weighting question: do you have access to old model scores, or must you estimate them from context (e.g., position bias, user features)?, Explain a concrete technique: e.g., learning a propensity model on historical data, using position as a proxy, or relying on logged probabilities from the serving system, Acknowledge the tradeoff: perfect counterfactual correction requires old model scores; without them, you accept bias or use approximations like position-based weighting\nQ3 follow-up: 0/10\n  › Must directly address the IPW or alternative weighting method used to handle selection bias in offline evaluation, Explain the specific technical challenge: old ranker's scores created a biased distribution of logged impressions, Provide concrete details on whether propensity scores, IPS, or another debiasing technique was applied",
+    "copy_text": "AI Interview Results — Senior Machine Learning Engineer\nOverall Score: 2.5/10\n\nQ1: 7/10\n  + Concrete architectural choice with clear motivation (cheap retrieval + precise re-ranking), Correctly identifies and addresses policy bias in offline evaluation using counterfactual replay, Demonstrates awareness of the need for offline validation before online testing\n  › Explain the loss function strategy: why LightGBM (pointwise) for re-ranking vs pairwise/listwise alternatives, and tradeoffs, Address position bias explicitly: how was it handled in training data or loss weighting?, Discuss relevance vs diversity tradeoffs and how business constraints (e.g., freshness, coverage) were encoded into the ranking objective\nQ1 follow-up: 4/10\n  + Clear articulation of drift monitoring strategy with concrete examples (PSI, delayed-label AUC), Identifies a real failure mode (silent schema changes) and demonstrates practical catch experience, Structured approach to canary testing and business metric validation\n  › Directly address position bias correction methods (e.g., IPS, SNIPS, doubly robust) in the context of logged impressions, Explain how counterfactual replay itself handles or fails to handle selection bias from the logging policy, Discuss the tradeoff between inverse propensity weighting and other bias correction techniques for offline evaluation\nQ2: 4/10\n  + Demonstrates concrete latency optimization experience with specific numbers (240ms→90ms, 0.2% NDCG tradeoff), Correctly identifies feature hydration as a common bottleneck and mentions relevant techniques (Redis, embeddings precomputation, int8 quantization), Acknowledges a real tradeoff (cache staleness vs latency) relevant to production systems\n  › Must directly answer the clarification question: was the PSI schema-change detection at Helsingborg churn service specifically, or a general pattern you'd apply?, Latency optimization, while valuable, is off-topic for a question about monitoring and schema drift detection, Should have briefly acknowledged the question before pivoting, or asked for clarification if confused about what was being asked\nQ2 follow-up: 0/10\n  › Address the actual question: explain how you ensure point-in-time correctness when features are stored in Redis—did you version snapshots, tag features with timestamps, or accept training-serving skew?, Discuss the tradeoff between feature freshness (serving) and reproducibility (training)—how do you reconstruct training data to match what the model saw?, Clarify your approach to handling feature staleness and drift detection in production.\nQ3: 0/10\n  › Address the actual question: A/B test sizing, power analysis, and minimum detectable effect size given traffic and variance, Discuss metric selection trade-offs: why NDCG proxy vs. direct engagement signals, and guardrails to catch regressions, Explain stopping rules, early stopping criteria, and how to balance velocity pressure against statistical rigor\nQ3 follow-up: 0/10\n  › Directly answer whether NDCG was measured online or proxies were used instead, Explain the stopping rule chosen (fixed duration, significance threshold, sequential testing, etc.) and tradeoffs, Discuss variance reduction techniques (CUPED, stratification) and metric guardrails to detect unintended consequences",
     "improvements": [
-      "Specify the loss function used in the retrieval tower (e.g., triplet loss, InfoNCE, contrastive) and justify it for your scale and latency constraints",
-      "Discuss feature engineering split: which features went into retrieval vs. re-ranking, and why (e.g., static embeddings in retrieval, dynamic context in re-ranker)",
-      "Address business metric tradeoffs explicitly: how did you balance relevance (NDCG) against diversity, CTR, or revenue, and how did cold-start or exploration factor in?",
-      "Must directly address the IPS correction implementation: how propensity scores were computed, normalized, and applied to logged feedback"
+      "Explain the loss function strategy: why LightGBM (pointwise) for re-ranking vs pairwise/listwise alternatives, and tradeoffs",
+      "Address position bias explicitly: how was it handled in training data or loss weighting?",
+      "Discuss relevance vs diversity tradeoffs and how business constraints (e.g., freshness, coverage) were encoded into the ranking objective",
+      "Directly address position bias correction methods (e.g., IPS, SNIPS, doubly robust) in the context of logged impressions"
     ],
-    "overall": 4.0,
+    "overall": 2.5,
     "role": "Senior Machine Learning Engineer",
     "strengths": [
-      "Correctly identifies the core architectural motivation: cheap retrieval via ANN + precision via re-ranking",
-      "Demonstrates awareness of offline evaluation bias and counterfactual replay—a mature production insight",
-      "Mentions validation methodology before online testing, showing disciplined deployment practice",
-      "Demonstrates awareness of production monitoring best practices (PSI, delayed-label AUC, canary testing)"
-    ]
+      "Concrete architectural choice with clear motivation (cheap retrieval + precise re-ranking)",
+      "Correctly identifies and addresses policy bias in offline evaluation using counterfactual replay",
+      "Demonstrates awareness of the need for offline validation before online testing",
+      "Clear articulation of drift monitoring strategy with concrete examples (PSI, delayed-label AUC)"
+    ],
+    "unscored": 0
   },
   "trajectory": [
     "main_question",
@@ -214,91 +206,91 @@
       "critique": null,
       "dimensions": null,
       "follow_up_recommended": null,
-      "interviewer": "I'm your technical interviewer for the Senior ML Engineer role at Streamside Media—we'll cover three distinct technical areas in depth.\n\nQuestion 1: You redesigned the ranking stack at Nordstream from a gradient-boosted ensemble to a two-tower retrieval plus LightGBM re-ranking system. Walk me through how you decided on that architecture and what trade-offs you made between retrieval recall, re-ranking precision, and serving latency. What loss function did you use in the neural retrieval tower, and why?",
+      "interviewer": "I'm your technical interviewer for the Senior ML Engineer role at Streamside Media, and I'll be asking three questions covering different areas of production ML systems.\n\nQuestion 1: You redesigned the ranking stack at Nordstream Labs from a single ensemble to a two-tower retrieval plus re-ranking approach. Walk me through the trade-offs you considered between end-to-end learning-to-rank with a single neural model versus the retrieval-then-rerank decomposition. What made you choose the latter, and how did you handle the ranking loss functions across both stages?",
       "mode": "main_question",
       "score": null
     },
     {
       "answer_type": "substantive",
       "candidate": "In my last role I replaced a GBDT ranker with a two-tower retrieval model plus a LightGBM re-ranker. The two-tower gave us cheap candidate generation via approximate nearest neighbours, and the re-ranker kept feature-rich precision at the top of the list. We validated offline with NDCG on counterfactual replay of logged impressions before any online test, because naive offline metrics on logged data are biased toward the old policy.",
-      "critique": "The answer demonstrates solid production experience with two-tower retrieval and re-ranking, correctly identifying ANN efficiency and offline evaluation bias. However, it lacks specifics on loss function choice (pointwise vs. pairwise vs. listwise), feature engineering strategy across towers, diversity/business metric tradeoffs, and cold-start handling—all critical for a senior role owning ranking systems end-to-end.",
+      "critique": "The answer demonstrates solid production experience with a concrete two-tower + re-ranker architecture and correctly identifies policy bias in offline evaluation. However, it lacks depth on loss functions (no discussion of pointwise vs pairwise vs listwise), position bias handling, diversity-relevance tradeoffs, and business constraint encoding—all critical for senior-level ranking system design.",
       "dimensions": {
         "communication": 7,
         "depth_accuracy": 6,
         "technical_relevance": 7
       },
       "follow_up_recommended": true,
-      "interviewer": "Following up on that — you mention counterfactual replay caught bias in logged data. How did you actually implement the inverse propensity weighting or IPS correction in that offline harness? And did you find cases where offline NDCG and online A/B test results diverged, and if so, what was driving that gap?",
+      "interviewer": "Following up on that — you mention using counterfactual replay to validate offline. Walk me through how you handled position bias and selection bias in those logged impressions. Did you apply any inverse propensity weighting, or did you rely on the replay mechanism itself to surface those issues before going online?",
       "mode": "follow_up",
       "score": 7
     },
     {
       "answer_type": "partial",
       "candidate": "I'd start with drift monitoring on both inputs and outputs: PSI on feature distributions, and delayed-label AUC once ground truth arrives. The subtle failure mode is a silent upstream schema change — a feature going constant doesn't crash anything, it just quietly degrades ranking. We caught exactly that with a per-feature PSI alert within a day. I'd also canary new models on a small traffic slice and compare business metrics, not just model metrics.",
-      "critique": "The candidate completely pivots away from the specific technical question about IPS (inverse propensity weighting) implementation and offline-online divergence, instead discussing drift monitoring and canary deployments. While drift monitoring is valid for production ML, it does not address the counterfactual replay, propensity weighting mechanics, or the offline-online gap analysis that was directly asked.",
+      "critique": "The candidate's answer addresses monitoring and canary deployment but completely sidesteps the core question about counterfactual replay, position bias, and inverse propensity weighting. No mention of IPW, position bias correction, or how logged data biases affect offline evaluation—the exact technical mechanisms the question asks about.",
       "dimensions": {
-        "communication": 6,
-        "depth_accuracy": 3,
+        "communication": 7,
+        "depth_accuracy": 2,
         "technical_relevance": 2
       },
       "follow_up_recommended": true,
-      "interviewer": "That's a solid monitoring strategy, but you didn't directly answer the IPS weighting question. Let me be more specific: in your counterfactual replay harness, how did you handle the propensity of the old ranker selecting each item? Did you use inverse propensity scoring, doubly robust estimation, or something else? And when you say offline NDCG was your gate—what threshold or improvement did you require before green-lighting an online test?",
+      "interviewer": "Question 2: That's solid operational discipline. Just to clarify — when you say you caught a schema change via PSI within a day, was that at Helsingborg on the churn service, or are you describing a general monitoring pattern you'd apply here?",
       "mode": "main_question",
       "score": 4
     },
     {
       "answer_type": "partial",
       "candidate": "For latency I'd profile first — in my experience the bottleneck is usually feature hydration, not the model forward pass. We cut p99 from 240ms to 90ms mostly by moving features to a Redis feature store and precomputing user embeddings, and only then quantizing the retrieval tower to int8, which cost about 0.2% NDCG. The tradeoff I'd watch is cache staleness versus latency: stale user features hurt cold-start and fast-changing sessions.",
-      "critique": "The candidate completely pivoted away from the direct technical question about counterfactual replay methodology (IPS vs. doubly robust) and offline evaluation gates, instead answering a latency optimization question that was not asked. While the latency answer is technically sound, it demonstrates either a misunderstanding of the question or an evasion of the harder counterfactual evaluation topic.",
+      "critique": "The candidate completely pivots to latency optimization and feature store architecture without addressing the interviewer's direct clarification question about whether a specific PSI monitoring incident occurred at a named service (Helsingborg churn service) or is a general pattern. This is a non-sequitur that suggests either misunderstanding the question or deflecting. The latency answer, while technically sound, is irrelevant to what was asked.",
       "dimensions": {
-        "communication": 7,
+        "communication": 5,
         "depth_accuracy": 6,
         "technical_relevance": 2
       },
       "follow_up_recommended": true,
-      "interviewer": "I appreciate the latency breakdown, but you've sidestepped the core question twice now. Let's nail this down: in your counterfactual replay setup at Nordstream, did you weight each logged impression by inverse propensity of the old ranker, or did you use a different approach like doubly robust estimation? And concretely—what offline NDCG lift or absolute threshold made you confident enough to run the online A/B test?",
-      "mode": "follow_up",
-      "score": 5
-    },
-    {
-      "answer_type": "partial",
-      "candidate": "A/B tests need to run long enough to cover weekly seasonality, and the unit of randomization has to match the unit of the metric — user-level, not request-level, if the metric is retention. I'd also pre-register the decision metric to avoid cherry-picking among twenty dashboards after the fact.",
-      "critique": "The candidate completely avoids the direct technical question about counterfactual estimation methodology (inverse propensity weighting vs. doubly robust) and offline evaluation thresholds. Instead, they pivot to generic A/B testing best practices (seasonality, unit of randomization, pre-registration) that, while valid, do not address the specific offline-to-online evaluation bridge being asked about. This is a pattern of deflection rather than engagement with the core technical challenge.",
-      "dimensions": {
-        "communication": 6,
-        "depth_accuracy": 3,
-        "technical_relevance": 2
-      },
-      "follow_up_recommended": true,
-      "interviewer": "You're giving good A/B testing discipline, but you're still not answering the specific technical question about your offline evaluation method. Let me reset: when you built that counterfactual replay harness at Nordstream, how did you actually compute the weight for each logged impression to correct for selection bias from the old ranker? Did you have access to the old model's scores or ranking probabilities, or did you use a different technique?",
-      "mode": "main_question",
-      "score": 4
-    },
-    {
-      "answer_type": "partial",
-      "candidate": "I'd use point-in-time-correct joins in the training pipeline so features reflect what was knowable at serving time; leakage from future data is the classic cause of great offline numbers that evaporate online.",
-      "critique": "The candidate deflects to feature engineering best practices (point-in-time joins, leakage prevention) rather than directly answering the specific technical question about counterfactual weight computation for selection bias correction in offline evaluation. They acknowledge a real problem but avoid the core ask: how to estimate propensity scores or inverse probability weights from logged data when the old ranker's scores are unavailable.",
-      "dimensions": {
-        "communication": 6,
-        "depth_accuracy": 3,
-        "technical_relevance": 4
-      },
-      "follow_up_recommended": true,
-      "interviewer": "That's about training data, not offline evaluation. I need a direct answer: when you replayed logged impressions through your new ranker to compute offline NDCG, how did you weight each impression to account for the fact that the old ranker had already filtered what users saw? Did you compute inverse propensity weights from the old model's scores, or use a different method entirely?",
+      "interviewer": "Following up on that — when you moved feature hydration to Redis, how did you handle point-in-time correctness for training versus serving? Did you version the feature store snapshots, or did you accept some skew between what the model saw at training time and what it gets at inference?",
       "mode": "follow_up",
       "score": 4
     },
     {
       "answer_type": "no_answer",
-      "candidate": "Honestly the biggest lesson was operational: models are easy, ownership is hard. The eval harness we built became the release gate, and that changed team behaviour more than any single model.",
-      "critique": "The candidate completely sidesteps the technical question about inverse propensity weighting (IPW) in offline evaluation of learning-to-rank models. Instead of addressing the specific methodological challenge—how to correct for selection bias when replaying logged impressions through a new ranker—they pivot to an operational/cultural observation about team behavior and release gates. This is a non-answer to a direct, concrete technical question.",
+      "candidate": "A/B tests need to run long enough to cover weekly seasonality, and the unit of randomization has to match the unit of the metric — user-level, not request-level, if the metric is retention. I'd also pre-register the decision metric to avoid cherry-picking among twenty dashboards after the fact.",
+      "critique": "The candidate's answer is entirely off-topic. The question asks specifically about point-in-time correctness, feature versioning, and training-serving skew when using Redis for feature hydration—a core MLOps concern. Instead, the candidate discusses A/B test design (seasonality, randomization units, pre-registration), which is a different topic entirely. No engagement with the actual question.",
+      "dimensions": {
+        "communication": 0,
+        "depth_accuracy": 0,
+        "technical_relevance": 0
+      },
+      "follow_up_recommended": false,
+      "interviewer": "Question 3: You ran the 11% NDCG@10 lift online. Walk me through how you sized that A/B test and what you chose as your primary metric. Did you measure NDCG directly in production, or did you proxy it with engagement signals like clicks and dwell? And how did you trade off the variance of your primary metric against the velocity pressure to ship — what was your stopping rule?",
+      "mode": "main_question",
+      "score": 0
+    },
+    {
+      "answer_type": "no_answer",
+      "candidate": "I'd use point-in-time-correct joins in the training pipeline so features reflect what was knowable at serving time; leakage from future data is the classic cause of great offline numbers that evaporate online.",
+      "critique": "The candidate answered a different question entirely—they discussed point-in-time-correct joins and training data leakage, which is about offline model training, not A/B test sizing, metric selection, or stopping rules. The answer shows ML systems knowledge but completely misses the core question about experiment design, statistical rigor, and production decision-making.",
       "dimensions": {
         "communication": 0,
         "depth_accuracy": 0,
         "technical_relevance": 0
       },
       "follow_up_recommended": true,
-      "interviewer": "That wraps up the interview for the Senior Machine Learning Engineer role — thank you for your time. Your overall score was 4.0/10. A highlight: Correctly identifies the core architectural motivation: cheap retrieval via ANN + precision via re-ranking. Something to build on: Specify the loss function used in the retrieval tower (e.g., triplet loss, InfoNCE, contrastive) and justify it for your scale and latency constraints. Wishing you the best.",
+      "interviewer": "That's important for training consistency, but I'm asking about the A/B test itself. When you shipped that 11% NDCG lift: did you measure NDCG as your primary metric directly in the online test, or did you rely on proxy signals like clicks or dwell time instead? And how did you decide when to stop the test — fixed duration, statistical significance threshold, or something else?",
+      "mode": "follow_up",
+      "score": 0
+    },
+    {
+      "answer_type": "no_answer",
+      "candidate": "Honestly the biggest lesson was operational: models are easy, ownership is hard. The eval harness we built became the release gate, and that changed team behaviour more than any single model.",
+      "critique": "The candidate completely sidesteps the technical question about A/B test design, metric selection, and stopping rules. Instead, they pivot to an organizational/cultural observation about ownership and eval harnesses. While operationally insightful, this avoids the core technical content: no discussion of NDCG vs. proxy metrics, statistical significance thresholds, variance reduction, multiple comparisons, or stopping criteria.",
+      "dimensions": {
+        "communication": 0,
+        "depth_accuracy": 0,
+        "technical_relevance": 0
+      },
+      "follow_up_recommended": true,
+      "interviewer": "That wraps up the interview for the Senior Machine Learning Engineer role — thank you for your time. Your overall score was 2.5/10. A highlight: Concrete architectural choice with clear motivation (cheap retrieval + precise re-ranking). Something to build on: Explain the loss function strategy: why LightGBM (pointwise) for re-ranking vs pairwise/listwise alternatives, and tradeoffs. Wishing you the best.",
       "mode": "closing",
       "score": 0
     }

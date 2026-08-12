@@ -84,29 +84,34 @@
       "Kafka",
       "event-driven architectures",
       "idempotency",
-      "exactly-once processing",
-      "observability",
-      "strangler-fig migrations",
-      "property-based testing"
+      "exactly-once semantics",
+      "payment processing",
+      "invoice systems",
+      "webhooks",
+      "reconciliation",
+      "observability"
     ],
     "focus_areas": [
-      "payment systems",
-      "concurrency correctness",
-      "distributed systems",
+      "concurrent system design",
+      "distributed transactions",
+      "financial correctness",
       "system reliability",
-      "data consistency"
+      "database optimization",
+      "event streaming",
+      "strangler-fig migrations",
+      "property-based testing"
     ]
   },
-  "latency_ms": 3727.6,
+  "latency_ms": 1944.3,
   "usage": {
     "provider": "anthropic",
     "model": "claude-haiku-4-5-20251001",
     "input_tokens": 782,
-    "output_tokens": 94,
+    "output_tokens": 110,
     "cache_read_tokens": 0,
     "cache_write_tokens": 0,
-    "request_id": "req_011CdVWEi93EUvcxtZkVcaj5",
+    "request_id": "req_011CdwerqAkLNG7UQxPaEhk6",
     "stop_reason": "end_turn"
   },
-  "recorded_at": "2026-07-29T01:46:35Z"
+  "recorded_at": "2026-08-11T21:15:05Z"
 }

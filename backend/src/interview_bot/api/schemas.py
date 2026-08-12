@@ -67,9 +67,14 @@ class InterviewSummary(BaseModel):
     """Server-computed interview result. The client renders this verbatim."""
     role: str
     overall: float
+    # Graded answers only — `overall` and `breakdown` never include an answer the
+    # evaluator failed to grade.
     breakdown: list[QuestionScore] = Field(default_factory=list)
     strengths: list[str] = Field(default_factory=list)
     improvements: list[str] = Field(default_factory=list)
+    # How many answers could not be evaluated. Non-zero means `overall` covers
+    # only part of the interview; `copy_text` already says so in words.
+    unscored: int = 0
     copy_text: str
 
 

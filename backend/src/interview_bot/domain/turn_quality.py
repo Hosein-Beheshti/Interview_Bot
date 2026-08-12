@@ -14,6 +14,7 @@ a subjective quality judgement.
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass
 
 from interview_bot.domain.progression import MODE_FOLLOW_UP, MODE_MAIN
@@ -121,6 +122,56 @@ def check_format(mode: str, question_number: int, reply: str) -> bool:
     if mode == MODE_FOLLOW_UP:
         return "Question" not in reply
     return True
+
+
+# A numbered main-question label anywhere in a reply. The interviewer prompt asks
+# for exactly this shape, so it is also what a drifting model emits in the wrong
+# place — which makes it the thing to rewrite or remove.
+_QUESTION_LABEL = re.compile(r"Question\s+(\d+)\s*:\s*")
+
+# What `repair` did, for logging and for the eval to count. None means the reply
+# already satisfied `check_format`.
+REPAIR_RENUMBERED = "renumbered"  # main question labelled with the wrong number
+REPAIR_LABELLED = "labelled"  # main question missing its label entirely
+REPAIR_UNLABELLED = "unlabelled"  # follow-up that posed a numbered question
+
+
+def repair(mode: str, question_number: int, reply: str) -> tuple[str, str | None]:
+    """Force a generated reply to satisfy `check_format`. Pure; no LLM call.
+
+    Returns ``(reply, repair_kind)`` with `repair_kind` None when nothing needed
+    changing. The server's question bookkeeping is authoritative, so where the
+    model's label disagrees with it, the label is what gets corrected.
+
+    Regeneration is deliberately not the remedy. The request bytes for a retry
+    would be identical to the first attempt's, so under replay it returns the
+    same cassette — a retry cannot converge by construction, and live it just
+    doubles cost and latency for another sample from the same distribution.
+
+    A follow-up whose text mentions "Question" without an actual label is left
+    alone: there is nothing structural to remove, so `check_format` (which is
+    stricter on purpose, being an eval gate) can still fail on it.
+    """
+    if mode == MODE_MAIN:
+        expected = f"Question {question_number}:"
+        if expected in reply:
+            return reply, None
+        match = _QUESTION_LABEL.search(reply)
+        if match:
+            # Right shape, wrong number — rewrite that one occurrence in place so
+            # the surrounding sentence survives.
+            return (
+                reply[: match.start()] + f"{expected} " + reply[match.end() :],
+                REPAIR_RENUMBERED,
+            )
+        return f"{expected} {reply.lstrip()}", REPAIR_LABELLED
+
+    if mode == MODE_FOLLOW_UP:
+        stripped = _QUESTION_LABEL.sub("", reply).lstrip()
+        if stripped != reply:
+            return stripped, REPAIR_UNLABELLED
+
+    return reply, None
 
 
 def build_judge_format(criteria: tuple[Criterion, ...]) -> dict:

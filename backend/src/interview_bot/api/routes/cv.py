@@ -1,8 +1,6 @@
 """CV upload and indexing endpoints."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
@@ -54,11 +52,13 @@ async def upload_cv(
         logger.error(f"CV indexing failed | session={session.session_id} | error={e}")
         raise HTTPException(status_code=502, detail="Failed to index CV") from e
 
-    session.cv_filename = parsed.filename
-    session.cv_indexed_at = datetime.now(UTC)
-    session.cv_sections = result.sections
-    session.cv_full_text = parsed.text
-    session.candidate_name = cv_parser.extract_name(parsed.text)
+    session_store.attach_cv(
+        session,
+        filename=parsed.filename,
+        full_text=parsed.text,
+        sections=result.sections,
+        candidate_name=cv_parser.extract_name(parsed.text),
+    )
     db.add(session)
     db.commit()
 
@@ -96,11 +96,7 @@ async def delete_cv(
     require_owner(session, user.id)
 
     rag.delete_index(session_id)
-    session.cv_filename = None
-    session.cv_indexed_at = None
-    session.cv_sections = None
-    session.cv_full_text = None
-    session.candidate_name = None
+    session_store.clear_cv(session)
     db.add(session)
     db.commit()
     return Response(status_code=204)

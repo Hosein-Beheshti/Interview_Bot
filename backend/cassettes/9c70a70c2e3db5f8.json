@@ -82,31 +82,34 @@
       "Flink",
       "Iceberg",
       "S3",
-      "Python",
       "SQL",
-      "Stream Processing",
-      "Data Contracts",
-      "Exactly-Once Semantics",
+      "Python",
+      "stream processing",
+      "lakehouse",
+      "data contracts",
+      "exactly-once semantics",
+      "dbt",
       "AWS"
     ],
     "focus_areas": [
-      "Event Pipeline Architecture",
-      "Lakehouse Design",
-      "Data Quality & Governance",
-      "Distributed Systems",
-      "Cost Optimization"
+      "event pipeline architecture",
+      "stream processing",
+      "data quality and contracts",
+      "cost optimization",
+      "analytics infrastructure",
+      "ML data pipelines"
     ]
   },
-  "latency_ms": 7407.5,
+  "latency_ms": 1672.6,
   "usage": {
     "provider": "anthropic",
     "model": "claude-haiku-4-5-20251001",
     "input_tokens": 778,
-    "output_tokens": 96,
+    "output_tokens": 121,
     "cache_read_tokens": 0,
     "cache_write_tokens": 0,
-    "request_id": "req_011CdVWLuVLDaxbYVLKWbgh2",
+    "request_id": "req_011Cdwey1ZVURXxdqBwigsjy",
     "stop_reason": "end_turn"
   },
-  "recorded_at": "2026-07-29T01:48:03Z"
+  "recorded_at": "2026-08-11T21:16:28Z"
 }

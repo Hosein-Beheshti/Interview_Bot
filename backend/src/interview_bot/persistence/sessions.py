@@ -7,7 +7,7 @@ insert lives in `interview_bot.pipeline.session`.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import delete as delete_rows
 from sqlalchemy import select
@@ -15,8 +15,9 @@ from sqlalchemy.orm import Session
 
 from interview_bot.domain.plan import InterviewPlan
 from interview_bot.domain.profile import JobProfile, minimal
+from interview_bot.domain.scoring import ScoreData
 from interview_bot.logger import logger
-from interview_bot.persistence.models import CVChunk, InterviewSession
+from interview_bot.persistence.models import AnswerScore, CVChunk, InterviewSession
 
 
 def get(db: Session, session_id: str, *, lock: bool = False) -> InterviewSession | None:
@@ -61,18 +62,93 @@ def create(
     return session
 
 
-def delete(db: Session, session_id: str) -> bool:
-    """Erase a session and its indexed CV chunks. False if it did not exist.
+def record_answer_score(
+    db: Session,
+    *,
+    session_id: str,
+    question_number: int | None,
+    follow_up: bool,
+    score: ScoreData,
+    prompt_version: str,
+    rubric_version: str,
+    model: str,
+) -> None:
+    """Stage the evaluator's full judgement for offline calibration.
 
-    Chunks are removed explicitly rather than left to the foreign key's ON DELETE
-    CASCADE: tables created before that constraint existed would silently keep
-    their embeddings, and this is the path that has to actually erase a person's
-    CV on request.
+    Does not commit: the row joins the caller's transaction so it lands with the
+    turn it describes. A turn that fails and is rolled back leaves no orphaned
+    judgement, and a committed turn always has one.
+
+    The versions and model are passed in rather than read here — they belong to
+    the scoring call that produced this result, and persistence has no business
+    knowing which prompt made it.
+    """
+    db.add(
+        AnswerScore(
+            session_id=session_id,
+            question_number=question_number,
+            follow_up=follow_up,
+            overall=score.overall,
+            dimensions=dict(score.dimensions),
+            answer_type=score.answer_type,
+            follow_up_recommended=score.follow_up_recommended,
+            critique=score.critique,
+            prompt_version=prompt_version,
+            rubric_version=rubric_version,
+            model=model,
+        )
+    )
+
+
+def attach_cv(
+    session: InterviewSession,
+    *,
+    filename: str,
+    full_text: str,
+    sections: list[str],
+    candidate_name: str | None,
+) -> None:
+    """Record an indexed CV on the session. Mutates only; the caller commits.
+
+    The five CV columns are set and cleared as a unit — leaving `cv_indexed_at`
+    behind after clearing the rest would make `has_cv` true for a session with no
+    text — so both halves live here rather than being open-coded at each call
+    site.
+    """
+    session.cv_filename = filename
+    session.cv_indexed_at = datetime.now(UTC)
+    session.cv_sections = sections
+    session.cv_full_text = full_text
+    session.candidate_name = candidate_name
+
+
+def clear_cv(session: InterviewSession) -> None:
+    """Drop the session's CV columns. The inverse of `attach_cv`; caller commits.
+
+    Does not touch the indexed chunks — those belong to the vector store, and the
+    caller removes them (`retrieval.rag.delete_index`).
+    """
+    session.cv_filename = None
+    session.cv_indexed_at = None
+    session.cv_sections = None
+    session.cv_full_text = None
+    session.candidate_name = None
+
+
+def delete(db: Session, session_id: str) -> bool:
+    """Erase a session, its indexed CV chunks, and its recorded judgements.
+    False if it did not exist.
+
+    Children are removed explicitly rather than left to the foreign keys' ON
+    DELETE CASCADE: tables created before those constraints existed would
+    silently keep their rows, and this is the path that has to actually erase a
+    person's CV — and everything the evaluator wrote about them — on request.
     """
     session = get(db, session_id)
     if session is None:
         return False
     db.execute(delete_rows(CVChunk).where(CVChunk.session_id == session_id))
+    db.execute(delete_rows(AnswerScore).where(AnswerScore.session_id == session_id))
     db.delete(session)
     db.commit()
     logger.info(f"Session deleted | id={session_id}")
@@ -93,6 +169,7 @@ def delete_created_before(db: Session, cutoff: datetime) -> int:
     if not expired:
         return 0
     db.execute(delete_rows(CVChunk).where(CVChunk.session_id.in_(expired)))
+    db.execute(delete_rows(AnswerScore).where(AnswerScore.session_id.in_(expired)))
     db.execute(delete_rows(InterviewSession).where(InterviewSession.session_id.in_(expired)))
     db.commit()
     logger.info(f"Retention sweep | deleted={len(expired)} | cutoff={cutoff.isoformat()}")

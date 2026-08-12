@@ -21,6 +21,7 @@
           "communication": {
             "description": "Clarity, structure, and conciseness of the explanation.",
             "enum": [
+              0,
               1,
               2,
               3,
@@ -37,6 +38,7 @@
           "depth_accuracy": {
             "description": "Technical correctness and substance. Distinguishes genuine, deep understanding from surface-level, vague, or hand-wavy answers.",
             "enum": [
+              0,
               1,
               2,
               3,
@@ -53,6 +55,7 @@
           "technical_relevance": {
             "description": "How directly the answer addresses the specific skill or topic being tested, relative to the target role's requirements.",
             "enum": [
+              0,
               1,
               2,
               3,

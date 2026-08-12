@@ -70,6 +70,11 @@ STATEMENTS: tuple[str, ...] = (
     "ALTER TABLE interview_sessions ADD COLUMN IF NOT EXISTS user_id VARCHAR",
     "CREATE INDEX IF NOT EXISTS ix_interview_sessions_user_id "
     "ON interview_sessions (user_id)",
+    # Calibration queries slice recorded judgements by the versions that produced
+    # them — two scores are only comparable within one (prompt, rubric) pair.
+    # The table itself comes from `create_all()`; only the index is added here.
+    "CREATE INDEX IF NOT EXISTS ix_answer_scores_versions "
+    "ON answer_scores (prompt_version, rubric_version)",
 )
 
 

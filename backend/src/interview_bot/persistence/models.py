@@ -133,6 +133,50 @@ class UserSession(Base):
     expires_at: Mapped[datetime] = mapped_column(_UTC_TIMESTAMP)
 
 
+class AnswerScore(Base):
+    """One evaluator judgement, kept in full for calibration.
+
+    The result the candidate sees comes from `InterviewSession.scores`, which
+    holds only the roll-up (overall, strengths, improvements). That is enough to
+    render an interview and not enough to tell whether the scoring is any good.
+    This table keeps what the evaluator actually produced — per-dimension scores,
+    the answer classification, and the critique the scores were derived from —
+    stamped with the prompt and rubric versions that produced them, since results
+    across versions are not comparable.
+
+    Nothing in the request path reads it: it is written after a turn succeeds and
+    queried offline, so scorer drift can be measured on real interviews instead
+    of only on the golden set. Cascades with the session, so the retention purge
+    and an explicit session delete both erase it.
+    """
+
+    __tablename__ = "answer_scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("interview_sessions.session_id", ondelete="CASCADE"), index=True
+    )
+    # Which main question was answered, and whether this was its follow-up —
+    # together these locate the answer within the interview.
+    question_number: Mapped[int | None] = mapped_column(default=None)
+    follow_up: Mapped[bool] = mapped_column(default=False)
+    overall: Mapped[int]
+    # {dimension_key: score}, per `domain.rubric.DEFAULT_RUBRIC`.
+    dimensions: Mapped[Any] = mapped_column(JSON, default=dict)
+    answer_type: Mapped[str]
+    follow_up_recommended: Mapped[bool] = mapped_column(default=False)
+    # The evaluator's reasoning, written before the scores. Never shown to the
+    # candidate; the highest-signal field when a score looks wrong.
+    critique: Mapped[str] = mapped_column(Text, default="")
+    # Content-derived hashes (`prompts.scoring.PROMPT_VERSION`,
+    # `domain.rubric.RUBRIC_VERSION`) plus the model that graded. A score is only
+    # comparable to another with all three equal.
+    prompt_version: Mapped[str]
+    rubric_version: Mapped[str]
+    model: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(_UTC_TIMESTAMP, default=_now)
+
+
 class CVChunk(Base):
     __tablename__ = "cv_chunks"
 
