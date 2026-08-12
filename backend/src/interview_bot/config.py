@@ -40,6 +40,22 @@ class Settings(BaseSettings):
     gemini_thinking_budget: int = 0
 
     database_url: str = "postgresql://postgres:postgres@localhost:5432/interview_bot"
+
+    # ---- Connection pool ---------------------------------------------------
+    # Managed Postgres (Railway et al.) closes connections that have been idle
+    # for a while, and the pool has no way to notice: the next checkout hands
+    # out a dead socket and the request fails with "server closed the connection
+    # unexpectedly". `pool_pre_ping` costs one trivial round trip per checkout
+    # and turns that class of error into a transparent reconnect; `pool_recycle`
+    # retires connections before the server's own idle timeout can reach them.
+    db_pool_pre_ping: bool = True
+    db_pool_recycle_seconds: int = 1800
+    # Sized against the database's connection limit, not the app's concurrency:
+    # every worker process opens its own pool, so the real ceiling is
+    # (workers x (pool_size + max_overflow)).
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+
     max_tokens: int = 300
     # Sampling temperature for interviewer question/reply generation. Lower =>
     # more deterministic and better at obeying the turn's constraints (stay on
