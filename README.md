@@ -309,9 +309,8 @@ touches the environment. [`.env.example`](.env.example) is a copy-paste starting
 |---|---|---|
 | `GOOGLE_CLIENT_ID` | — | Checked as the ID token's audience; a token minted for another app is rejected |
 | `SIGNUP_CREDIT_GRANT` | `20` | Credits granted once, at first login. `0` disables the free allowance |
-| `INTERVIEW_SESSION_CREDIT_COST` | `5` | Credits to start one interview |
+| `INTERVIEW_SESSION_CREDIT_COST` | `8` | Credits to start one interview, the session's speech synthesis included |
 | `TRANSCRIPTION_CREDIT_COST` | `1` | Credits per transcription |
-| `TTS_CREDIT_COST_PER_1K_CHARS` | `1` | TTS is billed by length, so it's charged by length |
 | `REQUIRE_CREDITS_TO_START_SESSION` | `true` | Kill switch — `false` skips every credit check (other limits still apply) |
 | `SESSION_COOKIE_NAME` / `SESSION_MAX_AGE_DAYS` | `interview_bot_session` / `30` | Changing the name invalidates every login at once |
 

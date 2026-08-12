@@ -5,14 +5,20 @@ detail and reported to the caller as a bare 502: an upstream error body can carr
 request ids, quota figures, or fragments of our own request, and these endpoints
 are reachable by anyone.
 
-Both spend vendor money per call, so both require a signed-in user and debit
-credits, the same way session creation does. Without that, `/speak` is an open
-text-to-speech proxy for anyone who can reach the URL and `/transcribe` an open
-transcription one — the per-IP quotas alone only bound how fast a single address
-can spend, not who is allowed to.
-"""
-import math
+Both spend vendor money per call, so both require a signed-in user. Without that,
+`/speak` is an open text-to-speech proxy for anyone who can reach the URL and
+`/transcribe` an open transcription one — the per-IP quotas alone only bound how
+fast a single address can spend, not who is allowed to.
 
+`/transcribe` also debits credits per call. `/speak` does not: one reply is
+synthesized as several requests as it streams, so charging per request would
+price the same reply differently depending on how the client happened to chunk
+it — a rendering detail deciding the bill. A session asks for a bounded number of
+questions, so the synthesis it implies is bounded too and is paid for once, in
+`interview_session_credit_cost`. What remains uncharged is a signed-in caller
+calling `/speak` directly without a session; `TTS_CHARACTERS` caps that per
+address per day.
+"""
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -65,7 +71,6 @@ async def transcribe(
 async def speak(
     request: SpeakRequest,
     http_request: Request,
-    db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> Response:
     # Charged per character, not per call: synthesis is billed by length, so a
@@ -73,20 +78,9 @@ async def speak(
     limits.charge(
         limits.TTS_CHARACTERS, limits.client_ip(http_request), amount=len(request.text)
     )
-    with credits.charged(db, user.id, _tts_credit_cost(len(request.text))):
-        try:
-            audio_bytes = await speech.synthesize(request.text)
-        except Exception as e:
-            logger.error(f"Speech synthesis failed | chars={len(request.text)} | error={e}")
-            raise HTTPException(status_code=502, detail="Speech synthesis unavailable") from e
+    try:
+        audio_bytes = await speech.synthesize(request.text)
+    except Exception as e:
+        logger.error(f"Speech synthesis failed | chars={len(request.text)} | error={e}")
+        raise HTTPException(status_code=502, detail="Speech synthesis unavailable") from e
     return Response(content=audio_bytes, media_type="audio/mpeg")
-
-
-def _tts_credit_cost(chars: int) -> int:
-    """Credits for synthesizing `chars`, rounded up to the next 1,000.
-
-    Rounding up rather than down so that many short requests cannot be cheaper
-    than one long one carrying the same total — the split is exactly the way to
-    game a per-1k charge that truncates.
-    """
-    return math.ceil(chars / 1000) * settings.tts_credit_cost_per_1k_chars

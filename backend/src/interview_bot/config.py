@@ -207,14 +207,14 @@ class Settings(BaseSettings):
     # Credits granted once, at first login. 0 disables the free allowance.
     signup_credit_grant: int = 20
 
-    # Credits debited to start one interview session.
-    interview_session_credit_cost: int = 5
+    # Credits debited to start one interview session. Covers the session's
+    # speech synthesis too: a session asks a bounded number of questions, so the
+    # audio it implies is bounded, and charging it here keeps the price
+    # independent of how many requests the client splits each reply into.
+    interview_session_credit_cost: int = 8
 
     # Credits debited per transcription request.
     transcription_credit_cost: int = 1
-
-    # Credits debited per 1,000 characters of text-to-speech synthesized.
-    tts_credit_cost_per_1k_chars: int = 1
 
     # Kill switch: false skips every credit check (per-IP and global-token
     # limits still apply) — lets metering be turned off via env var alone, no

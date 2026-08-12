@@ -97,8 +97,10 @@ def test_transcribe_requires_login(client):
 # --------------------------------------------------------------------------- #
 # Credit metering
 # --------------------------------------------------------------------------- #
-def test_speak_debits_credits(client, monkeypatch):
-    monkeypatch.setattr(settings, "tts_credit_cost_per_1k_chars", 1)
+def test_speak_does_not_debit_credits(client, monkeypatch):
+    # Synthesis is paid for in the session's cost, not per request: a reply is
+    # spoken as several requests as it streams, and the bill must not depend on
+    # how the client split it.
     _login(client, monkeypatch)
     _stub_synthesize(monkeypatch)
     before = _credits(client)
@@ -107,17 +109,15 @@ def test_speak_debits_credits(client, monkeypatch):
 
     assert response.status_code == 200
     assert response.content == b"audio-bytes"
-    assert _credits(client) == before - 1
+    assert _credits(client) == before
 
 
-def test_speak_refunds_credits_when_the_vendor_fails(client, monkeypatch):
-    monkeypatch.setattr(settings, "tts_credit_cost_per_1k_chars", 1)
+def test_speak_reports_a_vendor_failure_as_502(client, monkeypatch):
     _login(client, monkeypatch)
     _stub_synthesize(monkeypatch, result=RuntimeError("deepgram down"))
     before = _credits(client)
 
     assert client.post("/api/speak", json={"text": "hello"}).status_code == 502
-    # The caller must not pay for audio they never received.
     assert _credits(client) == before
 
 
@@ -164,40 +164,12 @@ def test_transcribe_rejects_a_bad_upload_without_charging(client, monkeypatch):
     assert _credits(client) == before
 
 
-def test_speak_is_free_when_the_credit_kill_switch_is_off(client, monkeypatch):
-    monkeypatch.setattr(settings, "require_credits_to_start_session", False)
-    monkeypatch.setattr(settings, "tts_credit_cost_per_1k_chars", 1)
+def test_speak_serves_a_caller_with_no_credits(client, monkeypatch):
+    # Deliberate: the balance gates starting a session, and the session is where
+    # synthesis is paid for. A signed-in caller with an empty balance can still
+    # be spoken to; `TTS_CHARACTERS` is what bounds that per address.
+    monkeypatch.setattr(settings, "signup_credit_grant", 0)
     _login(client, monkeypatch)
     _stub_synthesize(monkeypatch)
-    before = _credits(client)
 
     assert client.post("/api/speak", json={"text": "hello"}).status_code == 200
-    assert _credits(client) == before
-
-
-def test_speak_rejects_a_caller_with_no_credits(client, monkeypatch):
-    monkeypatch.setattr(settings, "signup_credit_grant", 0)
-    monkeypatch.setattr(settings, "tts_credit_cost_per_1k_chars", 1)
-    _login(client, monkeypatch)
-    _stub_synthesize(monkeypatch)
-
-    assert client.post("/api/speak", json={"text": "hello"}).status_code == 402
-
-
-# --------------------------------------------------------------------------- #
-# Per-1k rounding
-# --------------------------------------------------------------------------- #
-@pytest.mark.parametrize(
-    ("chars", "expected"),
-    [(1, 1), (999, 1), (1000, 1), (1001, 2), (2000, 2)],
-)
-def test_tts_cost_rounds_up_to_the_next_thousand(monkeypatch, chars, expected):
-    # Rounding up is what stops one long request being split into many cheap
-    # short ones.
-    monkeypatch.setattr(settings, "tts_credit_cost_per_1k_chars", 1)
-    assert voice_route._tts_credit_cost(chars) == expected
-
-
-def test_tts_cost_is_zero_when_the_rate_is_zero(monkeypatch):
-    monkeypatch.setattr(settings, "tts_credit_cost_per_1k_chars", 0)
-    assert voice_route._tts_credit_cost(1500) == 0
