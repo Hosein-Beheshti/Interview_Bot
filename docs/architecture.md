@@ -28,7 +28,8 @@ is findable by name: `scoring`, `profile`, `plan`, `interview`, `cv`.
 
 | Module | Responsibility | Depends on |
 |---|---|---|
-| `domain/progression` | Interview FSM: `decide_next_turn`, `apply_turn`. `max_followups` passed in. | (pure) |
+| `domain/progression` | Interview FSM: `decide_next_turn`, `apply_turn`. `max_followups` passed in; `answered` separates "no answer yet" from "answer we could not grade". | (pure) |
+| `domain/turn_quality` | Judge criteria, plus the `check_format` / `repair` label contract enforced on every live turn | progression |
 | `domain/rubric` | Rubric definition, score schema, weighted overall, `RUBRIC_VERSION` | (pure) |
 | `domain/scoring` | `ScoreData` + `parse_score` (validate model output) | rubric |
 | `domain/profile` | `JobProfile`, normalization, prompt-ready context | (pure) |
@@ -79,6 +80,24 @@ bytes are themselves outputs.**
    trajectories and per-turn decisions match. All offline, in seconds. A prompt
    change misses its cassette *and* fails the snapshot — loudly, on purpose.
 
+## Measuring the system on real traffic
+
+`InterviewSession.scores` holds only the roll-up the candidate is shown — enough
+to render a result, not enough to tell whether the scoring is any good. Every
+graded answer is therefore also written to `answer_scores` (`persistence/models`),
+with the per-dimension scores, the answer classification, the evaluator's
+critique, and the `(prompt_version, rubric_version, model)` triple it is only
+comparable within. Nothing in the request path reads it; it exists so scorer drift
+can be measured on real interviews rather than only on a 38-item golden set. It
+cascades with the session, so both the retention sweep and an explicit delete
+erase it.
+
+Turn generation can run on a different model from everything else
+(`settings.generator_model`, empty = use `model`). Generation is the only output a
+candidate reads and the place a small model's drift shows; scoring, judging, and
+extraction are schema-constrained and stay on the default. The model name is part
+of a request's replay identity, so changing it needs `make record`.
+
 ## The versioning story
 
 Prompts and rubrics are versioned artifacts; results across versions are not
@@ -110,6 +129,24 @@ results (`domain.summary.closing_message`), not generated, so it can neither ask
 dangling question nor be derailed by an instruction injected into an answer. Only
 the two model-driven modes (main question, follow-up) reach `turn_instruction`.
 
+**…and the server owns the label, too.** Being authoritative about progression is
+not enough if the text the candidate reads disagrees with it. `turn_quality.repair`
+runs on every generated turn: a main question gets the number the server says it
+is, and a follow-up cannot present itself as a new numbered question. It is pure
+string work, not a retry — a regeneration would send byte-identical request bytes
+and so cannot converge by construction. This is load-bearing rather than defensive:
+in the recorded fixture set, *every* main question after the first arrives without
+its label, so the repair fires on most main turns and is visible in the logs
+(`Turn format repaired | repair=…`) as a generator-drift signal.
+
+**An ungraded answer is a third state.** `score=None` used to mean both "the
+candidate hasn't answered yet" and "the evaluator failed", which let a scorer
+outage push the interview past its last question and silently drop the answer from
+the average. `decide_next_turn` now takes `answered` alongside the score, and an
+ungraded answer is persisted as `{"q": …, "unscored": True}` — excluded from the
+overall, counted in `summary.unscored`, and stated in the closing message. A
+partial result that says so beats a whole-looking one that isn't.
+
 **Simpler-over-architectural choices:**
 - `progression` is a pure function taking `max_followups` as an argument, not a
   stateful policy object.
@@ -130,6 +167,20 @@ the two model-driven modes (main question, follow-up) reach `turn_instruction`.
   and never as instructions, which is a deliberate prompt change: it alters the
   assembled bytes, so it needs its own commit, updated snapshots, and re-recorded
   cassettes (`make record`, requires API keys). Not something to slip in.
+- **A follow-up answer is graded against the main question's key points.**
+  `pipeline/interview` looks up the answered question's blueprint slot regardless
+  of whether the turn answered was a follow-up, and follow-ups have no slot of
+  their own. For a `simplify` follow-up this grades a deliberately easier question
+  against the harder one's reference points, and `summary` then averages that
+  record at full weight — so a candidate who stumbles once is penalised twice.
+  Fixing it is a scoring-behavior change (drop the reference points for
+  follow-ups, or weight them below main answers) and belongs in its own commit.
+- **The interviewer, the scorer, and the judge can share one model.** With
+  `generator_model` unset they all run on `settings.model`, so the judge is most
+  likely to approve exactly the failures the generator is prone to, and the
+  generator eval's kappa gate cannot see correlated error — only disagreement.
+  Splitting generation out is now a config change; splitting the *judge* onto a
+  stronger model than the thing it judges is not yet possible.
 
 Resolved since the freeze (see git history): import-time DDL and the deprecated
 `on_event` hook (now a lifespan), `datetime.utcnow` (now aware UTC on
