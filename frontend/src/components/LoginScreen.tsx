@@ -1,4 +1,5 @@
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google'
+import { BrandMark } from './icons'
 import '../styles/chat.css'
 
 interface LoginScreenProps {
@@ -15,9 +16,12 @@ export function LoginScreen({ onLogin, error, onDismissError }: LoginScreenProps
   return (
     <div className="login-screen">
       <div className="login-card">
-        <div className="welcome-orb"><span>🎯</span></div>
-        <h1>AI Interviewer</h1>
-        <p>Sign in to practice technical interviews with real-time AI feedback and voice interaction.</p>
+        <div className="welcome-orb"><BrandMark size={26} /></div>
+        <h1>Warmup</h1>
+        <p>
+          Practice technical interviews with spoken questions, per-answer scoring,
+          and a written summary. Sign in to begin.
+        </p>
 
         <div className="login-button-wrap">
           <GoogleLogin

@@ -81,8 +81,8 @@ export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) 
         <>
           <UploadIcon />
           <div className="cv-prompt">
-            <strong>Upload your CV</strong>
-            <span>Drag & drop or click to choose · PDF, DOCX, TXT · up to 5 MB</span>
+            <strong>Drop your CV here, or click to browse</strong>
+            <span>PDF, DOCX or TXT · up to 5 MB · questions draw on your experience</span>
           </div>
         </>
       )}
@@ -94,7 +94,7 @@ export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) 
 
 function UploadIcon() {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />

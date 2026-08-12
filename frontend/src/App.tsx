@@ -8,7 +8,12 @@ function App() {
   const auth = useAuth()
 
   if (auth.status === 'loading') {
-    return <div className="auth-loading">Loading…</div>
+    return (
+      <div className="auth-loading">
+        <span className="cv-spinner" aria-hidden />
+        <span>Loading…</span>
+      </div>
+    )
   }
 
   if (auth.status === 'signed_out' || !auth.user) {
@@ -17,7 +22,15 @@ function App() {
     )
   }
 
-  return <ChatInterface user={auth.user} onLogout={auth.logout} onCreditsChanged={auth.refresh} />
+  return (
+    <ChatInterface
+      user={auth.user}
+      onLogout={auth.logout}
+      onCreditsChanged={auth.refresh}
+      lastSpend={auth.lastSpend}
+      onSpendShown={auth.clearSpend}
+    />
+  )
 }
 
 export default App

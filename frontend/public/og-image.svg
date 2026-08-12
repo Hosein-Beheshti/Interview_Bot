@@ -1,19 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#080c14"/>
-      <stop offset="100%" stop-color="#161b22"/>
+      <stop offset="0%" stop-color="#0a0c10"/>
+      <stop offset="100%" stop-color="#161a20"/>
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)"/>
-  <circle cx="1010" cy="150" r="220" fill="#6366f1" opacity="0.12"/>
+  <circle cx="1010" cy="150" r="220" fill="#6366f1" opacity="0.10"/>
 
-  <g transform="translate(96 232)">
-    <rect x="0" y="0" width="28" height="48" rx="14" fill="#818cf8"/>
-    <path d="M-14 34v6a28 28 0 0 0 56 0v-6" fill="none" stroke="#818cf8" stroke-width="8" stroke-linecap="round"/>
+  <g transform="translate(96 180) scale(4)" fill="none" stroke="#818cf8">
+    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v9a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.5A.75.75 0 0 1 4.6 20v-3.2A2.5 2.5 0 0 1 4 14.5z" stroke-width="1.6" stroke-linejoin="round"/>
+    <rect x="8" y="11" width="2" height="3" rx="0.6" fill="#818cf8" stroke="none"/>
+    <rect x="11.5" y="9" width="2" height="5" rx="0.6" fill="#818cf8" stroke="none"/>
+    <rect x="15" y="6.5" width="2" height="7.5" rx="0.6" fill="#818cf8" stroke="none"/>
   </g>
 
-  <text x="96" y="360" fill="#f1f5f9" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="76" font-weight="700">AI Interviewer</text>
-  <text x="96" y="424" fill="#94a3b8" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="32">Practise technical interviews with real-time feedback</text>
-  <text x="96" y="486" fill="#475569" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="25">Job-aware questions · CV grounding · every answer scored</text>
+  <text x="96" y="380" fill="#e8ebf0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="76" font-weight="700">Warmup</text>
+  <text x="96" y="440" fill="#9aa4b2" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="32">Practise technical interviews with real-time feedback</text>
+  <text x="96" y="500" fill="#6a7481" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="25">Job-aware questions · CV grounding · every answer scored</text>
 </svg>

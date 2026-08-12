@@ -2,5 +2,10 @@
 
 html, body, #root {
   height: 100%;
-  background: #080c14;
+  background: #0a0c10;
+}
+
+/* Prevent the iOS zoom-on-focus jump without shrinking type elsewhere. */
+@media (max-width: 640px) {
+  input, textarea, select { font-size: 16px; }
 }

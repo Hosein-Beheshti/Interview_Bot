@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { ChatState, Message, ScoreResult } from '../types'
-import { ApiError, deleteSession, describeError, streamMessage } from '../services/api'
+import { ApiError, deleteSession, describeFailure, streamMessage } from '../services/api'
 
 const SESSION_STORAGE_KEY = 'interview_session_id'
 
@@ -14,7 +14,15 @@ const initialState: ChatState = {
   summary: null,
   loading: false,
   streaming: false,
+  stage: null,
   error: null,
+}
+
+/** The arguments of a turn, kept so a failed one can be sent again unchanged. */
+interface Attempt {
+  text: string
+  role?: string
+  jobContext?: string
 }
 
 /** Apply `change` to the trailing assistant message — the one being streamed. */
@@ -31,6 +39,7 @@ function updateStreamingMessage(
 
 export function useChat(onUnauthorized?: () => void) {
   const [state, setState] = useState<ChatState>(initialState)
+  const lastAttempt = useRef<Attempt | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem(SESSION_STORAGE_KEY)
@@ -43,8 +52,11 @@ export function useChat(onUnauthorized?: () => void) {
     async (text: string, role?: string, jobContext?: string) => {
       if (!text.trim()) return
 
+      lastAttempt.current = { text, role, jobContext }
+
       // The answer and an empty bubble go in immediately: the bubble is what the
       // reply streams into, so the candidate sees writing rather than a spinner.
+      // Until the first chunk lands the bubble reports the stage instead.
       setState((prev) => ({
         ...prev,
         messages: [
@@ -54,20 +66,28 @@ export function useChat(onUnauthorized?: () => void) {
         ],
         loading: true,
         streaming: true,
+        // Without a session the server must first extract the job profile and
+        // build the interview blueprint, and that happens before the stream
+        // opens; with one, the first thing it does is grade the answer.
+        stage: state.session_id ? 'evaluating' : 'planning',
         error: null,
       }))
 
       try {
         await streamMessage(text, state.session_id || undefined, role, jobContext, {
+          // The grade lands before the next question exists, so its arrival is
+          // also the moment scoring stopped and writing began.
           onScore: (score: ScoreResult | null) =>
-            setState((prev) =>
-              updateStreamingMessage(prev, (m) => ({ ...m, score: score ?? undefined })),
-            ),
+            setState((prev) => ({
+              ...updateStreamingMessage(prev, (m) => ({ ...m, score: score ?? undefined })),
+              stage: 'composing',
+            })),
 
           onDelta: (chunk: string) =>
-            setState((prev) =>
-              updateStreamingMessage(prev, (m) => ({ ...m, content: m.content + chunk })),
-            ),
+            setState((prev) => ({
+              ...updateStreamingMessage(prev, (m) => ({ ...m, content: m.content + chunk })),
+              stage: 'writing',
+            })),
 
           onDone: (response) => {
             localStorage.setItem(SESSION_STORAGE_KEY, response.session_id)
@@ -91,7 +111,9 @@ export function useChat(onUnauthorized?: () => void) {
               summary: response.summary ?? prev.summary,
               loading: false,
               streaming: false,
+              stage: null,
             }))
+            lastAttempt.current = null
           },
         })
       } catch (err) {
@@ -109,15 +131,33 @@ export function useChat(onUnauthorized?: () => void) {
           messages: prev.messages.slice(0, -2),
           loading: false,
           streaming: false,
-          error: describeError(err),
+          stage: null,
+          error: describeFailure(err),
         }))
       }
     },
     [state.session_id, onUnauthorized],
   )
 
+  /**
+   * Send the failed turn again, unchanged.
+   *
+   * Only offered once a session exists. A first turn that fails may still have
+   * created and been charged for a session server-side, and the id never
+   * reached us — resending would build a second one and charge again, so that
+   * case gets no retry button.
+   */
+  const retry = useCallback(() => {
+    const attempt = lastAttempt.current
+    if (!attempt || !state.session_id) return
+    send(attempt.text, attempt.role, attempt.jobContext)
+  }, [send, state.session_id])
+
+  const canRetry = Boolean(lastAttempt.current && state.session_id && state.error)
+
   const reset = useCallback(() => {
     localStorage.removeItem(SESSION_STORAGE_KEY)
+    lastAttempt.current = null
     setState(initialState)
   }, [])
 
@@ -125,6 +165,7 @@ export function useChat(onUnauthorized?: () => void) {
   const forget = useCallback(async () => {
     const sessionId = state.session_id
     localStorage.removeItem(SESSION_STORAGE_KEY)
+    lastAttempt.current = null
     setState(initialState)
     if (sessionId) {
       await deleteSession(sessionId).catch(() => undefined)
@@ -138,5 +179,5 @@ export function useChat(onUnauthorized?: () => void) {
 
   const dismissError = useCallback(() => setState((prev) => ({ ...prev, error: null })), [])
 
-  return { ...state, send, reset, forget, adoptSession, dismissError }
+  return { ...state, send, retry, canRetry, reset, forget, adoptSession, dismissError }
 }

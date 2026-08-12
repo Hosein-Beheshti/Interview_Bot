@@ -1,4 +1,4 @@
-import { ChatResponse, CVUploadResponse, ScoreResult, User } from '../types'
+import { ChatResponse, CVUploadResponse, ScoreResult, TurnFailure, User } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
@@ -29,6 +29,30 @@ export function describeError(err: unknown): string {
   }
   if (err instanceof TypeError) return 'Cannot reach the server. Check your connection.'
   return err instanceof Error ? err.message : 'Something went wrong'
+}
+
+/**
+ * The same failure, split into a headline and a detail line.
+ *
+ * The server already distinguishes "you are going too fast" from "the demo is
+ * out of budget" from "the model is down"; leading with which of those it was
+ * tells the candidate in one glance whether waiting, topping up, or retrying is
+ * the thing to do.
+ */
+export function describeFailure(err: unknown): TurnFailure {
+  const detail = describeError(err)
+  if (err instanceof ApiError) {
+    if (err.status === 401) return { title: 'Signed out', detail }
+    if (err.status === 402) return { title: 'Out of credits', detail }
+    if (err.status === 429) return { title: 'Slow down', detail }
+    if (err.status === 503) return { title: 'Daily limit reached', detail }
+    if (err.status === 413) return { title: 'File too large', detail }
+    if (err.status === 502) return { title: 'Turn failed', detail }
+    if (err.status >= 500) return { title: 'Interviewer unavailable', detail }
+    return { title: 'Request failed', detail }
+  }
+  if (err instanceof TypeError) return { title: 'Offline', detail }
+  return { title: 'Something went wrong', detail }
 }
 
 async function toApiError(response: Response, fallback: string): Promise<ApiError> {

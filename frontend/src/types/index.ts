@@ -71,6 +71,27 @@ export interface CVInfo {
   chunk_count: number
 }
 
+/**
+ * What the server is working on right now.
+ *
+ * Derived entirely from where we are in the SSE stream — the protocol carries no
+ * stage events, but the order of the ones it does carry pins each phase down:
+ *
+ *   no session yet     → `planning`   (profile extraction + interview blueprint,
+ *                                      which run before the stream opens)
+ *   stream opened      → `evaluating` (the previous answer is being scored)
+ *   `score` received   → `composing`  (progression decided, question being written)
+ *   first `delta`      → `writing`    (text is arriving; the bubble shows it)
+ */
+export type TurnStage = 'planning' | 'evaluating' | 'composing' | 'writing'
+
+/** A failed turn, split so the UI can lead with what went wrong before the
+ *  detail, and know whether offering a retry is safe. */
+export interface TurnFailure {
+  title: string
+  detail: string
+}
+
 export interface ChatState {
   messages: Message[]
   session_id: string | null
@@ -83,5 +104,7 @@ export interface ChatState {
   // True while the current reply is still arriving. Distinct from `loading`,
   // which also covers the wait before the first chunk.
   streaming: boolean
-  error: string | null
+  // Non-null only while a turn is in flight.
+  stage: TurnStage | null
+  error: TurnFailure | null
 }
