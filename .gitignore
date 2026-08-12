@@ -7,6 +7,9 @@ frontend/.env
 # Local editor/assistant tooling config, not part of the published repo
 .claude/
 CLAUDE.md
+# The long narrative architecture write-up, kept local. docs/architecture.md is
+# the version the repo publishes and the one to keep current.
+/ARCHITECTURE.md
 
 # Python
 __pycache__/
