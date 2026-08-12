@@ -52,7 +52,11 @@ class GeminiProvider(LLMProvider):
                 "llm_provider='gemini' but GEMINI_API_KEY is not set. "
                 "Get a free key at https://aistudio.google.com/apikey."
             )
-        self._client = genai.Client(api_key=settings.gemini_api_key)
+        self._client = genai.Client(
+            api_key=settings.gemini_api_key,
+            # Milliseconds here, unlike the Anthropic SDK's seconds.
+            http_options=types.HttpOptions(timeout=int(settings.llm_timeout_seconds * 1000)),
+        )
 
     @_RETRY
     async def generate(
@@ -60,13 +64,14 @@ class GeminiProvider(LLMProvider):
         messages: list[dict],
         system: str,
         *,
+        model: str,
         cache_prefix: str | None = None,
         temperature: float | None = None,
     ) -> str:
         full_system = _merge_system(cache_prefix, system)
         safe_messages = trim_to_context_limit(messages, full_system)
         response = await self._client.aio.models.generate_content(
-            model=settings.gemini_model,
+            model=model,
             contents=_to_contents(safe_messages),  # type: ignore[arg-type]  # SDK wants Content objects; dict parts are valid at runtime
             config=types.GenerateContentConfig(
                 system_instruction=full_system or None,
@@ -88,13 +93,14 @@ class GeminiProvider(LLMProvider):
         messages: list[dict],
         system: str,
         *,
+        model: str,
         cache_prefix: str | None = None,
         temperature: float | None = None,
     ) -> AsyncIterator[str]:
         full_system = _merge_system(cache_prefix, system)
         safe_messages = trim_to_context_limit(messages, full_system)
         chunks = await self._client.aio.models.generate_content_stream(
-            model=settings.gemini_model,
+            model=model,
             contents=_to_contents(safe_messages),  # type: ignore[arg-type]
             config=types.GenerateContentConfig(
                 system_instruction=full_system or None,

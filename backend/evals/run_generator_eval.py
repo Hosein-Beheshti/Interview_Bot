@@ -84,7 +84,10 @@ def run_meta() -> dict:
     return {
         "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "provider": settings.llm_provider,
-        "model": llm.active_model(),
+        # The generator under test and the judge grading it need not be the same
+        # model (see `settings.generator_model`), so both are recorded.
+        "model": llm.generation_model(),
+        "judge_model": llm.active_model(),
         "judge_prompt_version": JUDGE_PROMPT_VERSION,
         "criteria_version": CRITERIA_VERSION,
         "ground_truth": "human-reviewed golden set (generator_golden_set.json)",

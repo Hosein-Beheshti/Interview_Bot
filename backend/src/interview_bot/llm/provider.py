@@ -46,10 +46,17 @@ class LLMProvider(ABC):
         messages: list[dict],
         system: str,
         *,
+        model: str,
         cache_prefix: str | None = None,
         temperature: float | None = None,
     ) -> str:
         """Generate a free-text assistant reply.
+
+        `model` is passed explicitly rather than read from config because turn
+        generation may run on a different model from the schema-constrained calls
+        (see `settings.generator_model`), and because the model name is part of a
+        request's replay identity — the caller that builds the request must be the
+        one that chooses it.
 
         `temperature` is the sampling temperature; when None the provider uses its
         own default (the API default).
@@ -61,6 +68,7 @@ class LLMProvider(ABC):
         messages: list[dict],
         system: str,
         *,
+        model: str,
         cache_prefix: str | None = None,
         temperature: float | None = None,
     ) -> AsyncIterator[str]:

@@ -21,8 +21,19 @@ from .registry import get_provider
 
 
 def active_model() -> str:
-    """The model name the configured provider will actually call."""
+    """The configured provider's default model — scoring, judging, extraction."""
     return settings.gemini_model if settings.llm_provider == "gemini" else settings.model
+
+
+def generation_model() -> str:
+    """The model used for interviewer turn generation.
+
+    `settings.generator_model` when set, otherwise the provider default — so a
+    stronger model can phrase the interview while the schema-constrained calls
+    stay on the cheaper one. It must be a model name the *active* provider
+    understands; this is one override, not one per provider.
+    """
+    return settings.generator_model or active_model()
 
 
 async def generate(
@@ -53,7 +64,11 @@ async def generate(
             "llm.generate",
             _generate_request(messages, system, cache_prefix, temperature),
             lambda: get_provider().generate(
-                messages, system, cache_prefix=cache_prefix, temperature=temperature
+                messages,
+                system,
+                model=generation_model(),
+                cache_prefix=cache_prefix,
+                temperature=temperature,
             ),
         )
         gen.set_output(reply)
@@ -75,7 +90,7 @@ def _generate_request(
     return {
         "kind": "llm.generate",
         "provider": settings.llm_provider,
-        "model": active_model(),
+        "model": generation_model(),
         "system": system,
         "cache_prefix": cache_prefix,
         "messages": messages,
@@ -111,7 +126,11 @@ async def stream(
             "llm.generate",
             _generate_request(messages, system, cache_prefix, temperature),
             lambda: get_provider().stream(
-                messages, system, cache_prefix=cache_prefix, temperature=temperature
+                messages,
+                system,
+                model=generation_model(),
+                cache_prefix=cache_prefix,
+                temperature=temperature,
             ),
         )
         async for chunk in stream_iter:

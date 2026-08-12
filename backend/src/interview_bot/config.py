@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     # it invalidates the interviewer cassettes and needs `make record`.
     generator_model: str = ""
 
+    # Hard ceiling on a single provider HTTP call. Both SDKs default to ten
+    # minutes, which is far longer than any turn should take and long enough for
+    # a stalled call to pin the request's database connection (and, on /chat, the
+    # interview row's lock) for the whole duration. Retries are layered on top,
+    # so the worst case is roughly this value x the attempt count.
+    llm_timeout_seconds: float = 60.0
+
     # Google Gemini. Required only when llm_provider == "gemini". A free key is
     # available from https://aistudio.google.com/apikey.
     gemini_api_key: str = ""

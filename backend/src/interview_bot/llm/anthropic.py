@@ -40,7 +40,9 @@ class AnthropicProvider(LLMProvider):
             raise ValueError(
                 "llm_provider='anthropic' but ANTHROPIC_API_KEY is not set."
             )
-        self._client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+        self._client = AsyncAnthropic(
+            api_key=settings.anthropic_api_key, timeout=settings.llm_timeout_seconds
+        )
 
     @_RETRY
     async def generate(
@@ -48,13 +50,14 @@ class AnthropicProvider(LLMProvider):
         messages: list[dict],
         system: str,
         *,
+        model: str,
         cache_prefix: str | None = None,
         temperature: float | None = None,
     ) -> str:
         safe_messages = trim_to_context_limit(messages, (cache_prefix or "") + system)
         extra = {} if temperature is None else {"temperature": temperature}
         response = await self._client.messages.create(  # type: ignore[call-overload]  # SDK wants TypedDicts; plain dicts are valid at runtime
-            model=settings.model,
+            model=model,
             max_tokens=settings.max_tokens,
             system=_system_param(cache_prefix, system),
             messages=safe_messages,
@@ -72,13 +75,14 @@ class AnthropicProvider(LLMProvider):
         messages: list[dict],
         system: str,
         *,
+        model: str,
         cache_prefix: str | None = None,
         temperature: float | None = None,
     ) -> AsyncIterator[str]:
         safe_messages = trim_to_context_limit(messages, (cache_prefix or "") + system)
         extra = {} if temperature is None else {"temperature": temperature}
         async with self._client.messages.stream(
-            model=settings.model,
+            model=model,
             max_tokens=settings.max_tokens,
             system=_system_param(cache_prefix, system),
             messages=safe_messages,  # type: ignore[arg-type]  # SDK wants TypedDicts; plain dicts are valid at runtime
