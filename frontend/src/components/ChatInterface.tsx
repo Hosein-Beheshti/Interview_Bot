@@ -48,9 +48,11 @@ export function ChatInterface({
   const [input, setInput] = useState('')
   const [role, setRole] = useState('Software Engineer')
   const [jobDescription, setJobDescription] = useState('')
-  // Kept as the raw string so the box can be left empty; anything that isn't a
-  // number in range means "use the default", which is also the maximum.
-  const [questionCount, setQuestionCount] = useState('')
+  // The interview length, always a valid choice because the control only offers
+  // valid ones. Starts at the maximum: someone who ignores this field gets the
+  // full interview, which is what they would have got before it existed.
+  const [questionCount, setQuestionCount] = useState(MAX_QUESTIONS)
+  const [cvOpen, setCvOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   // What this interview has cost so far, accumulated from observed balance
   // drops. Reset with the session, since that is what the figure describes.
@@ -177,15 +179,6 @@ export function ChatInterface({
     return () => clearTimeout(autoSendTimerRef.current)
   }, [transcript, interimText, isListening])
 
-  // `undefined` = let the server use its default length. An entry outside 1–5
-  // is not silently rounded: the start button stays disabled until it is fixed,
-  // so nobody gets an interview of a length they did not ask for.
-  const trimmedCount = questionCount.trim()
-  const chosenQuestions =
-    /^\d+$/.test(trimmedCount) && Number(trimmedCount) >= 1 && Number(trimmedCount) <= MAX_QUESTIONS
-      ? Number(trimmedCount)
-      : undefined
-  const countInvalid = trimmedCount !== '' && chosenQuestions === undefined
   // A zero balance cannot pay for a session under any pricing, so this is safe
   // to assert without the frontend knowing what a session costs. A balance that
   // is merely too small is left to the server's 402, which names both numbers.
@@ -276,13 +269,13 @@ export function ChatInterface({
         {messages.length === 0 ? (
 
           <div className="welcome">
-            <div className="welcome-orb"><BrandMark size={26} /></div>
+            {/* One line, no orb: the brand mark is already in the header, and
+                this screen's job is the form below it — which has to fit on a
+                laptop without scrolling. The three-step explanation lives on
+                the sign-in screen, where someone is still deciding. */}
             <div className="welcome-copy">
-              <h2>Practice your next interview</h2>
-              <p>
-                A structured technical interview with per-answer scoring, spoken
-                questions, and a written summary at the end.
-              </p>
+              <h2>Practice the interview before it counts</h2>
+              <p>Spoken questions, a score after every answer, a summary at the end.</p>
             </div>
 
             {session_id ? (
@@ -295,32 +288,56 @@ export function ChatInterface({
               </div>
             ) : (
               <div className="card">
-                <div className="field">
-                  <label className="field-label">Try an example</label>
-                  <div className="example-chips">
-                    {EXAMPLE_ROLES.map((example) => (
-                      <button
-                        key={example.id}
-                        type="button"
-                        className={`chip${role === example.role && jobDescription === example.jobDescription ? ' chip-active' : ''}`}
-                        onClick={() => { setRole(example.role); setJobDescription(example.jobDescription) }}
-                      >
-                        {example.label}
-                      </button>
-                    ))}
+                {/* Role and length sit on one row: together they are the whole
+                    required part of the form, and stacking them pushed the
+                    button below the fold on a laptop. */}
+                <div className="field-row">
+                  <div className="field">
+                    <label className="field-label" htmlFor="role-input">
+                      Role <Required />
+                    </label>
+                    <input
+                      id="role-input"
+                      list="role-options"
+                      className="field-input"
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      placeholder="e.g. Software Engineer"
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label className="field-label" id="questions-label">
+                      Questions <Required />
+                    </label>
+                    <div className="seg" role="group" aria-labelledby="questions-label">
+                      {Array.from({ length: MAX_QUESTIONS }, (_, i) => i + 1).map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`seg-btn${n === questionCount ? ' seg-btn-active' : ''}`}
+                          onClick={() => setQuestionCount(n)}
+                          aria-pressed={n === questionCount}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div className="field">
-                  <label className="field-label" htmlFor="role-input">Your role</label>
-                  <input
-                    id="role-input"
-                    list="role-options"
-                    className="field-input"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    placeholder="e.g. Software Engineer"
-                  />
+                <div className="example-row">
+                  <span className="example-lead">Or start from an example:</span>
+                  {EXAMPLE_ROLES.map((example) => (
+                    <button
+                      key={example.id}
+                      type="button"
+                      className={`chip${role === example.role && jobDescription === example.jobDescription ? ' chip-active' : ''}`}
+                      onClick={() => { setRole(example.role); setJobDescription(example.jobDescription) }}
+                    >
+                      {example.label}
+                    </button>
+                  ))}
                 </div>
                 <datalist id="role-options">
                   <option value="Software Engineer" />
@@ -336,53 +353,47 @@ export function ChatInterface({
                 </datalist>
 
                 <div className="field">
-                  <label className="field-label" htmlFor="questions-input">
-                    Number of questions
+                  <label className="field-label" htmlFor="jd-input">
+                    Job description <Optional />
                   </label>
-                  <input
-                    id="questions-input"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={MAX_QUESTIONS}
-                    className={`field-input${countInvalid ? ' field-input-error' : ''}`}
-                    value={questionCount}
-                    onChange={(e) => setQuestionCount(e.target.value)}
-                    placeholder={`${MAX_QUESTIONS}`}
-                    aria-invalid={countInvalid}
-                    aria-describedby="questions-hint"
-                  />
-                  <p
-                    id="questions-hint"
-                    className={`field-hint${countInvalid ? ' field-hint-error' : ''}`}
-                  >
-                    {countInvalid
-                      ? `Please enter a number between 1 and ${MAX_QUESTIONS}.`
-                      : `Enter a number between 1 and ${MAX_QUESTIONS}. Leave it blank for ${MAX_QUESTIONS}.`}
-                  </p>
-                </div>
-
-                <div className="field">
-                  <label className="field-label" htmlFor="jd-input">Job description (optional)</label>
                   <textarea
                     id="jd-input"
                     className="field-input"
                     value={jobDescription}
                     onChange={(e) => setJobDescription(e.target.value)}
-                    placeholder="Paste the job description to get questions tailored to the role, seniority, and required skills."
-                    rows={4}
+                    placeholder="Paste the posting — questions then follow its seniority, stack, and skills."
+                    rows={3}
                     maxLength={8000}
                   />
                 </div>
 
+                {/* The CV picker is the tallest block on this screen and the
+                    one fewest people use on a first run, so it opens on
+                    request. Anything already attached shows itself. */}
+                {!cvOpen && !cv.info ? (
+                  <button
+                    type="button"
+                    className="field-reveal"
+                    onClick={() => setCvOpen(true)}
+                    aria-expanded={false}
+                  >
+                    <span className="field-reveal-plus" aria-hidden>+</span>
+                    Add your CV
+                    <span className="field-reveal-note">
+                      for questions about your own experience
+                    </span>
+                  </button>
+                ) : (
                 <div className="field">
-                  <label className="field-label">Your CV (optional)</label>
+                  <label className="field-label">
+                    Your CV <Optional />
+                  </label>
                   <CVUpload
                     info={cv.info}
                     uploading={cv.uploading}
                     error={cv.error}
                     onUpload={async (file) => {
-                      const newSessionId = await cv.upload(file, role, session_id ?? undefined, jobDescription.trim() || undefined, chosenQuestions)
+                      const newSessionId = await cv.upload(file, role, session_id ?? undefined, jobDescription.trim() || undefined, questionCount)
                       if (newSessionId) adoptSession(newSessionId)
                     }}
                     onRemove={async () => {
@@ -391,6 +402,7 @@ export function ChatInterface({
                     }}
                   />
                 </div>
+                )}
 
                 {/* Starting an interview is the one thing here that costs a
                     meaningful number of credits, so an empty balance is said
@@ -403,24 +415,31 @@ export function ChatInterface({
                 )}
 
                 <div className="field">
+                  {/* What is about to happen, in the words of the choices above
+                      it. It is the last thing read before the click, and it
+                      catches a job description pasted for the wrong role. */}
+                  <p className="start-recap">
+                    {role.trim() || 'Your role'} · {questionCount} question
+                    {questionCount === 1 ? '' : 's'}
+                    {jobDescription.trim() ? ' · job description' : ''}
+                    {cv.info ? ' · CV' : ''}
+                  </p>
                   <button
                     className="btn-primary btn-full"
                     onClick={() => {
                       unlockAudio()
-                      send('Hi, ready to start', role, jobDescription.trim() || undefined, chosenQuestions)
+                      send('Hi, ready to start', role, jobDescription.trim() || undefined, questionCount)
                     }}
-                    disabled={!role.trim() || cv.uploading || countInvalid || outOfCredits}
+                    disabled={!role.trim() || cv.uploading || outOfCredits}
                   >
-                    {outOfCredits
-                      ? 'Out of credits'
-                      : cv.info ? 'Start CV-aware interview' : 'Start interview'}
+                    {outOfCredits ? 'Out of credits' : 'Start interview'}
                   </button>
                 </div>
 
                 <p className="privacy-note">
-                  Your answers and any CV you upload are stored so the interview can
-                  resume, and are deleted automatically after 30 days. You can erase
-                  them at any time from the summary at the end.
+                  <span className="req-legend"><Required /> Required.</span>{' '}
+                  Answers and any CV you upload are deleted after 30 days, or
+                  whenever you erase them from the summary.
                 </p>
               </div>
             )}
@@ -579,6 +598,27 @@ export function ChatInterface({
 
     </div>
   )
+}
+
+/**
+ * Field markers. Every label in the setup form carries exactly one of these, so
+ * "no marker" never has to be read as a claim either way.
+ *
+ * The asterisk is the convention people already know, but it is a symbol, not a
+ * word — screen readers get the word, and the legend under the form spells it
+ * out for anyone who hasn't met the convention.
+ */
+function Required() {
+  return (
+    <>
+      <span className="req" aria-hidden>*</span>
+      <span className="sr-only">(required)</span>
+    </>
+  )
+}
+
+function Optional() {
+  return <span className="opt">Optional</span>
 }
 
 /** Whole seconds since this component mounted — i.e. since the turn was sent,
