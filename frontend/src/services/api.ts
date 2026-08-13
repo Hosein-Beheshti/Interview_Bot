@@ -16,7 +16,17 @@ export class ApiError extends Error {
 export function describeError(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 401) return 'Please sign in to continue.'
-    if (err.status === 402) return "You're out of credits."
+    // The server names the cost and the balance ("this costs 8 and your balance
+    // is 2"), which is more use than a flat "out of credits" — so its sentence
+    // wins whenever there is one.
+    if (err.status === 402) {
+      return err.message
+        ? `You don't have enough credits. ${err.message}`
+        : "You're out of credits, so this couldn't be started."
+    }
+    if (err.status === 404) {
+      return 'That interview is no longer on the server. Start a new one.'
+    }
     if (err.status === 429) {
       return 'Too many requests from your connection. Please wait a minute and try again.'
     }
@@ -44,6 +54,7 @@ export function describeFailure(err: unknown): TurnFailure {
   if (err instanceof ApiError) {
     if (err.status === 401) return { title: 'Signed out', detail }
     if (err.status === 402) return { title: 'Out of credits', detail }
+    if (err.status === 404) return { title: 'Interview not found', detail }
     if (err.status === 429) return { title: 'Slow down', detail }
     if (err.status === 503) return { title: 'Daily limit reached', detail }
     if (err.status === 413) return { title: 'File too large', detail }
@@ -81,6 +92,9 @@ export async function streamMessage(
   sessionId: string | undefined,
   role: string | undefined,
   jobContext: string | undefined,
+  /** How many questions to ask. Only read when this call creates the session;
+   *  omitted means the server's default length. */
+  numQuestions: number | undefined,
   handlers: ChatStreamHandlers,
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/chat/stream`, {
@@ -92,6 +106,7 @@ export async function streamMessage(
       session_id: sessionId,
       role: role || 'Software Engineer',
       ...(jobContext ? { job_context: jobContext } : {}),
+      ...(numQuestions ? { num_questions: numQuestions } : {}),
     }),
   })
 
@@ -152,6 +167,7 @@ export async function uploadCV(
   role: string,
   sessionId?: string,
   jobContext?: string,
+  numQuestions?: number,
 ): Promise<CVUploadResponse> {
   // Everything travels in the multipart body: a job description is too long for
   // a URL and would otherwise be logged in full by every proxy in the path.
@@ -160,6 +176,9 @@ export async function uploadCV(
   form.append('role', role)
   if (sessionId) form.append('session_id', sessionId)
   if (jobContext) form.append('job_context', jobContext)
+  // Only matters when the upload is what creates the session; the interview
+  // length is chosen before the first turn, so it has to travel with it.
+  if (numQuestions) form.append('num_questions', String(numQuestions))
 
   const response = await fetch(`${API_BASE}/cv/upload`, {
     method: 'POST',

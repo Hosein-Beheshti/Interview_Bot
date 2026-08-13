@@ -29,12 +29,28 @@ from interview_bot.persistence.database import get_db
 from interview_bot.persistence.models import User
 
 
+def shortfall_message(needed: int, balance: int) -> str:
+    """What a 402 says. Both numbers, because "insufficient credits" leaves the
+    caller guessing whether they are one short or twenty — and the balance is
+    the only thing that tells them whether waiting or a new account is the
+    answer. Every path that can run out renders this same sentence."""
+    return f"This costs {needed} credits and your balance is {balance}."
+
+
+def balance_of(db: Session, user_id: str) -> int:
+    """The caller's current balance, for the 402 message. 0 for a user row that
+    has vanished — the message is then still true enough to act on."""
+    user = user_store.get(db, user_id)
+    return user.credits if user else 0
+
+
 def debit(db: Session, user_id: str, cost: int) -> int:
     """Atomically deduct `cost` credits. Raises 402 if the balance is short."""
     result = user_store.debit_credits(db, user_id, cost)
     if result is None:
         raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Insufficient credits."
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=shortfall_message(cost, balance_of(db, user_id)),
         )
     return result
 

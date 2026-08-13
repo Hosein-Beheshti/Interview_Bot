@@ -28,6 +28,10 @@ def get_by_google_sub(db: Session, google_sub: str) -> User | None:
     return db.query(User).filter(User.google_sub == google_sub).first()
 
 
+def get(db: Session, user_id: str) -> User | None:
+    return db.get(User, user_id)
+
+
 def get_or_create(
     db: Session,
     *,

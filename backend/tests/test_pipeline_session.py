@@ -15,15 +15,23 @@ def test_create_from_context_raises_when_credits_are_insufficient(monkeypatch):
         session_flow.user_store, "debit_credits", lambda db, user_id, cost: None
     )
     monkeypatch.setattr(
+        session_flow.user_store, "get", lambda db, user_id: SimpleNamespace(credits=2)
+    )
+    monkeypatch.setattr(
         session_flow, "build_profile", _unreachable_async, raising=False
     )
 
-    with pytest.raises(session_flow.InsufficientCreditsError):
+    with pytest.raises(session_flow.InsufficientCreditsError) as excinfo:
         asyncio.run(
             session_flow.create_from_context(
                 db=object(), job_context="Backend role.", role=None, user_id="u1"
             )
         )
+
+    # Both numbers ride on the error so the route's 402 can say how short the
+    # caller is, rather than only that they are short.
+    assert excinfo.value.needed == settings.interview_session_credit_cost
+    assert excinfo.value.balance == 2
 
 
 def test_create_from_context_skips_the_credit_check_when_disabled(monkeypatch):

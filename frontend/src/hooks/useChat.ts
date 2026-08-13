@@ -23,6 +23,7 @@ interface Attempt {
   text: string
   role?: string
   jobContext?: string
+  numQuestions?: number
 }
 
 /** Apply `change` to the trailing assistant message — the one being streamed. */
@@ -49,10 +50,10 @@ export function useChat(onUnauthorized?: () => void) {
   }, [])
 
   const send = useCallback(
-    async (text: string, role?: string, jobContext?: string) => {
+    async (text: string, role?: string, jobContext?: string, numQuestions?: number) => {
       if (!text.trim()) return
 
-      lastAttempt.current = { text, role, jobContext }
+      lastAttempt.current = { text, role, jobContext, numQuestions }
 
       // The answer and an empty bubble go in immediately: the bubble is what the
       // reply streams into, so the candidate sees writing rather than a spinner.
@@ -74,7 +75,7 @@ export function useChat(onUnauthorized?: () => void) {
       }))
 
       try {
-        await streamMessage(text, state.session_id || undefined, role, jobContext, {
+        await streamMessage(text, state.session_id || undefined, role, jobContext, numQuestions, {
           // The grade lands before the next question exists, so its arrival is
           // also the moment scoring stopped and writing began.
           onScore: (score: ScoreResult | null) =>
@@ -124,10 +125,16 @@ export function useChat(onUnauthorized?: () => void) {
           onUnauthorized?.()
           return
         }
+        // A 404 means the stored session is gone server-side (deleted, or aged
+        // past its retention window). Forget the id as well as showing why —
+        // otherwise every later turn retries a session that cannot come back.
+        const gone = err instanceof ApiError && err.status === 404
+        if (gone) localStorage.removeItem(SESSION_STORAGE_KEY)
         // The turn did not commit server-side, so drop both messages rather than
         // leaving a half-turn the candidate cannot act on.
         setState((prev) => ({
           ...prev,
+          session_id: gone ? null : prev.session_id,
           messages: prev.messages.slice(0, -2),
           loading: false,
           streaming: false,
@@ -150,7 +157,7 @@ export function useChat(onUnauthorized?: () => void) {
   const retry = useCallback(() => {
     const attempt = lastAttempt.current
     if (!attempt || !state.session_id) return
-    send(attempt.text, attempt.role, attempt.jobContext)
+    send(attempt.text, attempt.role, attempt.jobContext, attempt.numQuestions)
   }, [send, state.session_id])
 
   const canRetry = Boolean(lastAttempt.current && state.session_id && state.error)

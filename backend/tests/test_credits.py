@@ -37,6 +37,21 @@ def test_debit_raises_402_on_insufficient_balance():
     db.commit.assert_called_once()
 
 
+def test_402_detail_names_the_cost_and_the_balance():
+    """"Insufficient credits" leaves the caller guessing how short they are."""
+    db = _db(returns=None)
+    db.get.return_value = MagicMock(credits=2)
+    with pytest.raises(credits.HTTPException) as excinfo:
+        credits.debit(db, "u1", 8)
+    assert excinfo.value.detail == "This costs 8 credits and your balance is 2."
+
+
+def test_balance_of_reads_zero_for_a_user_that_no_longer_exists():
+    db = MagicMock()
+    db.get.return_value = None
+    assert credits.balance_of(db, "u1") == 0
+
+
 def test_debit_is_a_no_op_for_a_non_positive_cost():
     db = MagicMock()
     db.execute = _unreachable

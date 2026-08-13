@@ -16,7 +16,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from interview_bot import llm
-from interview_bot.api import limits
+from interview_bot.api import credits, limits
 from interview_bot.api.auth import get_current_user, require_owner
 from interview_bot.api.schemas import (
     ChatRequest,
@@ -245,7 +245,9 @@ async def _resolve_session(request: ChatRequest, db: Session, user_id: str):
             user_id=user_id,
         )
     except session_flow.InsufficientCreditsError as e:
-        raise HTTPException(status_code=402, detail="Insufficient credits.") from e
+        raise HTTPException(
+            status_code=402, detail=credits.shortfall_message(e.needed, e.balance)
+        ) from e
 
 
 def _to_score_result(score_data: ScoreData) -> ScoreResult:

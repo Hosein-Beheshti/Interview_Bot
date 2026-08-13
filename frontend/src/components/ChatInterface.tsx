@@ -10,6 +10,8 @@ import { InterviewSummary, ScoreResult, TurnStage, User } from '../types'
 import '../styles/chat.css'
 
 const AUTO_SEND_DELAY_MS = 6000
+/** Longest interview the server will run; also what it uses when asked for none. */
+const MAX_QUESTIONS = 5
 /** How long a "−8 credits" flash stays up before it stops being news. */
 const SPEND_FLASH_MS = 7000
 
@@ -46,6 +48,9 @@ export function ChatInterface({
   const [input, setInput] = useState('')
   const [role, setRole] = useState('Software Engineer')
   const [jobDescription, setJobDescription] = useState('')
+  // Kept as the raw string so the box can be left empty; anything that isn't a
+  // number in range means "use the default", which is also the maximum.
+  const [questionCount, setQuestionCount] = useState('')
   const [copied, setCopied] = useState(false)
   // What this interview has cost so far, accumulated from observed balance
   // drops. Reset with the session, since that is what the figure describes.
@@ -171,6 +176,20 @@ export function ChatInterface({
 
     return () => clearTimeout(autoSendTimerRef.current)
   }, [transcript, interimText, isListening])
+
+  // `undefined` = let the server use its default length. An entry outside 1–5
+  // is not silently rounded: the start button stays disabled until it is fixed,
+  // so nobody gets an interview of a length they did not ask for.
+  const trimmedCount = questionCount.trim()
+  const chosenQuestions =
+    /^\d+$/.test(trimmedCount) && Number(trimmedCount) >= 1 && Number(trimmedCount) <= MAX_QUESTIONS
+      ? Number(trimmedCount)
+      : undefined
+  const countInvalid = trimmedCount !== '' && chosenQuestions === undefined
+  // A zero balance cannot pay for a session under any pricing, so this is safe
+  // to assert without the frontend knowing what a session costs. A balance that
+  // is merely too small is left to the server's 402, which names both numbers.
+  const outOfCredits = user.credits <= 0
 
   const handleSend = () => {
     unlockAudio()
@@ -317,6 +336,33 @@ export function ChatInterface({
                 </datalist>
 
                 <div className="field">
+                  <label className="field-label" htmlFor="questions-input">
+                    Number of questions
+                  </label>
+                  <input
+                    id="questions-input"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_QUESTIONS}
+                    className={`field-input${countInvalid ? ' field-input-error' : ''}`}
+                    value={questionCount}
+                    onChange={(e) => setQuestionCount(e.target.value)}
+                    placeholder={`${MAX_QUESTIONS}`}
+                    aria-invalid={countInvalid}
+                    aria-describedby="questions-hint"
+                  />
+                  <p
+                    id="questions-hint"
+                    className={`field-hint${countInvalid ? ' field-hint-error' : ''}`}
+                  >
+                    {countInvalid
+                      ? `Please enter a number between 1 and ${MAX_QUESTIONS}.`
+                      : `Enter a number between 1 and ${MAX_QUESTIONS}. Leave it blank for ${MAX_QUESTIONS}.`}
+                  </p>
+                </div>
+
+                <div className="field">
                   <label className="field-label" htmlFor="jd-input">Job description (optional)</label>
                   <textarea
                     id="jd-input"
@@ -336,7 +382,7 @@ export function ChatInterface({
                     uploading={cv.uploading}
                     error={cv.error}
                     onUpload={async (file) => {
-                      const newSessionId = await cv.upload(file, role, session_id ?? undefined, jobDescription.trim() || undefined)
+                      const newSessionId = await cv.upload(file, role, session_id ?? undefined, jobDescription.trim() || undefined, chosenQuestions)
                       if (newSessionId) adoptSession(newSessionId)
                     }}
                     onRemove={async () => {
@@ -346,13 +392,28 @@ export function ChatInterface({
                   />
                 </div>
 
+                {/* Starting an interview is the one thing here that costs a
+                    meaningful number of credits, so an empty balance is said
+                    before the click rather than as a failed turn afterwards. */}
+                {outOfCredits && (
+                  <p className="field-hint field-hint-error" role="status">
+                    You're out of credits, so a new interview can't be started.
+                    Existing interviews can still be finished.
+                  </p>
+                )}
+
                 <div className="field">
                   <button
                     className="btn-primary btn-full"
-                    onClick={() => { unlockAudio(); send('Hi, ready to start', role, jobDescription.trim() || undefined) }}
-                    disabled={!role.trim() || cv.uploading}
+                    onClick={() => {
+                      unlockAudio()
+                      send('Hi, ready to start', role, jobDescription.trim() || undefined, chosenQuestions)
+                    }}
+                    disabled={!role.trim() || cv.uploading || countInvalid || outOfCredits}
                   >
-                    {cv.info ? 'Start CV-aware interview' : 'Start interview'}
+                    {outOfCredits
+                      ? 'Out of credits'
+                      : cv.info ? 'Start CV-aware interview' : 'Start interview'}
                   </button>
                 </div>
 

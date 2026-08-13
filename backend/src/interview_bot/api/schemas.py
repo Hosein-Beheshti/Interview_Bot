@@ -6,6 +6,13 @@ wire format can evolve independently of the internals.
 """
 from pydantic import BaseModel, Field
 
+from interview_bot.config import settings
+
+# The candidate picks how many main questions the interview asks. `max_questions`
+# is both the ceiling and the value used when the field is omitted, so leaving it
+# out keeps the previous behaviour of a full-length interview.
+MAX_QUESTIONS = settings.max_questions
+
 
 class JobProfileSchema(BaseModel):
     role: str
@@ -17,7 +24,7 @@ class JobProfileSchema(BaseModel):
 
 class SessionCreateRequest(BaseModel):
     job_context: str = Field(..., min_length=1, max_length=8000)
-    num_questions: int = Field(default=5, ge=1, le=20)
+    num_questions: int = Field(default=MAX_QUESTIONS, ge=1, le=MAX_QUESTIONS)
 
 
 class PlanSlotSchema(BaseModel):
@@ -41,7 +48,7 @@ class ChatRequest(BaseModel):
     session_id: str | None = None
     # Optional: only used when no session_id is supplied (lazy session creation).
     role: str | None = Field(default=None, min_length=1, max_length=100)
-    num_questions: int | None = Field(default=None, ge=1, le=20)
+    num_questions: int | None = Field(default=None, ge=1, le=MAX_QUESTIONS)
     job_context: str | None = Field(default=None, min_length=1, max_length=8000)
 
 

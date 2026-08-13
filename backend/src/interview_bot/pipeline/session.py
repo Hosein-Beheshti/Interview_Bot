@@ -22,7 +22,16 @@ from interview_bot.telemetry import observe_turn, set_session
 
 
 class InsufficientCreditsError(RuntimeError):
-    """Raised when the caller does not have enough credits to start a session."""
+    """Raised when the caller does not have enough credits to start a session.
+
+    Carries both numbers so the route can say how short the caller is; the
+    HTTP wording itself belongs to `api.credits`, not here.
+    """
+
+    def __init__(self, needed: int, balance: int) -> None:
+        super().__init__(f"needs {needed} credits, balance {balance}")
+        self.needed = needed
+        self.balance = balance
 
 
 async def create_from_context(
@@ -53,7 +62,8 @@ async def create_from_context(
     if settings.require_credits_to_start_session:
         cost = settings.interview_session_credit_cost
         if user_store.debit_credits(db, user_id, cost) is None:
-            raise InsufficientCreditsError(f"user={user_id} needs {cost} credits")
+            account = user_store.get(db, user_id)
+            raise InsufficientCreditsError(cost, account.credits if account else 0)
         charged = cost
 
     try:

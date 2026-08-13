@@ -4,9 +4,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
-from interview_bot.api import limits
+from interview_bot.api import credits, limits
 from interview_bot.api.auth import get_current_user, require_owner
-from interview_bot.api.schemas import CVStatusResponse, CVUploadResponse
+from interview_bot.api.schemas import MAX_QUESTIONS, CVStatusResponse, CVUploadResponse
 from interview_bot.config import settings
 from interview_bot.integrations import cv_parser
 from interview_bot.logger import logger
@@ -32,6 +32,10 @@ async def upload_cv(
     session_id: str | None = Form(default=None),
     role: str | None = Form(default=None),
     job_context: str | None = Form(default=None),
+    # Only used when this upload is what creates the session (no `session_id`):
+    # the candidate picks the length before starting, and uploading a CV first
+    # must not lock them into the default. Omitted or out of range = the default.
+    num_questions: int | None = Form(default=None, ge=1, le=MAX_QUESTIONS),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> CVUploadResponse:
@@ -44,7 +48,9 @@ async def upload_cv(
         logger.warning(f"CV parse failed | filename={file.filename} | error={e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    session = await _resolve_session(session_id, role, job_context, db, user.id)
+    session = await _resolve_session(
+        session_id, role, job_context, num_questions, db, user.id
+    )
 
     try:
         result = await rag.index_cv(session.session_id, parsed)
@@ -118,6 +124,7 @@ async def _resolve_session(
     session_id: str | None,
     role: str | None,
     job_context: str | None,
+    num_questions: int | None,
     db: Session,
     user_id: str,
 ) -> InterviewSession:
@@ -128,7 +135,13 @@ async def _resolve_session(
             return session
     try:
         return await session_flow.create_from_context(
-            db, job_context=job_context, role=role, user_id=user_id
+            db,
+            job_context=job_context,
+            role=role,
+            num_questions=num_questions,
+            user_id=user_id,
         )
     except session_flow.InsufficientCreditsError as e:
-        raise HTTPException(status_code=402, detail="Insufficient credits.") from e
+        raise HTTPException(
+            status_code=402, detail=credits.shortfall_message(e.needed, e.balance)
+        ) from e

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { CVInfo } from '../types'
-import { ApiError, deleteCV, uploadCV } from '../services/api'
+import { ApiError, deleteCV, describeError, uploadCV } from '../services/api'
 
 export const ACCEPTED_CV_TYPES = '.pdf,.docx,.txt'
 const MAX_BYTES = 5 * 1024 * 1024
@@ -17,7 +17,13 @@ export function useCV(onUnauthorized?: () => void) {
   const [state, setState] = useState<CVState>(initial)
 
   const upload = useCallback(
-    async (file: File, role: string, sessionId?: string, jobContext?: string): Promise<string | null> => {
+    async (
+      file: File,
+      role: string,
+      sessionId?: string,
+      jobContext?: string,
+      numQuestions?: number,
+    ): Promise<string | null> => {
       const validation = validate(file)
       if (validation) {
         setState((p) => ({ ...p, error: validation }))
@@ -26,7 +32,7 @@ export function useCV(onUnauthorized?: () => void) {
 
       setState((p) => ({ ...p, uploading: true, error: null }))
       try {
-        const result = await uploadCV(file, role, sessionId, jobContext)
+        const result = await uploadCV(file, role, sessionId, jobContext, numQuestions)
         setState({
           info: {
             filename: result.filename,
@@ -42,8 +48,11 @@ export function useCV(onUnauthorized?: () => void) {
           onUnauthorized?.()
           return null
         }
-        const message = err instanceof Error ? err.message : 'Upload failed'
-        setState({ info: null, uploading: false, error: message })
+        // `describeError`, not the raw detail: uploading a CV is what creates
+        // the session on this path, so it is a place a candidate meets "out of
+        // credits", the rate limit, or the daily cap — each of which needs its
+        // own sentence rather than whatever the server put in `detail`.
+        setState({ info: null, uploading: false, error: describeError(err) })
         return null
       }
     },
