@@ -2,6 +2,20 @@ import { useCallback, useRef, useState } from 'react'
 import { ACCEPTED_CV_TYPES } from '../hooks/useCV'
 import { CVInfo } from '../types'
 
+/** Pasted text is uploaded as a text file rather than through a second
+ *  endpoint: `/cv/upload` already accepts `.txt` and decodes it as UTF-8, so
+ *  the paste path reuses the parsing, indexing, and size limits the file path
+ *  is already validated against. */
+const PASTED_CV_FILENAME = 'pasted-cv.txt'
+
+/** Below this a "CV" cannot say enough to ground a question — and indexing one
+ *  creates a session, which costs credits, so it is worth catching here rather
+ *  than after the charge. */
+const MIN_TEXT_LENGTH = 200
+const MAX_TEXT_LENGTH = 20000
+
+type Mode = 'file' | 'text'
+
 interface Props {
   info: CVInfo | null
   uploading: boolean
@@ -13,6 +27,8 @@ interface Props {
 export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
+  const [mode, setMode] = useState<Mode>('file')
+  const [text, setText] = useState('')
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
@@ -28,13 +44,23 @@ export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) 
     handleFiles(e.dataTransfer.files)
   }
 
+  const trimmed = text.trim()
+  const tooShort = trimmed.length < MIN_TEXT_LENGTH
+
+  const submitText = () => {
+    if (tooShort || uploading) return
+    onUpload(new File([trimmed], PASTED_CV_FILENAME, { type: 'text/plain' }))
+  }
+
   if (info) {
     return (
       <div className="cv-attached">
         <div className="cv-attached-info">
           <DocumentIcon />
           <div className="cv-attached-text">
-            <span className="cv-filename">{info.filename}</span>
+            <span className="cv-filename">
+              {info.filename === PASTED_CV_FILENAME ? 'Pasted CV' : info.filename}
+            </span>
             <span className="cv-meta">
               {info.chunk_count} chunks
               {info.sections.length > 0 ? ` · ${info.sections.slice(0, 4).join(', ')}` : ''}
@@ -49,42 +75,108 @@ export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) 
   }
 
   return (
-    <div
-      className={`cv-dropzone${dragging ? ' dragging' : ''}${uploading ? ' uploading' : ''}`}
-      onDragOver={(e) => {
-        e.preventDefault()
-        setDragging(true)
-      }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={onDrop}
-      onClick={() => !uploading && inputRef.current?.click()}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
-      }}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ACCEPTED_CV_TYPES}
-        hidden
-        onChange={(e) => handleFiles(e.target.files)}
-      />
+    <div className="cv-input">
+      <div className="cv-tabs" role="tablist" aria-label="How to provide your CV">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'file'}
+          className={`cv-tab${mode === 'file' ? ' cv-tab-active' : ''}`}
+          onClick={() => setMode('file')}
+          disabled={uploading}
+        >
+          Upload a file
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'text'}
+          className={`cv-tab${mode === 'text' ? ' cv-tab-active' : ''}`}
+          onClick={() => setMode('text')}
+          disabled={uploading}
+        >
+          Paste the text
+        </button>
+      </div>
 
-      {uploading ? (
-        <div className="cv-status">
-          <Spinner />
-          <span>Reading and indexing your CV…</span>
+      {mode === 'file' ? (
+        <div
+          className={`cv-dropzone${dragging ? ' dragging' : ''}${uploading ? ' uploading' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={onDrop}
+          onClick={() => !uploading && inputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
+          }}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept={ACCEPTED_CV_TYPES}
+            hidden
+            onChange={(e) => handleFiles(e.target.files)}
+          />
+
+          {uploading ? (
+            <div className="cv-status">
+              <Spinner />
+              <span>Reading and indexing your CV…</span>
+            </div>
+          ) : (
+            <>
+              <UploadIcon />
+              <div className="cv-prompt">
+                <strong>Drop your CV here, or click to browse</strong>
+                <span>PDF, DOCX or TXT · up to 5 MB · questions draw on your experience</span>
+              </div>
+            </>
+          )}
         </div>
       ) : (
-        <>
-          <UploadIcon />
-          <div className="cv-prompt">
-            <strong>Drop your CV here, or click to browse</strong>
-            <span>PDF, DOCX or TXT · up to 5 MB · questions draw on your experience</span>
+        <div className="cv-paste">
+          <textarea
+            className="cv-paste-box"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={
+              'Paste or type your CV here.\n\nRoles and dates, what you actually built, the tools you used, education. Formatting is ignored — plain text is fine.'
+            }
+            maxLength={MAX_TEXT_LENGTH}
+            disabled={uploading}
+            rows={9}
+            aria-label="Your CV as text"
+          />
+          <div className="cv-paste-foot">
+            <span className={`cv-count${trimmed.length > 0 && tooShort ? ' cv-count-short' : ''}`}>
+              {trimmed.length === 0
+                ? 'Nothing pasted yet'
+                : tooShort
+                  ? `${trimmed.length} of ${MIN_TEXT_LENGTH} characters minimum`
+                  : `${trimmed.length.toLocaleString()} characters`}
+            </span>
+            <button
+              type="button"
+              className="btn-primary cv-paste-btn"
+              onClick={submitText}
+              disabled={tooShort || uploading}
+            >
+              {uploading ? (
+                <>
+                  <Spinner />
+                  Indexing…
+                </>
+              ) : (
+                'Use this CV'
+              )}
+            </button>
           </div>
-        </>
+        </div>
       )}
 
       {error && <div className="cv-error">{error}</div>}
