@@ -8,6 +8,7 @@ the eval measures exactly what production runs.
 from __future__ import annotations
 
 from interview_bot import llm
+from interview_bot.config import settings
 from interview_bot.domain import rubric
 from interview_bot.domain.plan import PlanSlot
 from interview_bot.domain.profile import JobProfile, build_context
@@ -44,7 +45,7 @@ async def score(
         raw = await llm.generate_structured(
             "", messages, rubric.build_score_format(),
             cache_prefix=scorer_prompt.SCORE_CACHE_PREFIX,
-            max_tokens=700,
+            max_tokens=settings.score_max_tokens,
             operation="score_answer",
             # Versions ride on the trace only (not the request bytes), so every
             # scored answer is traceable to the prompt + rubric that produced it.

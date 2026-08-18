@@ -12,6 +12,9 @@ from interview_bot.config import settings
 # is both the ceiling and the value used when the field is omitted, so leaving it
 # out keeps the previous behaviour of a full-length interview.
 MAX_QUESTIONS = settings.max_questions
+JOB_CONTEXT_MAX_CHARS = settings.job_context_max_chars
+CHAT_MESSAGE_MAX_CHARS = settings.chat_message_max_chars
+ROLE_MAX_CHARS = settings.role_max_chars
 
 
 class JobProfileSchema(BaseModel):
@@ -23,7 +26,7 @@ class JobProfileSchema(BaseModel):
 
 
 class SessionCreateRequest(BaseModel):
-    job_context: str = Field(..., min_length=1, max_length=8000)
+    job_context: str = Field(..., min_length=1, max_length=JOB_CONTEXT_MAX_CHARS)
     num_questions: int = Field(default=MAX_QUESTIONS, ge=1, le=MAX_QUESTIONS)
 
 
@@ -44,12 +47,12 @@ class SessionCreateResponse(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=4000)
+    message: str = Field(..., min_length=1, max_length=CHAT_MESSAGE_MAX_CHARS)
     session_id: str | None = None
     # Optional: only used when no session_id is supplied (lazy session creation).
-    role: str | None = Field(default=None, min_length=1, max_length=100)
+    role: str | None = Field(default=None, min_length=1, max_length=ROLE_MAX_CHARS)
     num_questions: int | None = Field(default=None, ge=1, le=MAX_QUESTIONS)
-    job_context: str | None = Field(default=None, min_length=1, max_length=8000)
+    job_context: str | None = Field(default=None, min_length=1, max_length=JOB_CONTEXT_MAX_CHARS)
 
 
 class DimensionScore(BaseModel):

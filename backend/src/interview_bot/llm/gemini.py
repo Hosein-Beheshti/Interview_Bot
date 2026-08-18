@@ -125,7 +125,7 @@ class GeminiProvider(LLMProvider):
         messages: list[dict],
         schema: dict,
         *,
-        max_tokens: int = 400,
+        max_tokens: int,
         temperature: float = 0.0,
         cache_prefix: str | None = None,
     ) -> dict:
@@ -153,7 +153,7 @@ class GeminiProvider(LLMProvider):
         messages: list[dict],
         output_model: type[BaseModel],
         *,
-        max_tokens: int = 500,
+        max_tokens: int,
     ) -> BaseModel:
         response = await self._client.aio.models.generate_content(
             model=settings.gemini_model,

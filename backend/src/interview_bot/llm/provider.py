@@ -90,7 +90,7 @@ class LLMProvider(ABC):
         messages: list[dict],
         schema: dict,
         *,
-        max_tokens: int = 400,
+        max_tokens: int,
         temperature: float = 0.0,
         cache_prefix: str | None = None,
     ) -> dict:
@@ -98,6 +98,10 @@ class LLMProvider(ABC):
 
         `schema` is the canonical `{"type": "json_schema", "schema": {...}}` shape;
         each provider translates it to its own structured-output API.
+
+        `max_tokens` is required: the facade resolves it from config (or the
+        caller's override) and a default here would be a second, silently
+        divergent source for the same number.
         """
 
     @abstractmethod
@@ -107,6 +111,9 @@ class LLMProvider(ABC):
         messages: list[dict],
         output_model: type[BaseModel],
         *,
-        max_tokens: int = 500,
+        max_tokens: int,
     ) -> BaseModel:
-        """Parse a response into a validated Pydantic model."""
+        """Parse a response into a validated Pydantic model.
+
+        `max_tokens` is required — see `generate_structured`.
+        """

@@ -38,7 +38,7 @@ router = APIRouter(tags=["voice"])
 class SpeakRequest(BaseModel):
     # Bounded so the endpoint cannot be driven as an open-ended text-to-speech
     # service; one interviewer question is far below this.
-    text: str = Field(..., min_length=1, max_length=2000)
+    text: str = Field(..., min_length=1, max_length=settings.tts_text_max_chars)
 
 
 @router.post("/transcribe", dependencies=[Depends(limits.enforce(limits.TRANSCRIPTION))])

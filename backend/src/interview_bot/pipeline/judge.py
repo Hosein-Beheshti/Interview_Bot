@@ -9,6 +9,7 @@ eval-time judge, not a runtime safety net.
 from __future__ import annotations
 
 from interview_bot import llm
+from interview_bot.config import settings
 from interview_bot.domain import turn_quality
 from interview_bot.domain.judgement import JudgeResult, parse_judgement
 from interview_bot.domain.plan import PlanSlot
@@ -74,7 +75,7 @@ async def judge_turn(
             judge_prompt.JUDGE_SYSTEM,
             messages,
             turn_quality.build_judge_format(criteria),
-            max_tokens=400,
+            max_tokens=settings.judge_max_tokens,
             operation="judge_turn",
             trace_metadata={
                 "judge_prompt_version": judge_prompt.JUDGE_PROMPT_VERSION,

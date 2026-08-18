@@ -144,7 +144,7 @@ async def generate_structured(
     messages: list[dict],
     schema: dict,
     *,
-    max_tokens: int = 400,
+    max_tokens: int | None = None,
     temperature: float = 0.0,
     cache_prefix: str | None = None,
     operation: str = "llm.generate_structured",
@@ -154,10 +154,13 @@ async def generate_structured(
 
     Defaults to `temperature=0` because callers (e.g. answer scoring) want a
     reproducible judgement, not a creative one: the same answer should score the
-    same way across runs. `operation` is the trace label (e.g. 'score_answer').
-    `trace_metadata` is extra key/values recorded on the trace only (e.g. the
-    prompt and rubric versions) — it never enters the request bytes.
+    same way across runs. `max_tokens` defaults to
+    `settings.structured_max_tokens`. `operation` is the trace label (e.g.
+    'score_answer'). `trace_metadata` is extra key/values recorded on the trace
+    only (e.g. the prompt and rubric versions) — it never enters the request bytes.
     """
+    if max_tokens is None:
+        max_tokens = settings.structured_max_tokens
     async with observe_generation(
         operation,
         provider=settings.llm_provider,
@@ -195,13 +198,16 @@ async def parse(
     messages: list[dict],
     output_model: type[BaseModel],
     *,
-    max_tokens: int = 500,
+    max_tokens: int | None = None,
     operation: str = "llm.parse",
 ) -> BaseModel:
     """Parse a response into a validated Pydantic model via structured outputs.
 
-    `operation` is the trace label (e.g. 'extract_profile', 'build_plan').
+    `max_tokens` defaults to `settings.parse_max_tokens`. `operation` is the trace
+    label (e.g. 'extract_profile', 'build_plan').
     """
+    if max_tokens is None:
+        max_tokens = settings.parse_max_tokens
     async with observe_generation(
         operation,
         provider=settings.llm_provider,

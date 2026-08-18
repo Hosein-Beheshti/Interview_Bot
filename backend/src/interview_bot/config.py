@@ -63,7 +63,32 @@ class Settings(BaseSettings):
     db_pool_size: int = 5
     db_max_overflow: int = 10
 
-    max_tokens: int = 300
+    # ---- Model output budgets ----------------------------------------------
+    # Each of these is a `max_tokens`: a hard ceiling on one response's OUTPUT
+    # tokens. The model is not told about the cap, so hitting it truncates
+    # mid-sentence (`stop_reason: "max_tokens"`) rather than producing a shorter
+    # well-formed answer — size each for the longest *legitimate* response, not
+    # the typical one. None of these bound input; that is `max_context_chars`.
+    #
+    # This is the sharpest cost lever in the file: output bills at roughly 5x
+    # input, and every one of these fires at least once per interview turn.
+    #
+    # CAUTION: each value is part of its call's replay identity — the request
+    # hash in `llm/__init__.py` includes `max_tokens`. Changing one invalidates
+    # the recorded cassettes for that call, and `llm.parse` /
+    # `llm.generate_structured` have no cassette fallback, so a change there
+    # breaks the offline suite until `make record`. Change these deliberately,
+    # in their own commit.
+    max_tokens: int = 300  # interviewer turn — the only text the candidate reads
+    score_max_tokens: int = 700  # per-answer rubric scoring (critique + dimensions)
+    plan_max_tokens: int = 1500  # interview blueprint, once per session
+    judge_max_tokens: int = 400  # turn-quality judgement
+    # Defaults for `llm.generate_structured` / `llm.parse` when a caller passes no
+    # explicit budget. `pipeline/profile.py` is the one live caller that relies on
+    # a default (`parse_max_tokens`), so this value is in recorded hashes too.
+    structured_max_tokens: int = 400
+    parse_max_tokens: int = 500
+
     # Sampling temperature for interviewer question/reply generation. Lower =>
     # more deterministic and better at obeying the turn's constraints (stay on
     # topic for follow-ups, don't invent CV details); higher => more varied
@@ -83,16 +108,38 @@ class Settings(BaseSettings):
     # interviewer in full on every turn — best grounding, no retrieval query to
     # construct, and nearly free once the prompt prefix is cached. Larger CVs
     # would bloat the context, so they fall back to per-question vector retrieval.
+    # A *routing threshold*, not a limit: nothing is rejected for exceeding it.
     cv_full_text_max_chars: int = 12_000
+
+    # ---- Interview shape ----------------------------------------------------
     max_questions: int = 5
     # Maximum follow-up turns allowed per main question (probing a shallow answer
     # or simplifying after an "I don't know"). Follow-ups never consume a main
     # question slot; this caps how long the interview can dwell on one topic.
+    #
+    # Together these bound the provider calls one interview can make:
+    # `max_questions x (1 + max_followups_per_question)` turns, each costing a
+    # score + judge + generate. Raising either multiplies the whole bill.
     max_followups_per_question: int = 1
     # Fallback role used when no job context is provided or extraction fails.
     default_role: str = "Software Engineer"
-    # ~150K tokens — safety net for large CVs; well within Haiku's 200K context limit
+    # ~150K tokens — safety net for large CVs; well within Haiku's 200K context
+    # limit. Enforced in `llm/provider.py` by dropping the oldest messages, so
+    # exceeding it silently loses transcript history rather than erroring.
     max_context_chars: int = 600_000
+
+    # ---- Request body size caps ---------------------------------------------
+    # These bound the *characters* accepted in a single request field, not
+    # tokens — a rough proxy (English averages ~4 chars/token) to keep one
+    # request from blowing up prompt size / cost, not a real token budget.
+    # Pydantic rejects an over-length field with 422 before any LLM call, DB
+    # write, or session state is touched — the request never starts.
+    job_context_max_chars: int = 8000
+    chat_message_max_chars: int = 4000
+    role_max_chars: int = 100
+    # TTS input, not text an interviewer question ever approaches in length —
+    # this exists to stop /speak being driven as an open-ended synthesis proxy.
+    tts_text_max_chars: int = 2000
 
     # Model-call transport mode — the record/replay seam for every network call
     # to a model provider (LLM, embeddings, speech):
@@ -145,28 +192,58 @@ class Settings(BaseSettings):
     # local development.
     rate_limit_enabled: bool = True
 
-    # Per-client-IP allowances.
+    # Per-client-IP allowances. Each name here is referenced by exactly one
+    # `Quota` in api/limits.py, which reads it at charge time — so changing one of
+    # these via the environment needs no code change and no recomputed constant.
     sessions_per_hour_per_ip: int = 5
     turns_per_hour_per_ip: int = 60
     cv_uploads_per_hour_per_ip: int = 5
     transcriptions_per_hour_per_ip: int = 60
     tts_chars_per_day_per_ip: int = 20_000
 
-    # Instance-wide daily model-token ceiling — the backstop that bounds the bill
-    # no matter how the per-IP limits are spread across addresses. Counts every
-    # token in and out, across all providers and operations. Reaching it returns
-    # 503 until the window rolls over. 0 disables the ceiling.
+    # Instance-wide daily model-token ceiling — the backstop that bounds spend no
+    # matter how the per-IP limits are spread across addresses. Reaching it
+    # returns 503 until the window rolls over. 0 disables the ceiling.
     #
-    # The default is deliberately conservative: ~150K tokens/day is roughly
-    # $0.20/day on Haiku 4.5 at a 90/10 input/output split, or about 20-30 full
-    # interviews. A forgotten environment variable should fail toward a small
-    # bill, not an unbounded one — raise it once you know what real traffic costs.
-    daily_token_ceiling: int = 150_000
+    # WHAT IT COUNTS. Every token of every provider call, summed with the weights
+    # below: input, output, cache reads, and cache writes. With the default
+    # weights all at 1.0 it is a *volume* ceiling, not a bill — a cached input
+    # token bills at ~0.1x but still counts as 1 here.
+    #
+    # SIZING. One 5-question interview makes up to
+    # `max_questions x (1 + max_followups_per_question)` = 10 turns, each running
+    # score + judge + generate, and every call resends the system prompt, CV, and
+    # transcript. That is ~150-250K weighted tokens per completed interview even
+    # though the actual Haiku 4.5 bill is only ~$0.10-0.20 (most of the input is a
+    # cached prefix). So this default is ~20 interviews/day, ~$2-4/day worst case.
+    #
+    # The previous default of 150_000 was documented as "20-30 full interviews";
+    # that was wrong by more than an order of magnitude — it did not cover one.
+    # Measure your own figure in Langfuse before tuning, then set it here.
+    daily_token_ceiling: int = 5_000_000
+
+    # Relative weights applied to each token class when charging the ceiling
+    # above. All 1.0 means "count raw volume", which is provider-agnostic and the
+    # safe default. To make the ceiling track the *invoice* instead, set these to
+    # your model's price ratios — for Haiku 4.5 ($1/MTok in, $5/MTok out, cache
+    # reads ~0.1x input, cache writes ~1.25x) that is input 1.0, output 5.0,
+    # cache_read 0.1, cache_write 1.25, and `daily_token_ceiling` then reads as
+    # "input-token-equivalents per day" (~1M of them ≈ $1/day).
+    #
+    # Weighted totals are rounded down to whole units, so a sub-1.0 weight on a
+    # small call can charge 0 — intended: cache reads are meant to be near-free.
+    token_weight_input: float = 1.0
+    token_weight_output: float = 1.0
+    token_weight_cache_read: float = 1.0
+    token_weight_cache_write: float = 1.0
 
     # Optional webhook (Slack incoming webhook, Discord, or anything accepting a
     # JSON {"text": ...} POST) notified the first time the daily token ceiling is
     # reached each day. Empty disables it — best-effort, never blocks a request.
     alert_webhook_url: str = ""
+    # Kept short deliberately: this fires on the request that hit the ceiling, so
+    # the caller waits on it before getting their 503.
+    alert_webhook_timeout_seconds: float = 5.0
 
     # Whether to read the client IP from X-Forwarded-For. Required behind a proxy
     # or load balancer (Railway, Render, Fly, nginx), where the socket address is

@@ -7,6 +7,7 @@ did before plans existed.
 from __future__ import annotations
 
 from interview_bot import llm
+from interview_bot.config import settings
 from interview_bot.domain.plan import InterviewPlan, parse_plan
 from interview_bot.domain.profile import JobProfile
 from interview_bot.logger import logger
@@ -20,7 +21,7 @@ async def build_plan(profile: JobProfile, num_questions: int) -> InterviewPlan |
             EXTRACT_SYSTEM,
             build_extraction_messages(profile, num_questions),
             PlanExtraction,
-            max_tokens=1500,
+            max_tokens=settings.plan_max_tokens,
             operation="build_plan",
         )
         return parse_plan(extracted.model_dump(), profile, num_questions)
