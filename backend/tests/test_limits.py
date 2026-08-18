@@ -102,8 +102,9 @@ def test_charge_is_a_no_op_when_rate_limiting_is_disabled(monkeypatch):
 
 def test_charge_is_a_no_op_for_a_zero_quota(monkeypatch):
     monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "turns_per_hour_per_ip", 0)
     monkeypatch.setattr(usage, "consume", _unreachable)
-    limits.charge(limits.Quota("anything", 0, limits.HOUR), "10.0.0.1")
+    limits.charge(limits.INTERVIEW_TURN, "10.0.0.1")
 
 
 def test_token_budget_is_skipped_when_the_ceiling_is_zero(monkeypatch):
@@ -122,10 +123,11 @@ def _unreachable(*args, **kwargs):
 # --------------------------------------------------------------------------- #
 def test_charge_raises_429_once_the_allowance_is_exceeded(monkeypatch):
     monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "sessions_per_hour_per_ip", 5)
     monkeypatch.setattr(usage, "consume", lambda *a, **k: 6)
 
     with pytest.raises(limits.HTTPException) as excinfo:
-        limits.charge(limits.Quota("session_create", 5, limits.HOUR), "10.0.0.1")
+        limits.charge(limits.SESSION_CREATION, "10.0.0.1")
 
     assert excinfo.value.status_code == 429
     # A client that cannot tell when to come back just retries immediately.
@@ -134,8 +136,9 @@ def test_charge_raises_429_once_the_allowance_is_exceeded(monkeypatch):
 
 def test_charge_allows_the_request_that_lands_exactly_on_the_limit(monkeypatch):
     monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "sessions_per_hour_per_ip", 5)
     monkeypatch.setattr(usage, "consume", lambda *a, **k: 5)
-    limits.charge(limits.Quota("session_create", 5, limits.HOUR), "10.0.0.1")
+    limits.charge(limits.SESSION_CREATION, "10.0.0.1")
 
 
 def test_token_budget_rejects_with_503_when_the_ceiling_is_spent(monkeypatch):
@@ -148,6 +151,71 @@ def test_token_budget_rejects_with_503_when_the_ceiling_is_spent(monkeypatch):
 
     # 503, not 429: the demo as a whole is out of budget, not this caller.
     assert excinfo.value.status_code == 503
+
+
+# --------------------------------------------------------------------------- #
+# Quotas resolve their allowance from config
+# --------------------------------------------------------------------------- #
+def test_every_quota_names_a_real_setting():
+    # A Quota stores the *name* of its setting, so a typo would only surface on a
+    # charged request. limits.py checks this at import; assert it here too so the
+    # reason the check exists is visible in the tests.
+    for quota in limits.QUOTAS:
+        assert hasattr(settings, quota.setting), quota.bucket
+
+
+def test_quota_limit_is_read_live_not_captured_at_import(monkeypatch):
+    # The behaviour this design exists for: the configured number is the enforced
+    # number. Capturing settings into the Quota at import made these diverge.
+    monkeypatch.setattr(settings, "turns_per_hour_per_ip", 99)
+    assert limits.INTERVIEW_TURN.limit == 99
+
+
+def test_quota_buckets_are_unique():
+    # Two quotas sharing a bucket would silently share one counter.
+    buckets = [q.bucket for q in limits.QUOTAS]
+    assert len(buckets) == len(set(buckets))
+
+
+# --------------------------------------------------------------------------- #
+# Token weighting
+# --------------------------------------------------------------------------- #
+_TOTALS = {
+    "input_tokens": 1000,
+    "output_tokens": 100,
+    "cache_read_tokens": 5000,
+    "cache_write_tokens": 200,
+}
+
+
+def test_default_weights_count_raw_volume():
+    # The shipped defaults are all 1.0, so the ceiling counts exactly what the
+    # plain sum used to count. Changing this is an admission-control change.
+    assert limits.weighted_tokens(_TOTALS) == sum(_TOTALS.values())
+
+
+def test_weights_can_make_the_ceiling_track_cost(monkeypatch):
+    # Haiku 4.5 ratios: output is 5x input, a cache read ~0.1x, a write ~1.25x.
+    monkeypatch.setattr(settings, "token_weight_input", 1.0)
+    monkeypatch.setattr(settings, "token_weight_output", 5.0)
+    monkeypatch.setattr(settings, "token_weight_cache_read", 0.1)
+    monkeypatch.setattr(settings, "token_weight_cache_write", 1.25)
+    # 1000 + 500 + 500 + 250
+    assert limits.weighted_tokens(_TOTALS) == 2250
+
+
+def test_unknown_token_field_is_charged_at_full_weight():
+    # A token class the tracer starts reporting must never go silently uncounted.
+    assert limits.weighted_tokens({"future_tokens": 42}) == 42
+
+
+def test_weighted_tokens_floors_to_whole_units(monkeypatch):
+    monkeypatch.setattr(settings, "token_weight_cache_read", 0.1)
+    assert limits.weighted_tokens({"cache_read_tokens": 5}) == 0
+
+
+def test_weighted_tokens_ignores_zero_and_negative_counts():
+    assert limits.weighted_tokens({"input_tokens": 0, "output_tokens": -5}) == 0
 
 
 def test_recording_token_usage_never_raises(monkeypatch):

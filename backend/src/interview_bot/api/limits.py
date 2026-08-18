@@ -5,8 +5,8 @@ Deepgram minutes, embedding requests — and none of them requires a credential.
 Two independent caps make that safe to publish:
 
   * per-IP quotas, which stop one caller monopolising the demo, and
-  * an instance-wide daily token ceiling, which bounds the bill even when a
-    caller spreads their requests across many addresses.
+  * an instance-wide daily token ceiling, which bounds spend even when a caller
+    spreads their requests across many addresses.
 
 The ceiling is deliberately the cruder of the two. Per-IP limits assume the IP
 means something; the ceiling assumes nothing at all, so it is what actually
@@ -14,11 +14,15 @@ guarantees the invoice has a maximum.
 
 Quotas are charged before the work runs, so a request that fails still counts —
 retry loops are the thing being defended against.
+
+Every allowance in here lives in `config.Settings`; a `Quota` stores the *name* of
+its setting and reads it per charge, so nothing in this module hard-codes a
+number and the configured value is always the enforced one.
 """
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -39,11 +43,22 @@ _ALERT_BUCKET = "ceiling_alert_sent"
 
 @dataclass(frozen=True)
 class Quota:
-    """An allowance of `limit` units per `window`, metered under `bucket`."""
+    """An allowance per `window`, metered under `bucket`.
+
+    `setting` names the `Settings` field holding the allowance; `limit` resolves
+    it on every charge rather than capturing the value when this module is
+    imported. That keeps one source of truth — the configured number is always
+    the enforced number — and makes the real quotas monkeypatchable in a test,
+    which a captured int is not.
+    """
 
     bucket: str
-    limit: int
+    setting: str
     window: timedelta
+
+    @property
+    def limit(self) -> int:
+        return int(getattr(settings, self.setting))
 
 
 def client_ip(request: Request) -> str:
@@ -131,12 +146,42 @@ def _send_alert(message: str) -> None:
     if not settings.alert_webhook_url:
         return
     try:
-        httpx.post(settings.alert_webhook_url, json={"text": message}, timeout=5.0)
+        httpx.post(
+            settings.alert_webhook_url,
+            json={"text": message},
+            timeout=settings.alert_webhook_timeout_seconds,
+        )
     except Exception as e:
         logger.warning(f"Alert webhook failed | error={e}")
 
 
-def record_tokens(totals: dict[str, int]) -> None:
+# Which setting weights which token class. Keys are the fields
+# `telemetry.tracer.TOKEN_FIELDS` reports. A field absent from this map is charged
+# at full weight, so a newly-reported token class can never go silently uncounted.
+_TOKEN_WEIGHTS = {
+    "input_tokens": "token_weight_input",
+    "output_tokens": "token_weight_output",
+    "cache_read_tokens": "token_weight_cache_read",
+    "cache_write_tokens": "token_weight_cache_write",
+}
+
+
+def weighted_tokens(totals: Mapping[str, int]) -> int:
+    """The units to charge for `totals`, applying the configured class weights.
+
+    Floored to whole units, so a sub-1.0 weight on a small count can charge 0 —
+    intended, since a weight below 1 says that class is meant to be near-free.
+    """
+    weighted = 0.0
+    for field, count in totals.items():
+        if count <= 0:
+            continue
+        setting = _TOKEN_WEIGHTS.get(field)
+        weighted += count * (getattr(settings, setting) if setting else 1.0)
+    return int(weighted)
+
+
+def record_tokens(totals: Mapping[str, int]) -> None:
     """Add a completed unit of work's token usage to today's ceiling.
 
     Best-effort: metering must never turn a successful interview turn into an
@@ -144,7 +189,7 @@ def record_tokens(totals: dict[str, int]) -> None:
     """
     if not settings.rate_limit_enabled or settings.daily_token_ceiling <= 0:
         return
-    spent = sum(totals.values())
+    spent = weighted_tokens(totals)
     if spent <= 0:
         return
     try:
@@ -159,10 +204,36 @@ def _seconds_until_window_end(window: timedelta) -> int:
 
 
 # The concrete quotas, one per paid operation.
-SESSION_CREATION = Quota("session_create", settings.sessions_per_hour_per_ip, HOUR)
-INTERVIEW_TURN = Quota("interview_turn", settings.turns_per_hour_per_ip, HOUR)
-CV_UPLOAD = Quota("cv_upload", settings.cv_uploads_per_hour_per_ip, HOUR)
-TRANSCRIPTION = Quota("transcribe", settings.transcriptions_per_hour_per_ip, HOUR)
+SESSION_CREATION = Quota("session_create", "sessions_per_hour_per_ip", HOUR)
+INTERVIEW_TURN = Quota("interview_turn", "turns_per_hour_per_ip", HOUR)
+CV_UPLOAD = Quota("cv_upload", "cv_uploads_per_hour_per_ip", HOUR)
+TRANSCRIPTION = Quota("transcribe", "transcriptions_per_hour_per_ip", HOUR)
 # Charged in characters rather than calls: one long request costs as much as many
 # short ones, so calls are the wrong unit.
-TTS_CHARACTERS = Quota("tts_chars", settings.tts_chars_per_day_per_ip, DAY)
+TTS_CHARACTERS = Quota("tts_chars", "tts_chars_per_day_per_ip", DAY)
+
+# Every quota, for introspection — reporting the effective limits, and the test
+# that proves each one names a real setting.
+QUOTAS: tuple[Quota, ...] = (
+    SESSION_CREATION,
+    INTERVIEW_TURN,
+    CV_UPLOAD,
+    TRANSCRIPTION,
+    TTS_CHARACTERS,
+)
+
+def _check_quota_settings() -> None:
+    """Fail at import if a quota names a setting that does not exist.
+
+    Naming a setting instead of capturing its value costs one thing: a typo
+    becomes an AttributeError on the first charged request rather than an error at
+    definition. Pay for it here so a bad name cannot reach production.
+    """
+    for quota in QUOTAS:
+        if not hasattr(settings, quota.setting):
+            raise AttributeError(
+                f"Quota {quota.bucket!r} names unknown setting {quota.setting!r}"
+            )
+
+
+_check_quota_settings()
