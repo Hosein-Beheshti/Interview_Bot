@@ -1,4 +1,11 @@
-import { ChatResponse, CVUploadResponse, ScoreResult, TurnFailure, User } from '../types'
+import {
+  ChatResponse,
+  ClientConfig,
+  CVUploadResponse,
+  ScoreResult,
+  TurnFailure,
+  User,
+} from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
@@ -69,6 +76,20 @@ export function describeFailure(err: unknown): TurnFailure {
 async function toApiError(response: Response, fallback: string): Promise<ApiError> {
   const body = await response.json().catch(() => null)
   return new ApiError(body?.detail || fallback, response.status)
+}
+
+/**
+ * The limits the server enforces, fetched once at boot.
+ *
+ * Unauthenticated on purpose: the UI needs these before anyone signs in. There is
+ * deliberately no fallback object here — a default would be a second copy of
+ * every number, which is the duplication this endpoint exists to remove. If this
+ * fails, the app says so rather than guessing.
+ */
+export async function fetchConfig(): Promise<ClientConfig> {
+  const response = await fetch(`${API_BASE}/config`)
+  if (!response.ok) throw await toApiError(response, 'Could not load configuration')
+  return response.json()
 }
 
 export interface ChatStreamHandlers {

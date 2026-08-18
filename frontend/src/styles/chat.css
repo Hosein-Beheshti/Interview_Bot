@@ -1178,6 +1178,10 @@ textarea.field-input {
 .input-box:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .input-hint {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
   font-size: var(--fs-xs);
   color: var(--t3);
   padding-left: 4px;
@@ -1337,6 +1341,26 @@ textarea.field-input {
 }
 /* Amber, not red: short is a "keep going", not a rejection. */
 .cv-count-short { color: var(--amber); }
+
+/* ── Character counters ────────────────────────────────────────────────────
+   `used/limit` on every length-capped field. Tabular figures so the number
+   does not jitter as it counts, and quiet by default — it is a reference, not
+   a warning, until the room actually starts running out. */
+.char-count {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--t3);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* Inside a field label, sit at the far end rather than beside the label text. */
+.field-label .char-count { margin-left: auto; }
+.char-count-near { color: var(--t2); }
+/* Same amber as the CV counter: the limit is a boundary, not an error. */
+.char-count-full { color: var(--amber); }
 
 .cv-paste-btn {
   display: inline-flex;

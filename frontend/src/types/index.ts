@@ -1,5 +1,25 @@
 export type TurnMode = 'main_question' | 'follow_up' | 'closing'
 
+/**
+ * Server-owned limits, from `GET /api/config`.
+ *
+ * The client keeps no copy of any of these — every input cap, picker length, and
+ * size sentence in the UI reads from here, so the browser and the API can never
+ * disagree about what is allowed. Field names match the backend settings that
+ * produce them. Client-side checks derived from this are a courtesy; the server
+ * re-validates everything.
+ */
+export interface ClientConfig {
+  max_questions: number
+  role_max_chars: number
+  job_context_max_chars: number
+  chat_message_max_chars: number
+  cv_max_bytes: number
+  cv_min_chars: number
+  /** Dotted, lowercase, sorted — e.g. `['.docx', '.pdf', '.txt']`. */
+  cv_accepted_extensions: string[]
+}
+
 export interface User {
   id: string
   email: string

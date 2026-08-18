@@ -1,9 +1,7 @@
 import { useCallback, useState } from 'react'
-import { CVInfo } from '../types'
+import { ClientConfig, CVInfo } from '../types'
 import { ApiError, deleteCV, describeError, uploadCV } from '../services/api'
-
-export const ACCEPTED_CV_TYPES = '.pdf,.docx,.txt'
-const MAX_BYTES = 5 * 1024 * 1024
+import { maxUploadMB } from './useConfig'
 
 interface CVState {
   info: CVInfo | null
@@ -13,7 +11,7 @@ interface CVState {
 
 const initial: CVState = { info: null, uploading: false, error: null }
 
-export function useCV(onUnauthorized?: () => void) {
+export function useCV(config: ClientConfig, onUnauthorized?: () => void) {
   const [state, setState] = useState<CVState>(initial)
 
   const upload = useCallback(
@@ -24,7 +22,7 @@ export function useCV(onUnauthorized?: () => void) {
       jobContext?: string,
       numQuestions?: number,
     ): Promise<string | null> => {
-      const validation = validate(file)
+      const validation = validate(file, config)
       if (validation) {
         setState((p) => ({ ...p, error: validation }))
         return null
@@ -56,7 +54,7 @@ export function useCV(onUnauthorized?: () => void) {
         return null
       }
     },
-    [onUnauthorized],
+    [config, onUnauthorized],
   )
 
   const remove = useCallback(async (sessionId: string) => {
@@ -72,12 +70,36 @@ export function useCV(onUnauthorized?: () => void) {
   return { ...state, upload, remove, clear }
 }
 
-function validate(file: File): string | null {
+/**
+ * Mirror the server's own upload checks, using the server's own numbers.
+ *
+ * Every bound and the accepted extension list come from `config`, so this can
+ * only ever reject what `/cv/upload` would reject. It runs first purely to save a
+ * round trip — the server re-checks all of it.
+ *
+ * Pasted CVs arrive here too, as a `.txt` File, so the size bound covers them
+ * without a separate character cap.
+ */
+function validate(file: File, config: ClientConfig): string | null {
   if (file.size === 0) return 'File is empty'
-  if (file.size > MAX_BYTES) return 'File exceeds 5 MB limit'
+  if (file.size > config.cv_max_bytes) {
+    return `File exceeds ${maxUploadMB(config)} MB limit`
+  }
   const name = file.name.toLowerCase()
-  if (!name.endsWith('.pdf') && !name.endsWith('.docx') && !name.endsWith('.txt')) {
-    return 'Only PDF, DOCX, or TXT files are supported'
+  if (!config.cv_accepted_extensions.some((ext) => name.endsWith(ext))) {
+    return `Only ${describeExtensions(config)} files are supported`
   }
   return null
+}
+
+/** ".pdf,.docx,.txt" -> "PDF, DOCX, or TXT", so the copy tracks the server list. */
+function describeExtensions(config: ClientConfig): string {
+  const names = config.cv_accepted_extensions.map((ext) => ext.replace('.', '').toUpperCase())
+  if (names.length <= 1) return names.join('')
+  return `${names.slice(0, -1).join(', ')}, or ${names[names.length - 1]}`
+}
+
+/** The `accept` attribute for a file input, from the server's list. */
+export function acceptedCVTypes(config: ClientConfig): string {
+  return config.cv_accepted_extensions.join(',')
 }

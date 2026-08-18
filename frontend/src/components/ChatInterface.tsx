@@ -6,12 +6,10 @@ import { CreditSpend } from '../hooks/useAuth'
 import { CVUpload } from './CVUpload'
 import { BrandMark, MicGlyph } from './icons'
 import { EXAMPLE_ROLES } from '../data/examples'
-import { InterviewSummary, ScoreResult, TurnStage, User } from '../types'
+import { ClientConfig, InterviewSummary, ScoreResult, TurnStage, User } from '../types'
 import '../styles/chat.css'
 
 const AUTO_SEND_DELAY_MS = 6000
-/** Longest interview the server will run; also what it uses when asked for none. */
-const MAX_QUESTIONS = 5
 /** How long a "−8 credits" flash stays up before it stops being news. */
 const SPEND_FLASH_MS = 7000
 
@@ -26,6 +24,9 @@ const STAGE_LABEL: Record<TurnStage, string> = {
 
 interface ChatInterfaceProps {
   user: User
+  /** Server-owned limits. Every input cap and picker length below reads from
+   *  this — the component holds no limit of its own. */
+  config: ClientConfig
   onLogout: () => void
   /** Called whenever credits may have been spent, so the caller can refetch the
    * balance: starting a session costs several, and speech costs per use. */
@@ -36,7 +37,7 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({
-  user, onLogout, onCreditsChanged, lastSpend, onSpendShown,
+  user, config, onLogout, onCreditsChanged, lastSpend, onSpendShown,
 }: ChatInterfaceProps) {
   const { messages, session_id, question_number, num_questions, is_complete, summary, loading, streaming, stage, error, send, retry, canRetry, reset, forget, adoptSession, dismissError } = useChat(onLogout)
   const {
@@ -44,14 +45,14 @@ export function ChatInterface({
     unlockAudio, startListening, stopListening, resetTranscript,
     beginSpeech, pushSpeech, endSpeech, stopSpeaking,
   } = useVoice()
-  const cv = useCV(onLogout)
+  const cv = useCV(config, onLogout)
   const [input, setInput] = useState('')
   const [role, setRole] = useState('Software Engineer')
   const [jobDescription, setJobDescription] = useState('')
   // The interview length, always a valid choice because the control only offers
   // valid ones. Starts at the maximum: someone who ignores this field gets the
   // full interview, which is what they would have got before it existed.
-  const [questionCount, setQuestionCount] = useState(MAX_QUESTIONS)
+  const [questionCount, setQuestionCount] = useState(config.max_questions)
   const [cvOpen, setCvOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   // What this interview has cost so far, accumulated from observed balance
@@ -155,11 +156,14 @@ export function ChatInterface({
   }, [messages, loading, streaming, is_complete, beginSpeech, pushSpeech, endSpeech, stopSpeaking, startListening])
 
   // Mirror live transcript into the input box for visibility (interim takes priority while user is talking)
+  // Clamped to the server's message limit by hand: this sets the value
+  // programmatically, and `maxLength` bounds only typing and pasting, so a long
+  // dictated answer would otherwise sail past the cap and come back a 422.
   useEffect(() => {
     if (!isListening) return
     const display = (transcript + (interimText ? ' ' + interimText : '')).trim()
-    if (display) setInput(display)
-  }, [transcript, interimText, isListening])
+    if (display) setInput(display.slice(0, config.chat_message_max_chars))
+  }, [transcript, interimText, isListening, config.chat_message_max_chars])
 
   // Auto-send only after a confirmed pause AFTER a final transcript with no interim activity
   useEffect(() => {
@@ -171,13 +175,14 @@ export function ChatInterface({
 
     autoSendTimerRef.current = setTimeout(() => {
       stopListeningRef.current()
-      sendRef.current(trimmed, undefined)
+      // Sends the transcript, not `input`, so it needs the same clamp.
+      sendRef.current(trimmed.slice(0, config.chat_message_max_chars), undefined)
       setInput('')
       resetTranscriptRef.current()
     }, AUTO_SEND_DELAY_MS)
 
     return () => clearTimeout(autoSendTimerRef.current)
-  }, [transcript, interimText, isListening])
+  }, [transcript, interimText, isListening, config.chat_message_max_chars])
 
   // A zero balance cannot pay for a session under any pricing, so this is safe
   // to assert without the frontend knowing what a session costs. A balance that
@@ -295,6 +300,11 @@ export function ChatInterface({
                   <div className="field">
                     <label className="field-label" htmlFor="role-input">
                       Role <Required />
+                      <CharCount
+                        id="role-count"
+                        value={role.length}
+                        max={config.role_max_chars}
+                      />
                     </label>
                     <input
                       id="role-input"
@@ -303,6 +313,8 @@ export function ChatInterface({
                       value={role}
                       onChange={(e) => setRole(e.target.value)}
                       placeholder="e.g. Software Engineer"
+                      maxLength={config.role_max_chars}
+                      aria-describedby="role-count"
                     />
                   </div>
 
@@ -311,7 +323,7 @@ export function ChatInterface({
                       Questions <Required />
                     </label>
                     <div className="seg" role="group" aria-labelledby="questions-label">
-                      {Array.from({ length: MAX_QUESTIONS }, (_, i) => i + 1).map((n) => (
+                      {Array.from({ length: config.max_questions }, (_, i) => i + 1).map((n) => (
                         <button
                           key={n}
                           type="button"
@@ -355,6 +367,11 @@ export function ChatInterface({
                 <div className="field">
                   <label className="field-label" htmlFor="jd-input">
                     Job description <Optional />
+                    <CharCount
+                      id="jd-count"
+                      value={jobDescription.length}
+                      max={config.job_context_max_chars}
+                    />
                   </label>
                   <textarea
                     id="jd-input"
@@ -363,7 +380,8 @@ export function ChatInterface({
                     onChange={(e) => setJobDescription(e.target.value)}
                     placeholder="Paste the posting — questions then follow its seniority, stack, and skills."
                     rows={3}
-                    maxLength={8000}
+                    maxLength={config.job_context_max_chars}
+                    aria-describedby="jd-count"
                   />
                 </div>
 
@@ -392,6 +410,7 @@ export function ChatInterface({
                     info={cv.info}
                     uploading={cv.uploading}
                     error={cv.error}
+                    config={config}
                     onUpload={async (file) => {
                       const newSessionId = await cv.upload(file, role, session_id ?? undefined, jobDescription.trim() || undefined, questionCount)
                       if (newSessionId) adoptSession(newSessionId)
@@ -565,6 +584,8 @@ export function ChatInterface({
               disabled={loading}
               rows={2}
               aria-label="Your answer"
+              maxLength={config.chat_message_max_chars}
+              aria-describedby="answer-count"
             />
             <button
               className={`mic-btn${isListening ? ' mic-active' : ''}`}
@@ -591,7 +612,14 @@ export function ChatInterface({
             </button>
           </div>
           <p className="input-hint">
-            <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line
+            <span>
+              <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line
+            </span>
+            <CharCount
+              id="answer-count"
+              value={input.length}
+              max={config.chat_message_max_chars}
+            />
           </p>
         </div>
       )}
@@ -619,6 +647,34 @@ function Required() {
 
 function Optional() {
   return <span className="opt">Optional</span>
+}
+
+/**
+ * `used / limit` for a length-capped field.
+ *
+ * The cap is enforced by the input's own `maxLength`, which comes from the
+ * server's config — this only makes it visible, so running out of room reads as a
+ * known boundary rather than the keyboard having broken. Amber rather than red at
+ * the limit, matching the CV counter: nothing typed is wrong, there is just no
+ * more space.
+ *
+ * Announced through `aria-describedby` (the caller wires it) rather than a live
+ * region, which on a per-keystroke counter would talk over the person typing. The
+ * one thing worth interrupting for — hitting the limit — mounts a `role="status"`
+ * only at that moment, so it is spoken once.
+ */
+function CharCount({ id, value, max }: { id: string; value: number; max: number }) {
+  const full = value >= max
+  const near = !full && value >= Math.floor(max * 0.9)
+  return (
+    <span
+      id={id}
+      className={`char-count${full ? ' char-count-full' : near ? ' char-count-near' : ''}`}
+    >
+      {value.toLocaleString()}/{max.toLocaleString()}
+      {full && <span className="sr-only" role="status"> — character limit reached</span>}
+    </span>
+  )
 }
 
 /** Whole seconds since this component mounted — i.e. since the turn was sent,

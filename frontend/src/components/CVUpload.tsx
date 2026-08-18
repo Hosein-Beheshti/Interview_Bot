@@ -1,18 +1,14 @@
 import { useCallback, useRef, useState } from 'react'
-import { ACCEPTED_CV_TYPES } from '../hooks/useCV'
-import { CVInfo } from '../types'
+import { acceptedCVTypes } from '../hooks/useCV'
+import { maxUploadMB } from '../hooks/useConfig'
+import { ClientConfig, CVInfo } from '../types'
 
 /** Pasted text is uploaded as a text file rather than through a second
  *  endpoint: `/cv/upload` already accepts `.txt` and decodes it as UTF-8, so
  *  the paste path reuses the parsing, indexing, and size limits the file path
- *  is already validated against. */
+ *  is already validated against — including the upload size bound, which is why
+ *  the textarea needs no character cap of its own. */
 const PASTED_CV_FILENAME = 'pasted-cv.txt'
-
-/** Below this a "CV" cannot say enough to ground a question — and indexing one
- *  creates a session, which costs credits, so it is worth catching here rather
- *  than after the charge. */
-const MIN_TEXT_LENGTH = 200
-const MAX_TEXT_LENGTH = 20000
 
 type Mode = 'file' | 'text'
 
@@ -20,11 +16,12 @@ interface Props {
   info: CVInfo | null
   uploading: boolean
   error: string | null
+  config: ClientConfig
   onUpload: (file: File) => void
   onRemove: () => void
 }
 
-export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) {
+export function CVUpload({ info, uploading, error, config, onUpload, onRemove }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [mode, setMode] = useState<Mode>('file')
@@ -45,7 +42,10 @@ export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) 
   }
 
   const trimmed = text.trim()
-  const tooShort = trimmed.length < MIN_TEXT_LENGTH
+  // The server applies this same minimum to the text it extracts, and rejects
+  // before it creates the session — catching it here saves the round trip, not
+  // the charge.
+  const tooShort = trimmed.length < config.cv_min_chars
 
   const submitText = () => {
     if (tooShort || uploading) return
@@ -118,7 +118,7 @@ export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) 
           <input
             ref={inputRef}
             type="file"
-            accept={ACCEPTED_CV_TYPES}
+            accept={acceptedCVTypes(config)}
             hidden
             onChange={(e) => handleFiles(e.target.files)}
           />
@@ -133,7 +133,12 @@ export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) 
               <UploadIcon />
               <div className="cv-prompt">
                 <strong>Drop your CV here, or click to browse</strong>
-                <span>PDF, DOCX or TXT · up to 5 MB · questions draw on your experience</span>
+                <span>
+                  {config.cv_accepted_extensions
+                    .map((ext) => ext.replace('.', '').toUpperCase())
+                    .join(', ')}{' '}
+                  · up to {maxUploadMB(config)} MB · questions draw on your experience
+                </span>
               </div>
             </>
           )}
@@ -147,7 +152,6 @@ export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) 
             placeholder={
               'Paste or type your CV here.\n\nRoles and dates, what you actually built, the tools you used, education. Formatting is ignored — plain text is fine.'
             }
-            maxLength={MAX_TEXT_LENGTH}
             disabled={uploading}
             rows={9}
             aria-label="Your CV as text"
@@ -157,7 +161,7 @@ export function CVUpload({ info, uploading, error, onUpload, onRemove }: Props) 
               {trimmed.length === 0
                 ? 'Nothing pasted yet'
                 : tooShort
-                  ? `${trimmed.length} of ${MIN_TEXT_LENGTH} characters minimum`
+                  ? `${trimmed.length} of ${config.cv_min_chars} characters minimum`
                   : `${trimmed.length.toLocaleString()} characters`}
             </span>
             <button
