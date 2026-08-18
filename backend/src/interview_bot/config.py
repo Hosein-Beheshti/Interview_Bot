@@ -100,10 +100,27 @@ class Settings(BaseSettings):
     embedding_model: str = "voyage-3-lite"
     embedding_dim: int = 512
     cv_max_bytes: int = 5 * 1024 * 1024
+    # Below this many characters of *extracted* text a CV cannot say enough to
+    # ground a question, and indexing one still costs an embedding call and a
+    # session. Applies to extracted text, not the raw bytes: a two-line PDF is
+    # many kilobytes of file for a handful of words.
+    #
+    # Enforced in `integrations/cv_parser.parse` — the one place the extracted
+    # text exists — and published via `GET /api/config` so the paste box shows the
+    # same number. Was a hardcoded 50 in the parser while the UI claimed 200; this
+    # is the single value both now read, and 200 is what the UI always promised.
+    cv_min_chars: int = 200
     # One recorded answer, not a media file. Deepgram bills by audio duration, so
     # this is a cost bound as much as a request-size bound.
     audio_max_bytes: int = 10 * 1024 * 1024
     rag_top_k: int = 4
+    # CV chunking for vector retrieval. Target size trades retrieval precision
+    # against how much surrounding context each hit carries; the overlap keeps a
+    # fact that straddles a boundary from being split out of both neighbours.
+    # Chunk text is part of an embedding request's replay identity, so changing
+    # either invalidates the recorded embedding cassettes and needs `make record`.
+    chunk_target_chars: int = 600
+    chunk_overlap_chars: int = 100
     # CVs at or below this many characters (~3K tokens, ~2 pages) are sent to the
     # interviewer in full on every turn — best grounding, no retrieval query to
     # construct, and nearly free once the prompt prefix is cached. Larger CVs

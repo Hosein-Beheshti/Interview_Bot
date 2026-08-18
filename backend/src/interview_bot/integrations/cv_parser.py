@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from docx import Document
 from pypdf import PdfReader
 
+from interview_bot.config import settings
+
 SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 SUPPORTED_MIME_TYPES = {
     "application/pdf",
@@ -42,8 +44,21 @@ def parse(filename: str, content: bytes) -> ParsedCV:
     raw = extractor(content)
     cleaned = _normalize(raw)
 
-    if len(cleaned) < 50:
-        raise CVParseError("CV appears to be empty or unreadable")
+    # The single minimum-text rule, from config. It lives here rather than in the
+    # route because this is the only place the extracted text exists, and the
+    # client mirrors the same number via `GET /api/config` — one threshold, one
+    # source. The two cases are separated because their fixes differ: no text at
+    # all is a wrong-kind-of-file problem, too little text is a wrong-file problem.
+    if not cleaned:
+        raise CVParseError(
+            "No text could be extracted. Image-only or scanned PDFs have no text "
+            "layer — paste the text instead."
+        )
+    if len(cleaned) < settings.cv_min_chars:
+        raise CVParseError(
+            f"This CV has only {len(cleaned)} characters of text; at least "
+            f"{settings.cv_min_chars} are needed to interview on it."
+        )
 
     return ParsedCV(filename=filename, text=cleaned, char_count=len(cleaned))
 

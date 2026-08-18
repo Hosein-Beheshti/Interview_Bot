@@ -34,10 +34,6 @@ _SECTION_PATTERN = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
-CHUNK_TARGET_CHARS = 600
-CHUNK_OVERLAP_CHARS = 100
-
-
 @dataclass(frozen=True)
 class TextChunk:
     """A pre-embedding slice of CV text, tagged by the section it came from."""
@@ -126,7 +122,8 @@ def _split_sections(text: str) -> list[tuple[str, str]]:
 
 def _split_long_text(text: str) -> list[str]:
     """Sliding-window split with paragraph-aware boundaries."""
-    if len(text) <= CHUNK_TARGET_CHARS:
+    target = settings.chunk_target_chars
+    if len(text) <= target:
         return [text]
 
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
@@ -134,12 +131,12 @@ def _split_long_text(text: str) -> list[str]:
     current = ""
 
     for para in paragraphs:
-        if len(current) + len(para) + 2 <= CHUNK_TARGET_CHARS:
+        if len(current) + len(para) + 2 <= target:
             current = f"{current}\n\n{para}" if current else para
         else:
             if current:
                 chunks.append(current)
-            if len(para) <= CHUNK_TARGET_CHARS:
+            if len(para) <= target:
                 current = para
             else:
                 chunks.extend(_window_split(para))
@@ -151,8 +148,9 @@ def _split_long_text(text: str) -> list[str]:
 
 
 def _window_split(text: str) -> list[str]:
-    step = CHUNK_TARGET_CHARS - CHUNK_OVERLAP_CHARS
-    return [text[i : i + CHUNK_TARGET_CHARS] for i in range(0, len(text), step)]
+    target = settings.chunk_target_chars
+    step = target - settings.chunk_overlap_chars
+    return [text[i : i + target] for i in range(0, len(text), step)]
 
 
 # ---------------------------------------------------------------------------

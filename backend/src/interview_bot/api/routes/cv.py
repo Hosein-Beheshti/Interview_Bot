@@ -45,6 +45,11 @@ async def upload_cv(
     try:
         parsed = cv_parser.parse(file.filename or "cv", content)
     except cv_parser.CVParseError as e:
+        # Covers the too-little-text case as well as an unreadable file: the
+        # parser owns the one `cv_min_chars` check, since it is the only place the
+        # extracted text exists. Raised before `_resolve_session`, which is what
+        # creates the session and debits credits — a CV too thin to interview on
+        # is never paid for.
         logger.warning(f"CV parse failed | filename={file.filename} | error={e}")
         raise HTTPException(status_code=400, detail=str(e)) from e
 

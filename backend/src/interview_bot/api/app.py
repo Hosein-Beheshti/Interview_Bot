@@ -12,6 +12,7 @@ from interview_bot.api.routes.auth import router as auth_router
 from interview_bot.api.routes.chat import router as chat_router
 from interview_bot.api.routes.cv import router as cv_router
 from interview_bot.api.routes.health import router as health_router
+from interview_bot.api.routes.meta import router as meta_router
 from interview_bot.api.routes.sessions import router as sessions_router
 from interview_bot.api.routes.voice import router as voice_router
 from interview_bot.config import is_dev_cors_in_production, settings
@@ -55,6 +56,7 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(meta_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(voice_router, prefix="/api")
