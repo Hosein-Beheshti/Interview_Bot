@@ -36,6 +36,18 @@ def generation_model() -> str:
     return settings.generator_model or active_model()
 
 
+def judge_model() -> str:
+    """The model used to judge generated turns.
+
+    `settings.judge_model` when set, otherwise the provider default. Judging is
+    eval-only, so this never affects a live interview — it exists so the judge can
+    be pinned to a stronger model than the generator it grades. See the
+    `judge_model` note in `config.py` for why sharing one is a measurement problem
+    and not just a cost one.
+    """
+    return settings.judge_model or active_model()
+
+
 async def generate(
     messages: list[dict],
     system: str,
@@ -144,6 +156,7 @@ async def generate_structured(
     messages: list[dict],
     schema: dict,
     *,
+    model: str | None = None,
     max_tokens: int | None = None,
     temperature: float = 0.0,
     cache_prefix: str | None = None,
@@ -161,18 +174,27 @@ async def generate_structured(
     """
     if max_tokens is None:
         max_tokens = settings.structured_max_tokens
+    # Defaulted here rather than in the signature so the resolved name reaches
+    # both the replay identity and the provider — a model read inside the adapter
+    # would be absent from the cassette that is supposed to pin it.
+    model = model or active_model()
     async with observe_generation(
         operation,
         provider=settings.llm_provider,
         input={"system": system, "cache_prefix": cache_prefix, "messages": messages},
-        metadata={"temperature": temperature, "max_tokens": max_tokens, **(trace_metadata or {})},
+        metadata={
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "model": model,
+            **(trace_metadata or {}),
+        },
     ) as gen:
         result = await transport.call(
             "llm.generate_structured",
             {
                 "kind": "llm.generate_structured",
                 "provider": settings.llm_provider,
-                "model": active_model(),
+                "model": model,
                 "system": system,
                 "cache_prefix": cache_prefix,
                 "messages": messages,
@@ -184,6 +206,7 @@ async def generate_structured(
                 system,
                 messages,
                 schema,
+                model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 cache_prefix=cache_prefix,

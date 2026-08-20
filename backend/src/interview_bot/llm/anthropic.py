@@ -101,12 +101,13 @@ class AnthropicProvider(LLMProvider):
         messages: list[dict],
         schema: dict,
         *,
+        model: str,
         max_tokens: int,
         temperature: float = 0.0,
         cache_prefix: str | None = None,
     ) -> dict:
         response = await self._client.messages.create(  # type: ignore[call-overload]
-            model=settings.model,
+            model=model,
             max_tokens=max_tokens,
             temperature=temperature,
             system=_system_param(cache_prefix, system),

@@ -27,6 +27,19 @@ class Settings(BaseSettings):
     # it invalidates the interviewer cassettes and needs `make record`.
     generator_model: str = ""
 
+    # The turn judge, likewise — and for a sharper reason than cost. The judge in
+    # `pipeline/judge.py` grades replies the generator produced; with this empty
+    # they are the same model, so the judge is most likely to wave through exactly
+    # the failures the generator is prone to. Cohen's kappa in the generator eval
+    # measures *disagreement* with the human labels, which means correlated error
+    # between generator and judge is invisible to it by construction — the gate
+    # cannot see the one failure mode a shared model creates.
+    #
+    # Set this to a stronger model than `generator_model` to test that assumption
+    # instead of inheriting it. Judging is eval-only (never on the request path),
+    # so this costs nothing in production and touches no interview cassette.
+    judge_model: str = ""
+
     # Hard ceiling on a single provider HTTP call. Both SDKs default to ten
     # minutes, which is far longer than any turn should take and long enough for
     # a stalled call to pin the request's database connection (and, on /chat, the
@@ -169,19 +182,29 @@ class Settings(BaseSettings):
     # Where cassettes live. A relative path is anchored at the backend root so
     # the same value works from any working directory.
     cassette_dir: str = "cassettes"
-    # Under replay, let a free-text generation (`llm.generate`) fall back to the
-    # cassette recorded for the same *conversation* when its exact request hash
-    # misses. Editing interviewer prompt wording changes the request bytes and so
-    # would otherwise miss every cassette, making a one-word prompt tweak cost a
-    # full `make record` against the live APIs. The fallback keys on the fields a
-    # prompt edit does not touch (provider, model, messages, sampling), so the
-    # offline suite keeps exercising the server-owned logic — progression, label
-    # repair, scoring, summary — while the prompt is in flux.
+    # Under replay, let a model call fall back to the cassette recorded for the
+    # same *conversation* when its exact request hash misses. Editing prompt
+    # wording changes the request bytes and so would otherwise miss every
+    # cassette, making a one-word tweak cost a full `make record` against the live
+    # APIs. The fallback keys on the fields a prompt edit does not touch (provider,
+    # model, messages, sampling), so the offline suite keeps exercising the
+    # server-owned logic — progression, label repair, scoring, summary — while the
+    # prompt is in flux.
     #
-    # Deliberately narrow: only `llm.generate`, whose recorded reply is just
-    # plausible English. `llm.parse` and `llm.generate_structured` never fall back
-    # — their recorded *shape* is the thing under test, so a miss there is a real
-    # error. Off by default; the offline gate turns it on (see the Makefile).
+    # This covers all three kinds that have a prompt to tune: `llm.generate`,
+    # `llm.generate_structured` and `llm.parse`. It was once narrowed to
+    # `llm.generate` alone, on the grounds that a structured call's recorded
+    # *shape* is the thing under test — true, but the schema itself already says
+    # whether the shape moved, and it is part of the exact-match identity. So the
+    # rule is now the precise one rather than its proxy: a reworded instruction
+    # (including a field `description`, i.e. an extraction model's docstring)
+    # replays, while an added field, a changed type or a widened enum still misses
+    # hard. See `_shape_only` in `llm/transport.py`.
+    #
+    # What the fallback cannot do is tell you a prompt edit *helped*: it serves the
+    # reply recorded against the old bytes, so a golden score stays the old score.
+    # Measuring a prompt change needs `make eval` and a fresh recording.
+    # Off by default; the offline gate turns it on (see the Makefile).
     cassette_fallback: bool = False
 
     # Observability (self-hosted Langfuse). Tracing is best-effort: when disabled

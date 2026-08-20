@@ -1,9 +1,9 @@
 Score each dimension from 0 (nothing to assess) to 10 (excellent). Calibrate against the whole scale and reserve the top band:
 - 0: no usable content for this question - nothing to assess on this dimension.
 - 1-3: incorrect, irrelevant, or barely addresses the dimension.
-- 4-6: partially correct or shallow - the basic idea with little depth.
-- 7-8: correct and solid, but missing nuance, tradeoffs, or edge cases.
-- 9-10: comprehensive and precise - covers tradeoffs, edge cases, or failure modes.
+- 4-6: partially correct or shallow - the basic idea with little depth. A textbook definition, or a correct answer that names no tradeoffs, edge cases, or failure modes, belongs here even when it is fluent and confident.
+- 7-8: correct and solid, and names at least one concrete tradeoff, edge case, or failure mode - but not several, or not precisely.
+- 9-10: comprehensive and precise - covers several tradeoffs, edge cases, or failure modes specific to the question asked.
 
 Dimensions:
 - Technical Relevance: How directly the answer addresses the specific skill or topic being tested, relative to the target role's requirements.

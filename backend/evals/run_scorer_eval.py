@@ -13,11 +13,17 @@ The process exit code is non-zero when any quality gate fails, so this is
 CI-runnable. Prompts/models are not code; this is how a prompt or model change is
 measured rather than guessed.
 
+A single run reports levels; `--baseline` prints each headline metric with its
+movement since a previous report, and warns when the two runs were produced under
+different prompt/rubric/model provenance — across those, results are not
+comparable at all (see `evals/baseline.py`).
+
 Usage:
     python -m evals.run_scorer_eval                 # score the full set via the live API
     python -m evals.run_scorer_eval --limit 5       # first 5 items only (cheap smoke test)
     python -m evals.run_scorer_eval --dry-run       # no API calls; self-test the harness
     python -m evals.run_scorer_eval --json-out report.json
+    python -m evals.run_scorer_eval --baseline reports/scorer_report.json
 
 Companion to `run_generator_eval.py`, which covers question/reply generation
 instead of scoring.
@@ -34,6 +40,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from evals import baseline as baseline_module
 from evals import metrics
 from interview_bot import llm
 from interview_bot.config import settings
@@ -245,7 +252,31 @@ def _tag_breakdown(results: list[ItemResult]) -> str:
     return "\n".join(lines)
 
 
-def report(results: list[ItemResult], gates: dict) -> bool:
+def summarize(results: list[ItemResult]) -> dict:
+    """Flat headline metrics: what gets printed, persisted, and compared.
+
+    One function so the numbers in the artifact are literally the numbers on
+    screen — a baseline comparison is only trustworthy if the metric it reads was
+    not recomputed by a second, subtly different expression.
+    """
+    scored = [r for r in results if r.score is not None]
+    fu_checked = [r for r in scored if "follow_up_recommended" in r.expected]
+    return {
+        "items": len(results),
+        "errors": len(results) - len(scored),
+        "in_band_rate": sum(r.in_band for r in scored) / len(results) if results else 0.0,
+        "answer_type_accuracy": (
+            sum(r.answer_type_ok for r in scored) / len(results) if results else 0.0
+        ),
+        "mae": statistics.mean([r.abs_error for r in scored]) if scored else 0.0,
+        "adversarial_hard_fails": sum(1 for r in results if r.hard_fail),
+        "follow_up_accuracy": (
+            sum(r.follow_up_ok for r in fu_checked) / len(fu_checked) if fu_checked else None
+        ),
+    }
+
+
+def report(results: list[ItemResult], gates: dict, baseline: dict | None = None) -> bool:
     print("\n" + "=" * 78)
     print("SCORER EVALUATION")
     print("=" * 78)
@@ -258,25 +289,45 @@ def report(results: list[ItemResult], gates: dict) -> bool:
         for note in r.notes:
             print(f"               - {note}")
 
-    scored = [r for r in results if r.score is not None]
-    errors = len(results) - len(scored)
-    in_band_rate = sum(r.in_band for r in scored) / len(results) if results else 0.0
-    at_acc = sum(r.answer_type_ok for r in scored) / len(results) if results else 0.0
-    mae = statistics.mean([r.abs_error for r in scored]) if scored else 0.0
+    summary = summarize(results)
+    base = baseline or {}
+    errors = summary["errors"]
+    in_band_rate = summary["in_band_rate"]
+    at_acc = summary["answer_type_accuracy"]
+    mae = summary["mae"]
     hard_fails = [r for r in results if r.hard_fail]
-    fu_checked = [r for r in scored if "follow_up_recommended" in r.expected]
-    fu_acc = sum(r.follow_up_ok for r in fu_checked) / len(fu_checked) if fu_checked else None
+    fu_checked = [r for r in results if r.score is not None and "follow_up_recommended" in r.expected]
+    fu_acc = summary["follow_up_accuracy"]
 
     print("\n" + "-" * 78)
     print(_confusion_matrix(results))
     print("-" * 78)
     print(_tag_breakdown(results))
     print("-" * 78)
+    baseline_module.report_drift(run_meta(), base)
+    def d(current: float | None, key: str, fmt: str = "{:+.0%}") -> str:
+        # No baseline at all is silence, not "(new)" — that marker means the
+        # baseline exists but predates this metric, which is worth seeing.
+        if not base:
+            return ""
+        return baseline_module.delta(
+            current, baseline_module.summary_value(base, key), fmt=fmt
+        )
+
     print(f"  items                : {len(results)}")
-    print(f"  scoring errors       : {errors}")
-    print(f"  in-band rate         : {in_band_rate:.0%}   (gate >= {gates['min_in_band']:.0%})")
-    print(f"  answer_type accuracy : {at_acc:.0%}   (gate >= {gates['min_at_acc']:.0%})")
-    print(f"  overall MAE          : {mae:.2f} points (vs. band midpoint)")
+    print(f"  scoring errors       : {errors}{d(errors, 'errors', '{:+d}')}")
+    print(
+        f"  in-band rate         : {in_band_rate:.0%}   (gate >= {gates['min_in_band']:.0%})"
+        f"{d(in_band_rate, 'in_band_rate')}"
+    )
+    print(
+        f"  answer_type accuracy : {at_acc:.0%}   (gate >= {gates['min_at_acc']:.0%})"
+        f"{d(at_acc, 'answer_type_accuracy')}"
+    )
+    print(
+        f"  overall MAE          : {mae:.2f} points (vs. band midpoint)"
+        f"{d(mae, 'mae', '{:+.2f}')}"
+    )
     print(f"  adversarial hard-fails: {len(hard_fails)}   (gate = 0)")
     if fu_acc is not None:
         print(f"  follow_up accuracy   : {fu_acc:.0%}   (n={len(fu_checked)}, soft signal, not gated)")
@@ -306,6 +357,7 @@ def _write_json(results: list[ItemResult], path: Path) -> None:
     """Write a versioned, diffable results artifact: provenance + per-item rows."""
     payload = {
         "meta": run_meta(),
+        "summary": summarize(results),
         "items": [
             {
                 "id": r.id,
@@ -415,6 +467,11 @@ def main() -> int:
     parser.add_argument("--adversarial-max", type=int, default=DEFAULT_ADVERSARIAL_MAX)
     parser.add_argument("--json-out", type=Path, default=None, help="Write a per-item JSON report.")
     parser.add_argument(
+        "--baseline", type=Path, default=None,
+        help="A previous --json-out report; headline metrics print with their movement since it. "
+             "A missing file is treated as no baseline.",
+    )
+    parser.add_argument(
         "--calibrate", type=int, metavar="N", default=None,
         help="Judge-calibration mode: score the set N times and report self-consistency "
              "and agreement with the human bands (Spearman, Cohen's kappa).",
@@ -445,7 +502,8 @@ def main() -> int:
     )
 
     gates = {"min_in_band": args.min_in_band, "min_at_acc": args.min_answer_type_acc}
-    passed = report(results, gates)
+    baseline = baseline_module.load(args.baseline) if args.baseline else {}
+    passed = report(results, gates, baseline)
 
     if args.json_out:
         _write_json(results, args.json_out)

@@ -90,6 +90,7 @@ class LLMProvider(ABC):
         messages: list[dict],
         schema: dict,
         *,
+        model: str,
         max_tokens: int,
         temperature: float = 0.0,
         cache_prefix: str | None = None,
@@ -98,6 +99,12 @@ class LLMProvider(ABC):
 
         `schema` is the canonical `{"type": "json_schema", "schema": {...}}` shape;
         each provider translates it to its own structured-output API.
+
+        `model` is explicit for the same two reasons it is on `generate`: not every
+        structured call runs on the provider default (the turn judge can be pinned
+        to a stronger model than the generator it grades, see
+        `settings.judge_model`), and the model name is part of a request's replay
+        identity, so reading it from config here would hide it from the cassette.
 
         `max_tokens` is required: the facade resolves it from config (or the
         caller's override) and a default here would be a second, silently

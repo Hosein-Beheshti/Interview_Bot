@@ -17,10 +17,20 @@ under replay, which is exactly the property the behavior-freeze tests rely on.
 
 That strictness prices every prompt edit at a paid re-record, which is the right
 trade while proving a refactor changed nothing and the wrong one while tuning the
-interviewer. `settings.cassette_fallback` relaxes it for free-text generation
-only: on a miss, replay the cassette for the same conversation. See
-`_replay_fallback` — the exact-hash path is untouched, so a run with the fallback
-off still proves the strict property.
+prompts. `settings.cassette_fallback` relaxes it for every model call that has a
+prompt to tune — free-text generation and both structured kinds: on a miss,
+replay the cassette recorded for the same conversation. What it never relaxes is
+*shape*. A structured call's schema stays part of the exact-match identity, minus
+its `description` strings, which are prompt text like any other (see
+`_shape_only`). So reworded instructions replay and a changed output contract
+still misses hard. See `_replay_fallback` — the exact-hash path is untouched, so a
+run with the fallback off still proves the strict property.
+
+The fallback trades away one thing worth naming: it serves a reply recorded
+against different prompt bytes, so under it the suite proves the pipeline is
+deterministic *given* a recorded response, not that the edited prompt produces
+that response. Whether a prompt change actually improved anything is a question
+only `make eval` and a fresh recording can answer.
 
 Cassettes are versioned fixture files (JSON, one per request) meant to be
 committed. Callers whose live result isn't JSON (a Pydantic model, raw audio
@@ -84,12 +94,39 @@ def request_hash(request: dict) -> str:
 # freely while the offline suite still exercises everything downstream of the
 # reply. Narrow on purpose — see the `cassette_fallback` note in `config.py`.
 
-_FALLBACK_KINDS = frozenset({"llm.generate"})
+_FALLBACK_KINDS = frozenset({"llm.generate", "llm.generate_structured", "llm.parse"})
 
 # The request fields a prompt edit rewrites. Everything else — provider, model,
-# messages, sampling params — must still match exactly for a cassette to be a
-# candidate at all.
+# messages, sampling params, and the *structure* of any output schema — must still
+# match exactly for a cassette to be a candidate at all.
 _PROMPT_FIELDS = frozenset({"system", "cache_prefix"})
+
+# Structured calls carry their output contract in the request: `schema` for
+# `llm.generate_structured`, `output_schema` for `llm.parse`.
+_SCHEMA_FIELDS = frozenset({"schema", "output_schema"})
+
+
+def _shape_only(value: Any) -> Any:
+    """A schema stripped of its `description` strings — its shape, not its prose.
+
+    A JSON schema mixes two things the freeze treats differently. Its structure
+    (properties, types, enums, required) is the recorded *shape* that structured
+    replay exists to protect: change it and an old recording genuinely no longer
+    answers the question being asked. Its `description` strings are prompt text —
+    instructions to the model and nothing else, which is exactly why a Pydantic
+    extraction model's docstring counts as a prompt byte (see `prompts/profile.py`).
+
+    Splitting them lets the fallback do for structured calls what it already does
+    for `llm.generate`: tolerate reworded instructions, refuse a changed contract.
+    Reword a field description and the cassette still replays; add a field, change
+    a type, or widen an enum and the request identity moves, no candidate matches,
+    and the miss stays the hard error it should be.
+    """
+    if isinstance(value, dict):
+        return {k: _shape_only(v) for k, v in value.items() if k != "description"}
+    if isinstance(value, list):
+        return [_shape_only(v) for v in value]
+    return value
 
 # Matching on the non-prompt fields alone is not enough: on the opening turn every
 # fixture has the same (empty) message list, and what distinguishes them — role,
@@ -102,13 +139,44 @@ _FALLBACK_MIN_RATIO = 0.75
 
 
 def _replay_identity(request: dict) -> str:
-    """The part of a request that must match exactly for a fallback candidate."""
-    return canonical_request({k: v for k, v in request.items() if k not in _PROMPT_FIELDS})
+    """The part of a request that must match exactly for a fallback candidate.
+
+    Schema fields are compared by shape alone, so a reworded field description
+    does not disqualify a recording while a structural change still does.
+    """
+    return canonical_request(
+        {
+            k: (_shape_only(v) if k in _SCHEMA_FIELDS else v)
+            for k, v in request.items()
+            if k not in _PROMPT_FIELDS
+        }
+    )
+
+
+def _descriptions(value: Any) -> list[str]:
+    """Every `description` string in a schema, in document order."""
+    if isinstance(value, dict):
+        found = [value["description"]] if isinstance(value.get("description"), str) else []
+        return found + [d for k, v in value.items() if k != "description" for d in _descriptions(v)]
+    if isinstance(value, list):
+        return [d for v in value for d in _descriptions(v)]
+    return []
 
 
 def _prompt_text(request: dict) -> str:
-    """The prompt-bearing text of a request, as one comparable string."""
-    return "\n".join(str(request.get(field) or "") for field in sorted(_PROMPT_FIELDS))
+    """The prompt-bearing text of a request, as one comparable string.
+
+    Includes the schema's `description` strings: on an `llm.parse` call they are
+    frequently the only prompt text that moved, and ranking candidates on a string
+    that did not change would make every recording look equally close.
+    """
+    parts = [str(request.get(field) or "") for field in sorted(_PROMPT_FIELDS)]
+    parts += [
+        "\n".join(_descriptions(request[field]))
+        for field in sorted(_SCHEMA_FIELDS)
+        if field in request
+    ]
+    return "\n".join(parts)
 
 
 def _nearest_cassette(kind: str, request: dict) -> tuple[Path | None, float]:
@@ -260,7 +328,7 @@ def _replay_fallback(kind: str, request: dict, hash_: str) -> Path:
         hint = (
             ""
             if kind in _FALLBACK_KINDS
-            else f" ({kind} never falls back — its recorded shape is under test.)"
+            else f" ({kind} has no prompt to tune, so it never falls back.)"
         )
         raise _miss(kind, hash_, hint)
 
@@ -275,8 +343,10 @@ def _replay_fallback(kind: str, request: dict, hash_: str) -> Path:
         )
 
     # Loud on purpose: this reply was recorded against different prompt bytes, so
-    # assertions on the reply *text* no longer mean anything — only the logic
-    # downstream of it does.
+    # assertions on the reply *content* no longer mean anything — only the logic
+    # downstream of it does. That applies with more force to a structured reply,
+    # whose content is a score or an extraction that a golden test asserts on: the
+    # shape is still guaranteed, the values are last run's.
     logger.warning(
         f"Cassette fallback: {kind} request {hash_[:16]} missed; replaying "
         f"{path.name} ({ratio:.2f} prompt similarity), recorded for the same "

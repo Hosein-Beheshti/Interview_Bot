@@ -125,12 +125,13 @@ class GeminiProvider(LLMProvider):
         messages: list[dict],
         schema: dict,
         *,
+        model: str,
         max_tokens: int,
         temperature: float = 0.0,
         cache_prefix: str | None = None,
     ) -> dict:
         response = await self._client.aio.models.generate_content(
-            model=settings.gemini_model,
+            model=model,
             contents=_to_contents(messages),  # type: ignore[arg-type]  # SDK wants Content objects; dict parts are valid at runtime
             config=types.GenerateContentConfig(
                 system_instruction=_merge_system(cache_prefix, system) or None,

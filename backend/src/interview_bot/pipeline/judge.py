@@ -75,9 +75,11 @@ async def judge_turn(
             judge_prompt.JUDGE_SYSTEM,
             messages,
             turn_quality.build_judge_format(criteria),
+            model=llm.judge_model(),
             max_tokens=settings.judge_max_tokens,
             operation="judge_turn",
             trace_metadata={
+                "judge_model": llm.judge_model(),
                 "judge_prompt_version": judge_prompt.JUDGE_PROMPT_VERSION,
                 "criteria_version": turn_quality.CRITERIA_VERSION,
             },
