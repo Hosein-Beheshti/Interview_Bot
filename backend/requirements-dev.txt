@@ -1,4 +1,4 @@
 -r requirements.txt
-ruff==0.6.9
+ruff==0.16.4
 mypy==1.11.2
-import-linter==2.1
+import-linter==2.13
