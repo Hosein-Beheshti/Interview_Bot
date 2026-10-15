@@ -73,7 +73,7 @@ jobs:
         run: python -m evals.run_scorer_eval --json-out scorer-eval-report.json
       - name: Run golden-set eval (generator + judge)
         run: python -m evals.run_generator_eval --json-out generator-eval-report.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: eval-report
